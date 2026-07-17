@@ -1,6 +1,10 @@
 // @ts-check
 // Composition root. The only module allowed to import everything and wire it up.
 import '../../data/poses/base.js';
+import '../../data/dialogue/intents.js';
+import '../../data/dialogue/lola/fallbacks.js';
+import '../../data/dialogue/lola/core.js';
+import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
 import { Rng } from './rng.js';
@@ -17,9 +21,13 @@ import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
 import { ActorQueue } from '../sim/actors/actorQueue.js';
 import { Character } from '../chars/character.js';
+import { DialogueEngine } from '../dialogue/engine.js';
+import { TtsRouter } from '../dialogue/ttsRouter.js';
+import { LLMAdapter } from '../dialogue/llmAdapter.js';
 import { showGate18 } from '../ui/gate18.js';
 import { initHud } from '../ui/hud.js';
 import { initStatBars } from '../ui/statBars.js';
+import { ChatPanel } from '../ui/chatPanel.js';
 import lola from '../../data/cast/lola.js';
 import { ZONES } from '../../data/zones.js';
 
@@ -87,17 +95,45 @@ export class App {
 
     // spawn Lola in the lounge
     this.spawn(lola, 'lounge');
-    const lolaQ = this.cast.lola.queue;
-    lolaQ.wait(2);
-    lolaQ.goto('bar');
-    lolaQ.wait(4);
-    lolaQ.sit('stool1.seat0');
+    this.cast.lola.actor.faceYaw(Math.PI); // face the lounge / player
+
+    // player presence marker — a look target the cast tracks (follows camera)
+    this.playerMarker = new THREE.Object3D();
+    this.playerMarker.position.set(-2, 1.5, 2);
+    this.stage.scene.add(this.playerMarker);
+    this.player = { name: settings.playerName, dominance: 55 };
+
+    // dialogue engine + chat UI
+    this.tts = new TtsRouter();
+    this.llm = new LLMAdapter();
+    this.dialogue = new DialogueEngine({
+      cast: this.cast,
+      nowMinute: () => this.clock.totalMinutes,
+      day: () => this.clock.day,
+      rng: this.rng.stream('dialogue'),
+      vocab: { chars: ['lola', 'aria', 'kai'], zones: Object.keys(ZONES), items: ['whiskey', 'gun', 'food', 'water'] },
+      llm: this.llm,
+      tts: this.tts,
+      stageCtx: {
+        world: this.world, lighting: this.lighting, audio: this.audioFacade(),
+        cutscene: null, playerMarker: this.playerMarker,
+        playerName: settings.playerName, playerDominance: this.player.dominance,
+      },
+    });
+    this.chatPanel = new ChatPanel(this.dialogue, this.cast);
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
-    this.player = { name: settings.playerName, dominance: 55 };
     this.loop.resume('boot');
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
     dbg('run started');
+  }
+
+  /** Placeholder audio facade for stage-direction sfx/vox — real audio in P1.5. */
+  audioFacade() {
+    return {
+      sfx: (id) => dbg('sfx', id),
+      vox: (id) => dbg('vox', id),
+    };
   }
 
   /** @param {any} persona @param {string} zoneId */
@@ -121,6 +157,11 @@ export class App {
     if (this.mode === 'run') {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
+      // player marker tracks the camera (where the player "is" for gaze/look)
+      if (this.playerMarker) {
+        this.playerMarker.position.copy(this.stage.camera.position);
+        this.playerMarker.position.y = Math.min(1.7, this.playerMarker.position.y);
+      }
       this.world.update(performance.now() * 0.001);
       for (const c of Object.values(this.cast)) {
         c.queue.update(dtSec);
@@ -152,6 +193,7 @@ export class App {
         setStat: (id, deltas) => this.cast[id]?.applyStats(deltas, 'debug'),
         stats: (id) => this.cast[id]?.stats,
         gate: (id, tier, action) => this.cast[id]?.gate(tier, action, this.clock.totalMinutes),
+        say: (text, target) => this.dialogue?.playerSays(text, target),
       },
     };
   }

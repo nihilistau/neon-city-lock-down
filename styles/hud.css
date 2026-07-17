@@ -68,6 +68,32 @@
 .sb-pip.granted { color: var(--ink); background: var(--green); border-color: var(--green); }
 .sb-pip.revoked { color: var(--red); border-color: var(--red); text-decoration: line-through; }
 
+/* chat panel */
+#chat {
+  position: absolute; left: 12px; bottom: 44px;
+  width: 380px; max-width: 42vw; display: flex; flex-direction: column; gap: 6px;
+  z-index: 14;
+}
+#chat-log {
+  display: flex; flex-direction: column; gap: 5px;
+  max-height: 38vh; overflow-y: auto; padding-right: 4px;
+  mask-image: linear-gradient(to bottom, transparent, #000 24px);
+}
+.chat-line {
+  background: rgba(6, 8, 14, 0.78); border: 1px solid var(--panel-edge);
+  padding: 6px 10px; font-size: 13.5px; line-height: 1.4; max-width: 92%;
+}
+.chat-line.player { align-self: flex-end; border-color: rgba(157,107,255,0.3); color: var(--text); }
+.chat-line.npc { align-self: flex-start; }
+.chat-name { display: block; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; color: var(--violet); }
+.chat-line.player .chat-name { text-align: right; }
+#chat-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chat-chip { font-size: 11px; padding: 4px 10px; background: rgba(10,13,24,0.9); }
+#chat-inputrow { display: flex; gap: 6px; }
+#chat-target { flex: 0 0 auto; font-size: 12px; max-width: 92px; }
+#chat-input { flex: 1; }
+#chat-send { flex: 0 0 auto; padding: 8px 14px; font-size: 16px; }
+
 .letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: 40; }
 .letterbox.top { top: 0; } .letterbox.bottom { bottom: 0; }
 .letterbox.active { height: 11vh; }
