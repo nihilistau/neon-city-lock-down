@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanoid Test — NCLD</title>
+<style>html,body{margin:0;height:100%;background:#06070c;overflow:hidden}
+#hud{position:fixed;top:8px;left:8px;color:#39e6ff;font:12px monospace;z-index:2}
+button{background:#0b0e18;color:#39e6ff;border:1px solid #1d7d8f;margin:2px;padding:4px 8px;font:11px monospace;cursor:pointer}</style>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three.module.js", "three/addons/": "../vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<div id="hud">
+  <div id="stats">loading…</div>
+  <div id="clips"></div>
+</div>
+<canvas id="gl"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import '../data/poses/base.js';
+import { Actor3D } from '../src/humanoid/actor3d.js';
+import lola from '../data/cast/lola.js';
+
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0d16);
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.05, 100);
+camera.position.set(0, 1.5, 3.4);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.0, 0);
+
+// three-point neon rig
+const key = new THREE.DirectionalLight(0xfff0e0, 1.6); key.position.set(2, 4, 3); key.castShadow = true; scene.add(key);
+scene.add(new THREE.HemisphereLight(0x2a4a8a, 0x120a18, 0.6));
+const fill = new THREE.PointLight(0x39e6ff, 12, 12); fill.position.set(-2.5, 1.6, 1.5); scene.add(fill);
+const rim = new THREE.PointLight(0xff3fa4, 14, 12); rim.position.set(1.5, 2.2, -2.5); scene.add(rim);
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48),
+  new THREE.MeshStandardMaterial({ color: 0x0d1120, roughness: 0.7, metalness: 0.2 }));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.GridHelper(12, 24, 0x1d7d8f, 0x11202f));
+
+const actor = new Actor3D(lola);
+scene.add(actor.root);
+
+// skeleton helper toggle
+const helper = new THREE.SkeletonHelper(actor.mesh);
+helper.visible = false; scene.add(helper);
+
+// gaze target (orbits so we can see eye+head tracking)
+const gazeMarker = new THREE.Mesh(new THREE.SphereGeometry(0.04), new THREE.MeshBasicMaterial({ color: 0x39e6ff }));
+scene.add(gazeMarker);
+actor.lookAt(gazeMarker);
+
+const clips = ['idle_confident','idle_stand','idle_shy','walk','sit_relaxed','lounge',
+  'dance_sway','gesture_lean_in','gesture_shrug','gesture_cross_arms'];
+const clipsDiv = document.getElementById('clips');
+for (const c of clips) {
+  const b = document.createElement('button'); b.textContent = c;
+  b.onclick = () => actor.playClip(c, 0.3);
+  clipsDiv.appendChild(b);
+}
+const bh = document.createElement('button'); bh.textContent = 'skeleton';
+bh.onclick = () => helper.visible = !helper.visible; clipsDiv.appendChild(bh);
+const bw = document.createElement('button'); bw.textContent = 'walk-in-place';
+let walking = false;
+bw.onclick = () => { walking = !walking; }; clipsDiv.appendChild(bw);
+// expression buttons
+const exprDiv = document.createElement('div');
+for (const [label, st] of Object.entries({
+  smirk:{mouth:'smirk',browRaise:-0.3}, smile:{mouth:'smile',blush:0.2},
+  grin:{mouth:'grin'}, pout:{mouth:'pout',browAngle:0.5},
+  angry:{mouth:'grit',browAngle:-0.8,browRaise:-0.6}, blush:{blush:0.9,pupil:0.8,mouth:'smile'},
+  neutral:{mouth:'neutral',browAngle:0,browRaise:0,blush:0,pupil:0.35},
+})) {
+  const b = document.createElement('button'); b.textContent = label;
+  b.onclick = () => actor.face.setExpression(st); exprDiv.appendChild(b);
+}
+document.getElementById('hud').appendChild(exprDiv);
+
+const statsDiv = document.getElementById('stats');
+const clock = new THREE.Clock();
+let frames = 0, fpsT = 0, fps = 0, simSpeed = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  gazeMarker.position.set(Math.sin(t*0.6)*1.4, 1.4 + Math.sin(t*0.9)*0.3, 1.6);
+  // walk-in-place: fake forward speed by nudging root then snapping back
+  if (walking) { actor.animator.speed = 1.2; actor.animator.gait.advance(dt, 1.2);
+    actor._lastPos.copy(actor.root.position); }
+  actor.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  frames++; fpsT += dt;
+  if (fpsT > 0.5) { fps = Math.round(frames/fpsT); frames = 0; fpsT = 0; }
+  statsDiv.textContent = `fps:${fps}  clip:${actor.animator.current.id}  tris:${renderer.info.render.triangles}  calls:${renderer.info.render.calls}`;
+}
+animate();
+window.__test = { actor, scene, renderer, camera, controls };
+addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script>
+</body>
+</html>
