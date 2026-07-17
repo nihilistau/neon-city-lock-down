@@ -44,6 +44,7 @@ import { Sidecar } from '../audio/sidecar.js';
 import { playSfx } from '../audio/sfx/synthKit.js';
 import { VOICE_CAST } from '../../data/voiceScript.js';
 import { CutscenePlayer } from '../cutscene/player.js';
+import { DirectorPanel } from '../ui/director/panel.js';
 import { SaveMenu } from '../ui/saveMenu.js';
 import { initDeathScreen } from '../ui/deathScreen.js';
 import { endRun } from '../sim/death.js';
@@ -269,6 +270,7 @@ export class App {
       },
     });
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);
+    this.directorPanel = new DirectorPanel(this);
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
 

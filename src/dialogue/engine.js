@@ -11,7 +11,7 @@ import { candidateTopics } from './topics.js';
 import { selectLine } from './selector.js';
 import { applyLineEffects } from './effects.js';
 import { selectFallback } from './interject.js';
-import { makeDispatcher } from './stageDirections.js';
+import { makeDispatcher, compileLine } from './stageDirections.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
 
@@ -44,32 +44,36 @@ export class DialogueEngine {
    * Process one player utterance.
    * @param {string} rawText
    * @param {string} [target] explicit addressee (char id) or 'room'
+   * @param {{whisper?: boolean}} [opts]
    * @returns {Promise<{speaker:string, line:any}[]>}
    */
-  async playerSays(rawText, target) {
+  async playerSays(rawText, target, opts = {}) {
     const n = normalize(rawText);
     const intents = matchIntents(n);
     const slots = captureSlots(n, this.vocab);
     const tone = toneOf(n);
     const dtone = dominantTone(tone);
 
-    emit('chat.player', { text: rawText, target });
-    feed(`${this.stageCtx.playerName || 'You'}: ${rawText}`, 'dialogue');
+    emit('chat.player', { text: rawText, target, whisper: !!opts.whisper });
+    feed(opts.whisper
+      ? `${this.stageCtx.playerName || 'You'} whispers to ${target}…`
+      : `${this.stageCtx.playerName || 'You'}: ${rawText}`, 'dialogue');
 
     const present = this._presentCast();
     const addressed = this._resolveAddressee(target, slots, intents, present);
-    if (!addressed) {
-      // nobody around to answer
-      return [];
+    if (!addressed) return [];
+
+    // a whisper is intimate by nature: closeness bonus before the reply lands
+    if (opts.whisper) {
+      addressed.applyStats({ trust: 1.5, arousal: 1 }, 'whisper');
     }
 
     const replies = [];
-    // primary responder
     const primary = await this._respond(addressed, intents, tone, dtone);
     if (primary) replies.push({ speaker: addressed.id, line: primary });
 
-    // bystander interjection (room mode, sometimes)
-    if ((target === 'room' || !target) && present.length > 1 && this.rng.chance(0.4)) {
+    // bystander interjection (room mode only, never for whispers)
+    if (!opts.whisper && (target === 'room' || !target) && present.length > 1 && this.rng.chance(0.4)) {
       const others = present.filter((c) => c !== addressed);
       const bystander = this.rng.pick(others);
       const inter = await this._respond(bystander, intents, tone, dtone, true);
@@ -77,6 +81,17 @@ export class DialogueEngine {
     }
 
     return replies;
+  }
+
+  /**
+   * Director "give line": the character says the text verbatim (stage tags OK).
+   * @param {string} charId @param {string} rawText
+   */
+  forceSay(charId, rawText) {
+    const char = this.cast[charId];
+    if (!char) throw new Error(`unknown character: ${charId}`);
+    const compiled = compileLine(rawText);
+    this._perform(char, compiled, { _key: `director:${this.nowMinute()}` });
   }
 
   _presentCast() {
