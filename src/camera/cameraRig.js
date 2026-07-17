@@ -1,0 +1,66 @@
+// @ts-check
+// Camera mode owner: director (orbit) | firstPerson. 'C' toggles.
+// Cinematic mode arrives with the cutscene player (P1.10).
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FirstPersonControls } from './firstPerson.js';
+import { emit } from '../core/bus.js';
+import { settings, setSetting } from '../core/settings.js';
+
+export class CameraRig {
+  /**
+   * @param {import('../scene3d/stage.js').Stage} stage
+   * @param {{ colliders: THREE.Box3[] }} world
+   */
+  constructor(stage, world) {
+    this.stage = stage;
+    this.camera = stage.camera;
+
+    this.orbit = new OrbitControls(this.camera, stage.renderer.domElement);
+    this.orbit.enableDamping = true;
+    this.orbit.dampingFactor = 0.08;
+    this.orbit.maxPolarAngle = Math.PI * 0.52;
+    this.orbit.minDistance = 1.2;
+    this.orbit.maxDistance = 18;
+    this.orbit.target.set(-3.5, 1.1, 0);
+    this.camera.position.set(2.5, 3.2, 5.5);
+
+    this.fp = new FirstPersonControls(this.camera, stage.renderer.domElement, world);
+
+    /** @type {'director'|'firstPerson'|'cinematic'} */
+    this.mode = 'director';
+    /** @type {THREE.Object3D[]} focus cycle targets (characters) */
+    this.focusTargets = [];
+    this._focusIdx = 0;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyC' && !e.repeat && this.mode !== 'cinematic'
+          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        this.setMode(this.mode === 'director' ? 'firstPerson' : 'director');
+      }
+      if (e.code === 'KeyF' && this.mode === 'director' && this.focusTargets.length) {
+        this._focusIdx = (this._focusIdx + 1) % this.focusTargets.length;
+        const t = this.focusTargets[this._focusIdx];
+        this.orbit.target.copy(t.position).add(new THREE.Vector3(0, 1.2, 0));
+      }
+    });
+
+    if (settings.cameraMode === 'firstPerson') this.setMode('firstPerson');
+  }
+
+  /** @param {'director'|'firstPerson'|'cinematic'} mode */
+  setMode(mode) {
+    this.mode = mode;
+    this.orbit.enabled = mode === 'director';
+    if (mode === 'firstPerson') this.fp.enable();
+    else this.fp.disable();
+    if (mode !== 'cinematic') setSetting('cameraMode', mode === 'firstPerson' ? 'firstPerson' : 'director');
+    emit('camera.mode', { mode });
+  }
+
+  /** @param {number} dt seconds */
+  update(dt) {
+    if (this.mode === 'director') this.orbit.update();
+    else if (this.mode === 'firstPerson') this.fp.update(dt);
+  }
+}

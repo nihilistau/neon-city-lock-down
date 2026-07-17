@@ -1,4 +1,29 @@
-/* HUD, chat, subtitles — populated in Phase 1 */
+/* HUD, chat, subtitles */
+#hud .hud-chip {
+  position: absolute;
+  background: rgba(6, 8, 14, 0.62);
+  border: 1px solid var(--panel-edge);
+  padding: 5px 12px;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+#hud-clock { top: 14px; left: 14px; color: var(--cyan) !important; font-family: var(--mono); }
+#hud-hint { bottom: 12px; left: 14px; }
+#hud-prompt {
+  position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
+  color: var(--cyan); font-size: 15px; letter-spacing: 0.08em;
+  text-shadow: 0 0 8px rgba(57, 230, 255, 0.6);
+  opacity: 0; transition: opacity 0.15s;
+}
+#hud-prompt.visible { opacity: 1; }
+#hud-alert {
+  position: absolute; left: 50%; top: 12%; transform: translateX(-50%);
+  background: rgba(20, 4, 10, 0.85); border: 1px solid var(--red);
+  color: var(--red); padding: 10px 22px; font-size: 15px; letter-spacing: 0.12em;
+  text-transform: uppercase; opacity: 0; transition: opacity 0.3s;
+}
+#hud-alert.visible { opacity: 1; }
 #subtitles {
   position: absolute; left: 0; right: 0; bottom: 9vh;
   display: flex; flex-direction: column; align-items: center; gap: 6px;

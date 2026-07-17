@@ -31,8 +31,8 @@ export class Actor3D {
     this._yawVel = 0;
 
     // rim light that travels with the character for the neon look
-    this.rim = new THREE.PointLight(new THREE.Color(persona.accent), 0, 3.2, 2);
-    this.rim.position.set(0, persona.body.height * 0.7, -0.4);
+    this.rim = new THREE.PointLight(new THREE.Color(persona.accent), 0, 2.6, 2);
+    this.rim.position.set(0, persona.body.height * 1.05, -0.55);
     this.root.add(this.rim);
   }
 
@@ -49,7 +49,7 @@ export class Actor3D {
   setTempo(t) { this.animator.tempo = t; }
 
   /** @param {number} v 0..1 rim intensity */
-  setRim(v) { this.rim.intensity = v * 6; }
+  setRim(v) { this.rim.intensity = v * 2.2; }
 
   /**
    * @param {number} dt seconds
