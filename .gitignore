@@ -1,9 +1,8 @@
-node_modules/
+node_modules/*
+# keep the tiny committed shim that re-exports vendor/three for Node tools/tests
+!node_modules/three/
 *.log
 .DS_Store
 Thumbs.db
 # generated voice audio is committed; working temp files are not
 assets/voice/_tmp/
-
-# node shim for node-side tools/tests (three re-export)
-node_modules/
