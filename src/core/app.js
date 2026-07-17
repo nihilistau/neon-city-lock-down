@@ -32,7 +32,10 @@ import { audio } from '../audio/engine.js';
 import { Conductor } from '../audio/music/conductor.js';
 import { Ambience } from '../audio/sfx/ambience.js';
 import { VoxVoice } from '../audio/voxVoice.js';
+import { Voice } from '../audio/voice.js';
+import { Sidecar } from '../audio/sidecar.js';
 import { playSfx } from '../audio/sfx/synthKit.js';
+import { VOICE_CAST } from '../../data/voiceScript.js';
 import lola from '../../data/cast/lola.js';
 import { ZONES } from '../../data/zones.js';
 import { zoneAt } from '../sim/actors/nav.js';
@@ -71,11 +74,19 @@ export class App {
     await showGate18();
     audio.unlock();                 // the gate click is our autoplay gesture
     emit('game.entered', {});
-    this.startRun();
+    await this.startRun();
+  }
+
+  /** Load the baked-voice manifest (missing = fine, router falls through). */
+  async _loadVoiceManifest() {
+    try {
+      const res = await fetch('/assets/voice/manifest.json', { cache: 'no-store' });
+      return res.ok ? await res.json() : {};
+    } catch { return {}; }
   }
 
   /** Build the world and begin a run (slice: straight into the penthouse). */
-  startRun() {
+  async startRun() {
     this.bootScene.dispose();
     this.bootScene = null;
     this.mode = 'run';
@@ -130,8 +141,16 @@ export class App {
     this.stage.scene.add(this.playerMarker);
     this.player = { name: settings.playerName, dominance: 55 };
 
+    // voice: baked manifest + optional live sidecar
+    const manifest = await this._loadVoiceManifest();
+    this.voiceBank = new Voice(manifest);
+    this.sidecar = new Sidecar();
+    this.sidecar.probe().then((up) => { if (up) dbg('TTS sidecar online'); });
+
     // dialogue engine + chat UI
-    this.tts = new TtsRouter();
+    this.tts = new TtsRouter({
+      voice: this.voiceBank, sidecar: this.sidecar, vox: this.vox, voiceCast: VOICE_CAST,
+    });
     this.llm = new LLMAdapter();
     this.dialogue = new DialogueEngine({
       cast: this.cast,

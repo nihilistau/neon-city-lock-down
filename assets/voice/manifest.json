@@ -1,0 +1,62 @@
+{
+  "vox.intro": {
+    "file": "assets/voice/vox/1fff9ff2d8fd8ff7.wav",
+    "duration": 5.443,
+    "voice": "neutral_male",
+    "textHash": "1fff9ff2d8fd8ff7"
+  },
+  "vox.threat": {
+    "file": "assets/voice/vox/8b147df4a204b03e.wav",
+    "duration": 4.17,
+    "voice": "neutral_male",
+    "textHash": "8b147df4a204b03e"
+  },
+  "vox.blackout": {
+    "file": "assets/voice/vox/5455ec79a93e8ef8.wav",
+    "duration": 4.56,
+    "voice": "neutral_male",
+    "textHash": "5455ec79a93e8ef8"
+  },
+  "lola.core.greet#0": {
+    "file": "assets/voice/lola/1c6494ed97b74f10.wav",
+    "duration": 5.28,
+    "voice": "neutral_female",
+    "textHash": "1c6494ed97b74f10"
+  },
+  "lola.core.name#0": {
+    "file": "assets/voice/lola/499d8e96b314d88f.wav",
+    "duration": 10.48,
+    "voice": "neutral_female",
+    "textHash": "499d8e96b314d88f"
+  },
+  "lola.world.lockdown#1": {
+    "file": "assets/voice/lola/ce3014496b1590d8.wav",
+    "duration": 9.04,
+    "voice": "neutral_female",
+    "textHash": "ce3014496b1590d8"
+  },
+  "lola.flirt.opening#0": {
+    "file": "assets/voice/lola/e8b86278cfc66c26.wav",
+    "duration": 9.2,
+    "voice": "neutral_female",
+    "textHash": "e8b86278cfc66c26"
+  },
+  "lola.conflict.threaten#0": {
+    "file": "assets/voice/lola/5887c2edc7e112f6.wav",
+    "duration": 8.56,
+    "voice": "neutral_female",
+    "textHash": "5887c2edc7e112f6"
+  },
+  "cut.intro.1": {
+    "file": "assets/voice/vox/be3fe0f8dd34322d.wav",
+    "duration": 6.96,
+    "voice": "neutral_male",
+    "textHash": "be3fe0f8dd34322d"
+  },
+  "cut.intro.2": {
+    "file": "assets/voice/lola/c419e79a57df546b.wav",
+    "duration": 6.61,
+    "voice": "neutral_female",
+    "textHash": "c419e79a57df546b"
+  }
+}
