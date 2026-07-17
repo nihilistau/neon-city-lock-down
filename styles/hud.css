@@ -1,0 +1,17 @@
+/* HUD, chat, subtitles — populated in Phase 1 */
+#subtitles {
+  position: absolute; left: 0; right: 0; bottom: 9vh;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+#subtitles .line {
+  background: rgba(4, 6, 10, 0.72);
+  padding: 8px 18px;
+  font-size: 17px;
+  max-width: 70ch;
+  text-align: center;
+}
+#subtitles .speaker { color: var(--cyan); font-weight: 600; margin-right: 8px; }
+
+.letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: 40; }
+.letterbox.top { top: 0; } .letterbox.bottom { bottom: 0; }
+.letterbox.active { height: 11vh; }
