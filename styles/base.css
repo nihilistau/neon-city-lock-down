@@ -95,3 +95,20 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .screen .actions { display: flex; gap: 12px; margin-top: 22px; justify-content: flex-end; }
 
 .hidden { display: none !important; }
+
+.ds-grid { display: flex; flex-direction: column; gap: 6px; }
+.ds-row { display: flex; justify-content: space-between; gap: 18px; font-size: 13.5px; color: var(--text); }
+.ds-row span:last-child { color: var(--cyan); }
+.save-slot { border: 1px solid var(--panel-edge); padding: 8px 10px; align-items: center; }
+.save-slot button { padding: 3px 10px; font-size: 11px; }
+
+/* cutscene chrome */
+#titlecard {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  opacity: 0; transition: opacity 0.8s ease; pointer-events: none; z-index: 42;
+}
+#titlecard.visible { opacity: 1; }
+#titlecard .tc-main { font-size: 54px; }
+#titlecard .tc-sub { font-size: 15px; letter-spacing: 0.5em; color: var(--text-dim); text-transform: uppercase; }
+.cinema #hud, .cinema #chat, .cinema #statbars, .cinema #director { display: none !important; }

@@ -113,6 +113,8 @@ export class Combat {
     h.actor.face.setExpression({ mouth: 'open', browAngle: 0.6 });
     if (h.hp <= 0) {
       h.state = 'down';
+      const run = this.d.run();
+      run.history.kills = (run.history.kills || 0) + 1;
       h.actor.playClip('lounge', 0.2); // crumple approximation (dedicated clip later)
       h.actor.setRim(0);
       h.actor.root.rotation.x = -Math.PI / 2 * 0.06;

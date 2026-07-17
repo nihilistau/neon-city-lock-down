@@ -97,12 +97,14 @@ export class Animator {
         bone.quaternion.copy(_q);
       }
     }
-    // bones untouched by either clip relax to identity
+    // bones untouched by either clip relax to identity. Gait-owned bones relax
+    // too when the character isn't moving — otherwise a sit pose's legs stay
+    // latched forever under a torso-only clip (the "seated contortion" bug).
+    const gaitW = Math.min(1, this.speed / this.gait.walkSpeed);
     for (const [name, bone] of Object.entries(this.bones)) {
-      if (name === 'root') continue;
-      if (!boneNames.has(name) && !GAIT_BONES.includes(name)) {
-        bone.quaternion.slerp(_q.identity(), Math.min(1, dt * 6));
-      }
+      if (name === 'root' || boneNames.has(name)) continue;
+      const rate = GAIT_BONES.includes(name) ? dt * 6 * (1 - gaitW) : dt * 6;
+      if (rate > 0.0005) bone.quaternion.slerp(_q.identity(), Math.min(1, rate));
     }
 
     // hips position: rest + clip offset

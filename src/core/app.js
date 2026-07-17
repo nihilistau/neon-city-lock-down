@@ -43,6 +43,12 @@ import { Voice } from '../audio/voice.js';
 import { Sidecar } from '../audio/sidecar.js';
 import { playSfx } from '../audio/sfx/synthKit.js';
 import { VOICE_CAST } from '../../data/voiceScript.js';
+import { CutscenePlayer } from '../cutscene/player.js';
+import { SaveMenu } from '../ui/saveMenu.js';
+import { initDeathScreen } from '../ui/deathScreen.js';
+import { endRun } from '../sim/death.js';
+import { saveToSlot, readSlot, applySave } from './save.js';
+import { SCENARIOS } from '../../data/scenarios.js';
 import lola from '../../data/cast/lola.js';
 import aria from '../../data/cast/aria.js';
 import { Brain } from '../sim/ai/brain.js';
@@ -265,10 +271,67 @@ export class App {
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
+
+    // cutscenes, saves, death
+    this.cutscene = new CutscenePlayer({
+      stage: this.stage, cameraRig: this.cameraRig, loop: this.loop,
+      cast: this.cast, voiceBank: this.voiceBank, vox: this.vox, lighting: this.lighting,
+    });
+    this.saveMenu = new SaveMenu(this);
+    initDeathScreen();
+    on('player.health', ({ health }) => {
+      if (health <= 0 && this.mode === 'run') {
+        this.mode = 'dead';
+        this.loop.pause('death');
+        endRun(this, 'combat');
+      }
+    });
+    // starvation/dehydration deaths ride the hourly survival tick
+    on('world.minute', ({ clock }) => {
+      if (this.mode === 'run' && this.run.player.health <= 0) {
+        this.mode = 'dead';
+        this.loop.pause('death');
+        endRun(this, this.run.player.thirst > 74 ? 'dehydration' : 'starvation');
+      }
+      // hourly autosave (skip during combat/events/cutscenes)
+      if (this.mode === 'run' && clock.minuteOfDay % 60 === 0
+          && !this.combat.active && !this.run.activeEventId && !this.cutscene.playing) {
+        saveToSlot(this, 'auto');
+      }
+    });
+
     this.loop.resume('boot');
     emit('resources.changed', this.run.resources);
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
+
+    // scenario: mood shifts + opening cutscene (fresh runs only)
+    const scenario = SCENARIOS.first_night;
+    this.scenarioId = scenario.id;
+    const resumed = this._tryResume();
+    if (!resumed) {
+      for (const [id, deltas] of Object.entries(scenario.castMoodShifts || {})) {
+        this.cast[id]?.applyStats(deltas, 'scenario');
+      }
+      if (scenario.openingCutscene) {
+        // slight delay so the first frame settles before the camera takes over
+        setTimeout(() => this.cutscene.play(scenario.openingCutscene), 600);
+      }
+    }
     dbg('run started');
+  }
+
+  /** Offer/apply autosave resume. Returns true if a save was restored. */
+  _tryResume() {
+    const auto = readSlot('auto');
+    if (!auto) return false;
+    try {
+      applySave(this, auto);
+      feed(`Autosave restored — ${auto.meta.label}.`, 'system');
+      return true;
+    } catch (err) {
+      dbg('resume failed', err);
+      return false;
+    }
   }
 
   /** Audio facade handed to stage-direction dispatch + event scripts. */
@@ -373,6 +436,10 @@ export class App {
         pair: (poseId, a, b) => startPairedPose(poseId, this.cast[a], this.cast[b]),
         outfit: (id, outfitId) => this.cast[id]?.wardrobe?.change(outfitId),
         needs: (id) => this.brains?.[id]?.needs,
+        save: (slot) => saveToSlot(this, slot ?? 1),
+        load: (slot) => { const d2 = readSlot(slot ?? 1); if (d2) applySave(this, d2); return !!d2; },
+        kill: () => { this.run.player.health = 0; emit('player.health', { health: 0 }); },
+        playCutscene: (steps) => this.cutscene.play(steps || SCENARIOS.first_night.openingCutscene),
       },
     };
   }
