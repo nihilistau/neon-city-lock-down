@@ -29,6 +29,7 @@ import { initHud } from '../ui/hud.js';
 import { initStatBars } from '../ui/statBars.js';
 import { ChatPanel } from '../ui/chatPanel.js';
 import { newRunState } from '../sim/world.js';
+import { Combat } from '../sim/combat/combat.js';
 import { WorldTick } from '../sim/tick.js';
 import { Scheduler } from '../sim/scheduler.js';
 import { EventRunner } from '../sim/eventRunner.js';
@@ -114,6 +115,7 @@ export class App {
       lighting: this.lighting,
       audioFacade: () => this.audioFacade(),
       nowMinute: () => this.clock.totalMinutes,
+      combat: () => this.combat,
     });
     this.worldTick = new WorldTick({
       run: () => this.run,
@@ -181,6 +183,18 @@ export class App {
     this.playerMarker.position.set(-2, 1.5, 2);
     this.stage.scene.add(this.playerMarker);
     this.player = { name: settings.playerName, dominance: 55 };
+
+    // combat controller (needs picker + playerMarker)
+    this.combat = new Combat({
+      stage: this.stage,
+      run: () => this.run,
+      cast: () => this.cast,
+      playerMarker: this.playerMarker,
+      rng: this.rng.stream('combat'),
+      sfx: (id) => playSfx(audio, id),
+      picker: this.picker,
+      nowMinute: () => this.clock.totalMinutes,
+    });
 
     // voice: baked manifest + optional live sidecar
     const manifest = await this._loadVoiceManifest();
@@ -280,6 +294,7 @@ export class App {
       }
       this.world.update(performance.now() * 0.001);
       this.newsTicker.update(dtSec);
+      this.combat.update(dtSec);
       for (const c of Object.values(this.cast)) {
         c.queue.update(dtSec);
         c.actor.update(dtSec);

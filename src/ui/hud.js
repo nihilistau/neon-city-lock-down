@@ -18,13 +18,20 @@ export function initHud() {
     <div id="hud-choice"></div>`;
 
   const resEl = root.querySelector('#hud-resources');
-  on('resources.changed', (resources) => {
-    resEl.innerHTML = Object.entries(RES_ICONS).map(([k, icon]) => {
-      const v = resources[k] ?? 0;
-      const low = (k === 'food' && v <= 6) || (k === 'water' && v <= 8) || v <= 1;
-      return `<span class="res ${low ? 'low' : ''}">${icon}${Math.floor(v)}</span>`;
-    }).join('');
-  });
+  let playerHealth = 100;
+  const renderRes = (resources) => {
+    const hpLow = playerHealth <= 35;
+    resEl.innerHTML =
+      `<span class="res hp ${hpLow ? 'low' : ''}">♥${Math.round(playerHealth)}</span>` +
+      Object.entries(RES_ICONS).map(([k, icon]) => {
+        const v = resources[k] ?? 0;
+        const low = (k === 'food' && v <= 6) || (k === 'water' && v <= 8) || v <= 1;
+        return `<span class="res ${low ? 'low' : ''}">${icon}${Math.floor(v)}</span>`;
+      }).join('');
+  };
+  let lastRes = {};
+  on('resources.changed', (resources) => { lastRes = resources; renderRes(resources); });
+  on('player.health', ({ health }) => { playerHealth = health; renderRes(lastRes); });
 
   const choiceEl = root.querySelector('#hud-choice');
   on('event.choice', ({ prompt, options, pick }) => {

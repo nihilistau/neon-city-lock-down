@@ -72,6 +72,13 @@ export class EventRunner {
         emit('resources.changed', run.resources);
       },
       threatSpike: (s) => spikeThreat(d.run(), s.amount ?? 10),
+      combat: (s) => new Promise((resolve) => {
+        if (!d.combat) { resolve(); return; }
+        d.combat().start({
+          count: s.count, archetype: s.archetype, spawnAt: s.spawnAt,
+          onResolve: (win) => resolve({ steps: win ? (s.onWin || []) : (s.onLoss || []) }),
+        });
+      }),
       choice: (s) => new Promise((resolve) => {
         emit('event.choice', {
           prompt: s.prompt,

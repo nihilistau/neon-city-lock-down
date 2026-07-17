@@ -40,6 +40,25 @@ export const EVENTS = {
     ],
   },
 
+  riot_breach: {
+    id: 'riot_breach',
+    cls: 'threat',
+    weight: (run) => (run.threat > 35 ? run.threat * 0.25 : 0),
+    cooldownMin: 900,
+    maxPerRun: 2,
+    window: { minDay: 1, phase: ['dusk', 'night'] },
+    script: [
+      { type: 'vox', text: 'Warning. Stairwell breach on the penthouse level. Multiple intruders.', },
+      { type: 'news', text: 'TOWER BREACHES REPORTED ACROSS THE DISTRICT — DEFEND YOUR FLOORS' },
+      { type: 'sfx', id: 'alarm_hard' },
+      { type: 'alert', text: 'BREACH — penthouse stairwell', kind: 'danger' },
+      { type: 'threatSpike', amount: 12 },
+      { type: 'wait', sec: 3 },
+      { type: 'combat', count: 2, archetype: 'rioter', spawnAt: [-7, 5] },
+      { type: 'castStats', deltas: { tension: 6 } },
+    ],
+  },
+
   refugee: {
     id: 'refugee',
     cls: 'social',
