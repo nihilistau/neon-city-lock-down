@@ -15,8 +15,8 @@ export const PRESETS = {
   neon_night: {
     hemi: { sky: 0x2a4a8a, ground: 0x141020, intensity: 1.1 },
     key: { color: 0xbfd8ff, intensity: 1.1, pos: [6, 10, 10] },      // cold city moonlight through glass
-    warm: { color: 0xffb347, intensity: 110 },                       // lounge lamp pool
-    cool: { color: 0x39e6ff, intensity: 70 },                        // ceiling strip wash
+    warm: { color: 0xffb347, intensity: 95 },                        // lounge lamp pool
+    cool: { color: 0x39e6ff, intensity: 34 },                        // ceiling strip wash
     accent: { color: 0xff3fa4, intensity: 42 },                      // bar magenta
     fog: { color: 0x06070c, density: 0.012 },
     exposure: 1.1,
@@ -45,10 +45,10 @@ export class Lighting {
     this.key.shadow.camera.left = -12; this.key.shadow.camera.right = 12;
     this.key.shadow.camera.top = 12; this.key.shadow.camera.bottom = -12;
 
-    this.warm = new THREE.PointLight(0xffb347, 140, 11, 1.8);
+    this.warm = new THREE.PointLight(0xffb347, 95, 11, 1.8);
     this.warm.position.set(-6.2, 2.0, -2.4);            // over the lounge lamp
-    this.cool = new THREE.PointLight(0x39e6ff, 70, 14, 1.8);
-    this.cool.position.set(-2, 2.9, 1);                 // ceiling wash
+    this.cool = new THREE.PointLight(0x39e6ff, 34, 14, 1.8);
+    this.cool.position.set(-2, 2.75, 1);                // ceiling wash
     this.accent = new THREE.PointLight(0xff3fa4, 42, 12, 1.8);
     this.accent.position.set(4.2, 2.7, -3.2);           // bar glow
 

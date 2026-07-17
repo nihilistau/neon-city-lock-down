@@ -91,6 +91,24 @@ registerClips([
     },
     hipsPos: [[0, [0, -0.30, 0]]],
   },
+  // Sitting, leaning into a partner on the character's left (couch seat1 → seat0).
+  {
+    id: 'sit_lean_partner',
+    duration: 5.2, loop: 'pingpong',
+    bones: {
+      thighL: [-84, 6, -4], thighR: [-86, -2, 2],
+      shinL: [82, 0, 0], shinR: [86, 0, 0],
+      footL: [6, 0, 0], footR: [8, 0, 0],
+      armL: [12, 0, -38], armR: [8, 0, 20],
+      foreL: [30, 14, -4], foreR: [48, -16, 6],
+      spine1: [-2, 6, -8], chest: [1, 8, -6],
+      neck: [0, 4, -7],
+    },
+    tracks: {
+      head: [[0, [3, 10, -8]], [5.2, [5, 14, -10]]],
+    },
+    hipsPos: [[0, [0.05, -0.34, -0.02]]],
+  },
   // Talk gesture accents (short, non-looping; layered by dialogue).
   {
     id: 'gesture_lean_in',

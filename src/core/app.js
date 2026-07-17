@@ -4,6 +4,7 @@ import '../../data/poses/base.js';
 import '../../data/dialogue/intents.js';
 import '../../data/dialogue/lola/fallbacks.js';
 import '../../data/dialogue/lola/core.js';
+import '../../data/dialogue/aria/core.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -43,6 +44,10 @@ import { Sidecar } from '../audio/sidecar.js';
 import { playSfx } from '../audio/sfx/synthKit.js';
 import { VOICE_CAST } from '../../data/voiceScript.js';
 import lola from '../../data/cast/lola.js';
+import aria from '../../data/cast/aria.js';
+import { Brain } from '../sim/ai/brain.js';
+import { Wardrobe } from '../chars/wardrobe.js';
+import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES } from '../../data/zones.js';
 import { zoneAt } from '../sim/actors/nav.js';
 
@@ -174,9 +179,45 @@ export class App {
       });
     }
 
-    // spawn Lola in the lounge
+    // spawn the cast
     this.spawn(lola, 'lounge');
-    this.cast.lola.actor.faceYaw(Math.PI); // face the lounge / player
+    this.cast.lola.actor.faceYaw(Math.PI);
+    this.spawn(aria, 'bar');
+    this.cast.aria.actor.faceYaw(-Math.PI / 2);
+
+    // wardrobes (outfit layers over the base body)
+    this.cast.lola.wardrobe = new Wardrobe(this.cast.lola, 'evening_wear');
+    this.cast.aria.wardrobe = new Wardrobe(this.cast.aria, 'casual_lounge');
+
+    // autonomous brains
+    /** @type {Record<string, Brain>} */
+    this.brains = {};
+    for (const c of Object.values(this.cast)) {
+      this.brains[c.id] = new Brain(c, {
+        rng: this.rng.stream(`brain_${c.id}`),
+        others: (self) => Object.values(this.cast).filter((x) => x !== self && x.alive),
+        threat: () => this.run.threat,
+        sfx: (id) => playSfx(audio, id),
+        combatActive: () => this.combat?.active ?? false,
+      });
+    }
+    on('world.minute', ({ clock }) => {
+      if (this.mode !== 'run') return;
+      for (const b of Object.values(this.brains)) b.tick(clock.totalMinutes, 1);
+    });
+    // dialogue engagement suspends wandering
+    on('chat.reply', ({ speaker }) => {
+      this.brains[speaker]?.engage(this.clock.totalMinutes + 3);
+    });
+    // paired poses hold both participants' brains
+    on('pose.paired', ({ a, b, holdMinutes }) => {
+      this.brains[a]?.engage(this.clock.totalMinutes + holdMinutes);
+      this.brains[b]?.engage(this.clock.totalMinutes + holdMinutes);
+    });
+    on('chat.player', () => {
+      // addressing the room keeps everyone present a moment
+      for (const b of Object.values(this.brains)) b.engage(this.clock.totalMinutes + 1);
+    });
 
     // player presence marker — a look target the cast tracks (follows camera)
     this.playerMarker = new THREE.Object3D();
@@ -329,6 +370,9 @@ export class App {
         forceEvent: (id) => this.eventRunner?.fire(id),
         run: () => this.run,
         threat: () => this.run?.threat,
+        pair: (poseId, a, b) => startPairedPose(poseId, this.cast[a], this.cast[b]),
+        outfit: (id, outfitId) => this.cast[id]?.wardrobe?.change(outfitId),
+        needs: (id) => this.brains?.[id]?.needs,
       },
     };
   }

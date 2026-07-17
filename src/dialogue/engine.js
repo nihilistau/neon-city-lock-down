@@ -128,6 +128,12 @@ export class DialogueEngine {
 
     // optional LLM surface rewrite (authored effects already applied)
     let compiled = line.compiled;
+    if (compiled.cleanText.includes('{player}')) {
+      compiled = {
+        cleanText: compiled.cleanText.replace(/\{player\}/g, this.stageCtx.playerName || 'you'),
+        directions: compiled.directions,
+      };
+    }
     if (this.llm?.enabled && !isInterjection) {
       const rewritten = await this.llm.rewrite(char, compiled.cleanText, { tone });
       if (rewritten) compiled = { cleanText: rewritten, directions: compiled.directions };
