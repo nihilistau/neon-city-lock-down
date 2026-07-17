@@ -16,8 +16,10 @@ import { Picker } from '../scene3d/picking.js';
 import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
 import { ActorQueue } from '../sim/actors/actorQueue.js';
+import { Character } from '../chars/character.js';
 import { showGate18 } from '../ui/gate18.js';
 import { initHud } from '../ui/hud.js';
+import { initStatBars } from '../ui/statBars.js';
 import lola from '../../data/cast/lola.js';
 import { ZONES } from '../../data/zones.js';
 
@@ -35,8 +37,9 @@ export class App {
 
     /** @type {'boot'|'run'} */
     this.mode = 'boot';
-    /** @type {Record<string, {actor: Actor3D, queue: ActorQueue}>} */
+    /** @type {Record<string, Character>} */
     this.cast = {};
+    globalThis.__ncldExplicitness = settings.explicitness;
 
     this.loop = new Loop({
       clock: this.clock,
@@ -69,6 +72,7 @@ export class App {
     this.cameraRig = new CameraRig(this.stage, this.world);
     this.picker = new Picker(this.stage, this.cameraRig);
     initHud();
+    initStatBars();
 
     // interactive props (audio hooks arrive in P1.5)
     for (const prop of this.world.props) {
@@ -90,6 +94,7 @@ export class App {
     lolaQ.sit('stool1.seat0');
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
+    this.player = { name: settings.playerName, dominance: 55 };
     this.loop.resume('boot');
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
     dbg('run started');
@@ -103,8 +108,10 @@ export class App {
     actor.setRim(0.35);
     this.stage.scene.add(actor.root);
     const queue = new ActorQueue(actor, this.world);
-    this.cast[persona.id] = { actor, queue };
-    return this.cast[persona.id];
+    const character = new Character(persona, actor, queue);
+    this.cast[persona.id] = character;
+    emit('char.registered', { character });
+    return character;
   }
 
   /** @param {number} dt ms */
@@ -115,9 +122,9 @@ export class App {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
       this.world.update(performance.now() * 0.001);
-      for (const { actor, queue } of Object.values(this.cast)) {
-        queue.update(dtSec);
-        actor.update(dtSec);
+      for (const c of Object.values(this.cast)) {
+        c.queue.update(dtSec);
+        c.actor.update(dtSec);
       }
       this.picker.update();
     }
@@ -142,6 +149,9 @@ export class App {
         sit: (id, socket) => this.cast[id]?.queue.sit(socket),
         clip: (id, clip) => this.cast[id]?.queue.playClip(clip, 0.3),
         light: (preset) => this.lighting.apply(preset),
+        setStat: (id, deltas) => this.cast[id]?.applyStats(deltas, 'debug'),
+        stats: (id) => this.cast[id]?.stats,
+        gate: (id, tier, action) => this.cast[id]?.gate(tier, action, this.clock.totalMinutes),
       },
     };
   }
