@@ -10,6 +10,16 @@
 }
 #hud-clock { top: 14px; left: 14px; color: var(--cyan) !important; font-family: var(--mono); }
 #hud-hint { bottom: 12px; left: 14px; }
+#hud-resources { top: 14px; right: 14px; font-family: var(--mono); font-size: 13px; display: flex; gap: 10px; }
+#hud-resources .res.low { color: var(--red); text-shadow: 0 0 6px rgba(255,71,87,0.6); }
+#hud-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.choice-box {
+  background: var(--panel); border: 1px solid var(--amber);
+  padding: 22px 28px; max-width: 460px; z-index: 45;
+  box-shadow: 0 0 40px rgba(0,0,0,0.7);
+}
+.choice-prompt { font-size: 15px; line-height: 1.5; margin-bottom: 16px; color: var(--text); }
+.choice-opts { display: flex; gap: 10px; justify-content: flex-end; }
 #hud-prompt {
   position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
   color: var(--cyan); font-size: 15px; letter-spacing: 0.08em;

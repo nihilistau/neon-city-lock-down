@@ -28,6 +28,11 @@ import { showGate18 } from '../ui/gate18.js';
 import { initHud } from '../ui/hud.js';
 import { initStatBars } from '../ui/statBars.js';
 import { ChatPanel } from '../ui/chatPanel.js';
+import { newRunState } from '../sim/world.js';
+import { WorldTick } from '../sim/tick.js';
+import { Scheduler } from '../sim/scheduler.js';
+import { EventRunner } from '../sim/eventRunner.js';
+import { NewsTicker } from '../scene3d/monitors.js';
 import { audio } from '../audio/engine.js';
 import { Conductor } from '../audio/music/conductor.js';
 import { Ambience } from '../audio/sfx/ambience.js';
@@ -100,6 +105,42 @@ export class App {
     initHud();
     initStatBars();
 
+    // run state + world simulation
+    this.run = newRunState(this.rng.baseSeed);
+    this.scheduler = new Scheduler(this.rng.stream('events'));
+    this.eventRunner = new EventRunner({
+      run: () => this.run,
+      cast: () => this.cast,
+      lighting: this.lighting,
+      audioFacade: () => this.audioFacade(),
+      nowMinute: () => this.clock.totalMinutes,
+    });
+    this.worldTick = new WorldTick({
+      run: () => this.run,
+      livingCast: () => Object.values(this.cast).filter((c) => c.alive),
+      scheduler: this.scheduler,
+      events: this.eventRunner,
+      rng: this.rng.stream('world_tick'),
+    });
+    on('world.minute', ({ clock }) => { if (this.mode === 'run') this.worldTick.minute(clock); });
+    // threat feeds music tension + ambience riot loudness (throttled)
+    on('threat.changed', ({ threat }) => {
+      this._threatT = (this._threatT || 0) + 1;
+      if (this._threatT % 20 === 0) {
+        this.conductor.setMood({ tension: Math.min(1, threat / 90) });
+        this.ambience.setThreat(threat / 100);
+      }
+    });
+    // blackout visuals
+    on('power.changed', ({ online }) => {
+      this.lighting.apply(online ? 'neon_night' : 'blackout_emergency', online ? 2.5 : 0.8);
+    });
+
+    // news ticker screen above the bar shelves
+    this.newsTicker = new NewsTicker(this.stage.scene, this.rng.stream('news'), {
+      position: [4.2, 2.55, -5.55], width: 3.6,
+    });
+
     // audio systems
     this.conductor = new Conductor(audio, this.rng.stream('music'));
     this.ambience = new Ambience(audio);
@@ -170,15 +211,33 @@ export class App {
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
     this.loop.resume('boot');
+    emit('resources.changed', this.run.resources);
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
     dbg('run started');
   }
 
-  /** Audio facade handed to the stage-direction dispatcher. */
+  /** Audio facade handed to stage-direction dispatch + event scripts. */
   audioFacade() {
     return {
       sfx: (id) => playSfx(audio, id),
       vox: (text) => this.vox?.say(text),
+      // events: prefer a baked VOX take, fall back to the procedural voice
+      voxLine: async (text, bakedId) => {
+        const entry = bakedId && this.voiceBank?.manifest[bakedId];
+        if (entry && audio.ctx) {
+          try {
+            const buf = await this.voiceBank._load(bakedId, entry.file);
+            const src = audio.ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(audio.bus('voice'));
+            audio.duckStart();
+            src.start();
+            src.onended = () => audio.duckEnd();
+            return;
+          } catch { /* fall through to synth */ }
+        }
+        this.vox?.say(text);
+      },
     };
   }
 
@@ -220,6 +279,7 @@ export class App {
         }
       }
       this.world.update(performance.now() * 0.001);
+      this.newsTicker.update(dtSec);
       for (const c of Object.values(this.cast)) {
         c.queue.update(dtSec);
         c.actor.update(dtSec);
@@ -251,6 +311,9 @@ export class App {
         stats: (id) => this.cast[id]?.stats,
         gate: (id, tier, action) => this.cast[id]?.gate(tier, action, this.clock.totalMinutes),
         say: (text, target) => this.dialogue?.playerSays(text, target),
+        forceEvent: (id) => this.eventRunner?.fire(id),
+        run: () => this.run,
+        threat: () => this.run?.threat,
       },
     };
   }
