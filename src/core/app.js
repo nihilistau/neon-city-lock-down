@@ -28,8 +28,14 @@ import { showGate18 } from '../ui/gate18.js';
 import { initHud } from '../ui/hud.js';
 import { initStatBars } from '../ui/statBars.js';
 import { ChatPanel } from '../ui/chatPanel.js';
+import { audio } from '../audio/engine.js';
+import { Conductor } from '../audio/music/conductor.js';
+import { Ambience } from '../audio/sfx/ambience.js';
+import { VoxVoice } from '../audio/voxVoice.js';
+import { playSfx } from '../audio/sfx/synthKit.js';
 import lola from '../../data/cast/lola.js';
 import { ZONES } from '../../data/zones.js';
+import { zoneAt } from '../sim/actors/nav.js';
 
 export class App {
   constructor() {
@@ -63,6 +69,7 @@ export class App {
   async start() {
     this.loop.start();
     await showGate18();
+    audio.unlock();                 // the gate click is our autoplay gesture
     emit('game.entered', {});
     this.startRun();
   }
@@ -82,12 +89,32 @@ export class App {
     initHud();
     initStatBars();
 
-    // interactive props (audio hooks arrive in P1.5)
+    // audio systems
+    this.conductor = new Conductor(audio, this.rng.stream('music'));
+    this.ambience = new Ambience(audio);
+    this.vox = new VoxVoice(audio);
+    this.conductor.setMood({ tension: 0.25, warmth: 0.45, energy: 0.3 });
+    this.conductor.start();
+    this.ambience.play('apartment');
+    this._ambienceZone = 'apartment';
+    setTimeout(() => {
+      this.vox.say('Good evening. Lockdown protocol remains in effect. The tower is sealed. Do enjoy your stay.');
+      feed('VOX: Lockdown protocol remains in effect.', 'system');
+    }, 3500);
+
+    // interactive props
     for (const prop of this.world.props) {
       this.picker.register({
         ...prop,
         onInteract: () => {
           feed(`${settings.playerName} used ${prop.id}.`, 'info');
+          playSfx(audio, prop.id === 'vinyl' ? 'ui_confirm' : 'ui_click');
+          if (prop.id === 'vinyl') {
+            this._vinylHot = !this._vinylHot;
+            this.conductor.setMood(this._vinylHot
+              ? { energy: 0.65, warmth: 0.6 }
+              : { energy: 0.3, warmth: 0.45 });
+          }
           emit('prop.used', { id: prop.id });
         },
       });
@@ -128,11 +155,11 @@ export class App {
     dbg('run started');
   }
 
-  /** Placeholder audio facade for stage-direction sfx/vox — real audio in P1.5. */
+  /** Audio facade handed to the stage-direction dispatcher. */
   audioFacade() {
     return {
-      sfx: (id) => dbg('sfx', id),
-      vox: (id) => dbg('vox', id),
+      sfx: (id) => playSfx(audio, id),
+      vox: (text) => this.vox?.say(text),
     };
   }
 
@@ -161,6 +188,17 @@ export class App {
       if (this.playerMarker) {
         this.playerMarker.position.copy(this.stage.camera.position);
         this.playerMarker.position.y = Math.min(1.7, this.playerMarker.position.y);
+        // ambience follows the player's zone (throttled)
+        this._ambT = (this._ambT || 0) + dtSec;
+        if (this._ambT > 0.5) {
+          this._ambT = 0;
+          const z = zoneAt(this.playerMarker.position.x, this.playerMarker.position.z);
+          const amb = z === 'balcony' ? 'balcony' : 'apartment';
+          if (amb !== this._ambienceZone) {
+            this._ambienceZone = amb;
+            this.ambience.play(amb);
+          }
+        }
       }
       this.world.update(performance.now() * 0.001);
       for (const c of Object.values(this.cast)) {
