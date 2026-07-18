@@ -162,7 +162,12 @@ export function weldGeometry(geo, eps = 1e-4) {
   let next = 0;
   for (let i = 0; i < pos.count; i++) {
     const kx = Math.round(pos.getX(i) * q), ky = Math.round(pos.getY(i) * q), kz = Math.round(pos.getZ(i) * q);
-    const key = `${kx},${ky},${kz}`;
+    // Include the skin binding in the key so two coincident verts bound to
+    // DIFFERENT bones/weights are never welded into one (that discarded one
+    // side's weights and pulled seam verts toward the wrong bone).
+    let key = `${kx},${ky},${kz}`;
+    if (si) key += `|${si.getX(i)},${si.getY(i)},${si.getZ(i)},${si.getW(i)}`;
+    if (sw) key += `|${Math.round(sw.getX(i) * 100)},${Math.round(sw.getY(i) * 100)},${Math.round(sw.getZ(i) * 100)},${Math.round(sw.getW(i) * 100)}`;
     let vi = map.get(key);
     if (vi === undefined) {
       vi = next++;

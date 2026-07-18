@@ -218,7 +218,10 @@ export function buildBody(persona, rig) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.add(rig.bones[0]); // root bone
-  mesh.bind(rig.skeleton);
+  // explicit identity bindMatrix → do NOT recompute skeleton.boneInverses (they
+  // were set to the bind pose in buildSkeleton); geometry is authored in
+  // bind-pose world space with the mesh at origin, so identity is correct.
+  mesh.bind(rig.skeleton, new THREE.Matrix4());
   mesh.frustumCulled = false; // skinned bounds are wrong when posed; cheap cast anyway
   buildHair(persona, rig);
   return mesh;

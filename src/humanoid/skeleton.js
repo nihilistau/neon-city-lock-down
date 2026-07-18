@@ -124,6 +124,13 @@ export function buildSkeleton(body) {
     byName[name] = bone;
   }
 
+  // Compute bind-pose bone world matrices NOW (root bone is unparented, so its
+  // subtree resolves to the pure bind pose), then build the skeleton so its
+  // boneInverses are the correct BIND-POSE inverses. Every SkinnedMesh then binds
+  // with an explicit identity bindMatrix (see body/outfit builders) so
+  // Skeleton.calculateInverses() is NEVER re-run on the live, posed skeleton —
+  // that re-run was corrupting every mesh's skinning on a clothes change.
+  bones[0].updateMatrixWorld(true);
   const skeleton = new THREE.Skeleton(bones);
   return { bones, byName, skeleton, joints };
 }

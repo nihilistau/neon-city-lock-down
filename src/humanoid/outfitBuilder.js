@@ -192,7 +192,10 @@ export function buildOutfit(persona, rig, recipe) {
     });
     const mesh = new THREE.SkinnedMesh(geo, mat);
     mesh.castShadow = true;
-    mesh.bind(rig.skeleton);
+    // explicit identity bindMatrix — reuse the bind-pose boneInverses computed
+    // in buildSkeleton; binding without it re-ran calculateInverses() on the
+    // already-posed shared skeleton and exploded every mesh sharing it.
+    mesh.bind(rig.skeleton, new THREE.Matrix4());
     mesh.frustumCulled = false;
     meshes.push(mesh);
   }
