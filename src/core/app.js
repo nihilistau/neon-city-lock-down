@@ -176,6 +176,24 @@ export class App {
         feed('The fish tank pump has been silent too long.', 'system');
       }
     });
+    // the endgame: extraction offer lands on day 7 at dusk
+    on('day.started', ({ day }) => {
+      if (day >= 7 && !this.run.flags.extractionQueued) {
+        this.run.flags.extractionQueued = true;
+        this.run.eventQueue.push({
+          atMinute: this.clock.totalMinutes + (19 * 60 - this.clock.minuteOfDay),
+          eventId: 'extraction_offer',
+        });
+        feed('Something is changing in the city\'s rhythm. The end of the lockdown is close.', 'system');
+      }
+    });
+    // taking the shuttle ends the run — victorious
+    on('run.extraction', () => {
+      if (this.mode !== 'run') return;
+      this.mode = 'dead';
+      this.loop.pause('death');
+      endRun(this, 'extracted');
+    });
 
     // news ticker screen above the bar shelves (penthouse group so it hides with the floor)
     this.newsTicker = new NewsTicker(this.world.floorGroups.penthouse, this.rng.stream('news'), {
@@ -468,6 +486,29 @@ export class App {
         break;
       }
       case prop.id === 'vox_terminal': {
+        // repairs first: any damaged systems can be fixed here (parts + time)
+        const damaged = Object.entries(this.run.systems)
+          .filter(([, s]) => s.hp < 70 || !s.online);
+        if (damaged.length && this.run.resources.parts >= 1) {
+          emit('event.choice', {
+            prompt: `VOX diagnostics list damaged systems. Repairs cost 1 part + 45 minutes each. Parts: ${Math.floor(this.run.resources.parts)}.`,
+            options: [...damaged.map(([name, s]) => `Repair ${name} (${Math.round(s.hp)}%)`), 'Not now'],
+            pick: (idx) => {
+              if (idx >= damaged.length) return;
+              const [name, sys] = damaged[idx];
+              this.run.resources.parts -= 1;
+              this.clock.skip(45, (c) => this.worldTick.minute(c));
+              sys.hp = Math.min(100, sys.hp + 60);
+              sys.online = true;
+              if (name === 'power') emit('power.changed', { online: true });
+              emit('systems.changed', this.run.systems);
+              emit('resources.changed', this.run.resources);
+              this.vox.say(`${name} restored. The tower thanks you. I thank you. We are the same thing, but the sentiment doubles.`);
+              feed(`Repaired ${name}.`, 'system');
+            },
+          });
+          break;
+        }
         const lines = [
           'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
           'I have counted the rioters. You do not want the number.',
@@ -476,6 +517,29 @@ export class App {
         ];
         this.vox.say(this.rng.stream('vox_lines').pick(lines));
         addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+        break;
+      }
+      case prop.id === 'gurney0' || prop.id === 'gurney1': {
+        const injured = Object.values(this.cast).filter((c) => c.injuries?.length);
+        const playerHurt = this.run.player.health < 90;
+        if (!injured.length && !playerHurt) {
+          emit('hud.alert', { text: 'No one needs treatment right now.', kind: 'info' });
+          break;
+        }
+        if (this.run.resources.meds < 1) {
+          emit('hud.alert', { text: 'No meds left to treat with.', kind: 'danger' });
+          break;
+        }
+        this.run.resources.meds -= 1;
+        for (const c of injured) {
+          c.injuries = [];
+          c.applyStats({ energy: 15, fear: -5, trust: 3 }, 'treated');
+        }
+        this.run.player.health = Math.min(100, this.run.player.health + 30);
+        emit('player.health', { health: this.run.player.health });
+        emit('resources.changed', this.run.resources);
+        playSfx(audio, 'ui_confirm');
+        feed('Wounds cleaned, dressed, and quietly appreciated. (-1 med)', 'system');
         break;
       }
       case prop.id === 'vox_monolith': {

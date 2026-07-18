@@ -409,6 +409,7 @@ export class World3D {
           ammo_crate: 'Open the crate', stash_crate: 'Pry open the stash',
           roof_crate: 'Open the crate', supply_crate: 'Open the crate',
           vox_monolith: 'Touch the core',
+          gurney0: 'Treat the wounded', gurney1: 'Treat the wounded',
         };
         if (PROP_PROMPTS[f.id]) {
           this.props.push({ mesh: item.group, id: f.id, prompt: PROP_PROMPTS[f.id], floor: zone.floor });

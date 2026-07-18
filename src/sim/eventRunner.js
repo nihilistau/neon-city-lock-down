@@ -75,6 +75,35 @@ export class EventRunner {
         emit('resources.changed', run.resources);
       },
       threatSpike: (s) => spikeThreat(d.run(), s.amount ?? 10),
+      damageSystem: (s) => {
+        const sys = d.run().systems[s.system];
+        if (!sys) return;
+        sys.hp = Math.max(0, sys.hp - (s.amount ?? 25));
+        if (sys.hp <= 15) sys.online = false;
+        if (s.system === 'power' && !sys.online) emit('power.changed', { online: false });
+        emit('systems.changed', d.run().systems);
+        feed(`System damaged: ${s.system} (${Math.round(sys.hp)}%)`, 'event');
+      },
+      systemOnline: (s) => {
+        const sys = d.run().systems[s.system];
+        if (!sys) return;
+        sys.online = s.online !== false;
+        if (s.system === 'power') emit('power.changed', { online: sys.online });
+        emit('systems.changed', d.run().systems);
+      },
+      playerHurt: (s) => {
+        const p = d.run().player;
+        p.health = Math.max(0, p.health - s.amount);
+        emit('player.health', { health: p.health });
+      },
+      scheduleEvent: (s) => {
+        d.run().eventQueue.push({ atMinute: d.nowMinute() + s.inMinutes, eventId: s.eventId });
+      },
+      lockElevator: (s) => {
+        d.run().systems.elevator.locked = s.locked !== false;
+        feed(s.locked !== false ? 'VOX has locked the elevator.' : 'Elevator restored.', 'system');
+      },
+      endRun: (s) => emit('run.extraction', { outcome: s.outcome }),
       combat: (s) => new Promise((resolve) => {
         if (!d.combat) { resolve(); return; }
         d.combat().start({

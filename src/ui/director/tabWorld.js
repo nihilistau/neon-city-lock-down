@@ -35,7 +35,16 @@ export function tabWorld(el, app) {
       </div>
     </div>
     <div class="dir-section">
-      <div class="dir-label">SYSTEMS</div>
+      <div class="dir-label">RATIONING</div>
+      <div class="dir-row">food:
+        ${['normal', 'half', 'none'].map((r) => `<button data-ration="food:${r}" class="${app.run.rationPolicy.food === r ? 'active' : ''}">${r}</button>`).join('')}
+      </div>
+      <div class="dir-row">water:
+        ${['normal', 'half', 'none'].map((r) => `<button data-ration="water:${r}" class="${app.run.rationPolicy.water === r ? 'active' : ''}">${r}</button>`).join('')}
+      </div>
+    </div>
+    <div class="dir-section">
+      <div class="dir-label">SYSTEMS — <span id="tw-sys">${Object.entries(app.run.systems).map(([k, s]) => `${k}:${Math.round(s.hp)}%${s.online ? '' : '⚠'}`).join(' · ')}</span></div>
       <div class="dir-row">
         <button data-power="off">kill power</button>
         <button data-power="on">restore power</button>
@@ -55,6 +64,11 @@ export function tabWorld(el, app) {
       app.run.resources[key] = (app.run.resources[key] || 0) + Number(n);
       app.bus?.emit?.('resources.changed', app.run.resources);
       import('../../core/bus.js').then((m) => m.emit('resources.changed', app.run.resources));
+    }
+    if (btn.dataset.ration) {
+      const [key, val] = btn.dataset.ration.split(':');
+      app.run.rationPolicy[key] = val;
+      btn.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
     }
     if (btn.dataset.power) {
       import('../../core/bus.js').then((m) => m.emit('power.changed', { online: btn.dataset.power === 'on' }));
