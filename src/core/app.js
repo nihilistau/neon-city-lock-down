@@ -1,6 +1,7 @@
 // @ts-check
 // Composition root. The only module allowed to import everything and wire it up.
 import '../../data/poses/base.js';
+import '../../data/poses/intimate.js';
 import '../../data/dialogue/intents.js';
 import '../../data/dialogue/lola/fallbacks.js';
 import '../../data/dialogue/lola/core.js';
@@ -804,14 +805,16 @@ export class App {
     const bedPos = bed ? bed.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
     this._bedReturn = { camMode: this.cameraRig.mode, lighting: this.lighting.presetId };
     // eye at the bedside, looking back at the reclined partner
-    const eyeX = bedPos.x + 1.05, eyeZ = bedPos.z + 0.35;
+    const eyeX = bedPos.x + 1.35, eyeZ = bedPos.z + 0.55;
     // FP forward is (-sin(yaw), -cos(yaw)); solve so it points from eye → bed
     const yaw = Math.atan2(-(bedPos.x - eyeX), -(bedPos.z - eyeZ));
-    // partner reclines on the bed, body + gaze turned toward the player
+    // partner reclines ON the bed surface, body + gaze turned toward the player
     partner.queue.clear();
     partner.actor.snapTo(bedPos.x, bedPos.z, Math.atan2(eyeX - bedPos.x, eyeZ - bedPos.z));
-    partner.actor.playClip('lounge', 0.5);
+    partner.actor.root.position.y = Math.max(0, bedPos.y - 0.05); // up onto the mattress
+    partner.actor.playClip('bed_recline', 0.5);
     partner.actor.lookAt(this.playerMarker);
+    this._bedPartner = partner;
     // warm, low light for the alcove (and mood)
     this.lighting.apply('candlelit', 1.5);
     this.cameraRig.setMode('firstPerson');
@@ -823,8 +826,10 @@ export class App {
   exitBedScene(partner) {
     if (partner) {
       partner.queue.clear();
+      partner.actor.root.position.y = 0;         // back to the floor
       partner.actor.playClip(partner.persona.personality.idleClip || 'idle_stand', 0.6);
     }
+    this._bedPartner = null;
     if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
     this.cameraRig.setMode(this._bedReturn?.camMode === 'firstPerson' ? 'firstPerson' : 'director');
     this._bedReturn = null;

@@ -12,6 +12,8 @@ import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
 
 const TIER_GATE = { 1: 'light_touch', 2: 'kiss', 3: 'touch', 4: 'intimate', 5: 'explicit' };
+// tier → intimate bed pose (data/poses/intimate.js)
+const BED_CLIP = { 1: 'bed_recline', 2: 'bed_reach', 3: 'bed_straddle', 4: 'bed_straddle', 5: 'bed_arch' };
 
 export class BedGame {
   /**
@@ -155,11 +157,9 @@ export class BedGame {
     }
     // stat effects (partner receives; personality-weighted through applyStats)
     this.partner.applyStats(a.fx, `bed:${a.id}`);
-    // tempo-scaled paired clip
-    if (a.anim) {
-      this.partner.actor.setTempo(animTempo(this.partner.stats));
-      this.partner.queue.pushPriority({ type: 'playClip', args: [a.anim, 0.4] });
-    }
+    // play a tier-appropriate intimate pose on the bed (tempo scales with arousal)
+    this.partner.actor.setTempo(animTempo(this.partner.stats));
+    this.partner.actor.playClip(BED_CLIP[a.tier] || 'bed_recline', 0.4);
     this.d.sfx(a.tier >= 3 ? 'thump' : 'ui_confirm');
     const line = this.d.rng.pick(a.lines);
     feed(line, 'dialogue');
@@ -190,6 +190,7 @@ export class BedGame {
       { pleasure: 6, happiness: 14, loyalty: 8, trust: 8, tension: -18, arousal: -12, horniness: -20 },
       'climax');
     this.partner.actor.face.setExpression({ mouth: 'open', browRaise: 0.6, blush: 0.9 });
+    this.partner.actor.playClip('bed_climax', 0.25);
     this.d.sfx('thump');
     const lines = [
       `${this.partner.name} comes apart in your hands, shaking, your name breaking on their lips.`,

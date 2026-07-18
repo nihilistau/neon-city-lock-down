@@ -16,6 +16,7 @@
 const CLIPS = new Set([
   'crouch', 'dance_sway', 'gesture_cross_arms', 'gesture_lean_in', 'gesture_shrug',
   'idle_confident', 'idle_shy', 'idle_stand', 'lounge', 'sit_lean_partner', 'sit_relaxed', 'walk',
+  'bed_recline', 'bed_reach', 'bed_arch', 'bed_straddle', 'bed_climax',
 ]);
 // Friendly aliases the model tends to use → a real clip.
 const ANIM_ALIAS = {

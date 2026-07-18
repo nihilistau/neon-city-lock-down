@@ -17,9 +17,29 @@ export function toChat(system, input) {
   return chat;
 }
 
+/** LM Studio can unload a model mid-session (idle TTL); the cached handle then
+ *  throws. Detect that so we can drop the handle and re-resolve. */
+function isStaleHandle(err) {
+  const m = String(err?.message || err);
+  return /instance reference|already been unloaded|no longer loaded|cannot find model|not loaded/i.test(m);
+}
+
 export class Predictor {
   /** @param {import('./client.mjs').LmsClient} client */
   constructor(client) { this.client = client; }
+
+  /** Run `fn(model)` for a role; if the handle is stale, invalidate + reload once. */
+  async _withModel(role, fn) {
+    let model = await this.client.model(role);
+    try {
+      return await fn(model);
+    } catch (err) {
+      if (!isStaleHandle(err)) throw err;
+      this.client.invalidate(role);
+      model = await this.client.model(role);   // re-resolves / re-loads (JIT)
+      return fn(model);
+    }
+  }
 
   /**
    * Streaming generation. Calls `onFragment(text, {reasoning})` per fragment
@@ -35,17 +55,18 @@ export class Predictor {
    * @returns {Promise<{content:string, reasoning:string, stats:any}>}
    */
   async stream(o, onFragment) {
-    const model = await this.client.model(o.role || 'chat');
     const chat = toChat(o.system, o.input);
-    const pred = model.respond(chat, this._opts(o));
-    let content = '', reasoning = '';
-    for await (const frag of pred) {
-      const isReasoning = frag.reasoningType && frag.reasoningType !== 'none';
-      if (isReasoning) { reasoning += frag.content; onFragment?.(frag.content, { reasoning: true }); }
-      else { content += frag.content; onFragment?.(frag.content, { reasoning: false }); }
-    }
-    const result = await pred.result();
-    return { content: result.content ?? content, reasoning, stats: result.stats };
+    return this._withModel(o.role || 'chat', async (model) => {
+      const pred = model.respond(chat, this._opts(o));
+      let content = '', reasoning = '';
+      for await (const frag of pred) {
+        const isReasoning = frag.reasoningType && frag.reasoningType !== 'none';
+        if (isReasoning) { reasoning += frag.content; onFragment?.(frag.content, { reasoning: true }); }
+        else { content += frag.content; onFragment?.(frag.content, { reasoning: false }); }
+      }
+      const result = await pred.result();
+      return { content: result.content ?? content, reasoning, stats: result.stats };
+    });
   }
 
   /** Non-streaming convenience. */
@@ -64,20 +85,21 @@ export class Predictor {
    * @returns {Promise<any>} parsed object, or null on failure
    */
   async structured(o) {
-    const model = await this.client.model(o.role || 'function');
     const chat = toChat(o.system, o.input);
     const structured = o.schema?.jsonSchema
       ? { type: 'json', jsonSchema: o.schema.jsonSchema }
       : o.schema;
     try {
-      const res = await model.respond(chat, {
-        structured,
-        maxTokens: o.maxTokens ?? 200,
-        temperature: o.temperature ?? 0.2,
-        signal: o.signal,
+      return await this._withModel(o.role || 'function', async (model) => {
+        const res = await model.respond(chat, {
+          structured,
+          maxTokens: o.maxTokens ?? 200,
+          temperature: o.temperature ?? 0.2,
+          signal: o.signal,
+        });
+        if (res.parsed !== undefined) return res.parsed;
+        try { return JSON.parse(res.content); } catch { return null; }
       });
-      if (res.parsed !== undefined) return res.parsed;
-      try { return JSON.parse(res.content); } catch { return null; }
     } catch {
       return null;
     }
