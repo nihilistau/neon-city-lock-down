@@ -59,7 +59,7 @@ export class Relationships {
     this._sinceBeat = 0;
 
     const cast = Object.values(this.d.cast()).filter((c) =>
-      c.alive && c.actor.root.visible !== false && c.id !== 'vox');
+      c.alive && c.present !== false && c.actor.root.visible !== false && c.id !== 'vox');
     // co-located idle pairs
     const pairs = [];
     for (let i = 0; i < cast.length; i++) {

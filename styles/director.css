@@ -41,3 +41,14 @@
 .dir-feed-row.kind-combat { color: var(--red); }
 .dir-feed-row.kind-gate { color: var(--magenta); }
 .dir-feed-row.kind-system { color: var(--cyan-dim); }
+
+/* Cast tab */
+.tc-char.away { opacity: 0.55; }
+.tc-awaymsg { font-size: 11px; color: var(--text-dim); font-style: italic; padding: 4px 0; }
+.tc-presence { font-size: 9px; padding: 2px 6px; float: right; }
+.tc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 8px; margin: 5px 0; }
+.tc-stat { display: flex; align-items: center; gap: 4px; }
+.tc-sk { font-size: 8px; color: var(--text-dim); width: 26px; text-transform: uppercase; }
+.tc-stat input[type="range"] { flex: 1; height: 3px; }
+.tc-sv { font-size: 8px; color: var(--text-dim); width: 16px; text-align: right; font-family: var(--mono); }
+.tc-mood { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }

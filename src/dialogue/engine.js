@@ -95,8 +95,8 @@ export class DialogueEngine {
   }
 
   _presentCast() {
-    // slice: everyone is co-located; later filter by shared zone with the player
-    return Object.values(this.cast).filter((c) => c.alive);
+    // present + alive; VOX is omnipresent by nature
+    return Object.values(this.cast).filter((c) => c.alive && (c.present !== false));
   }
 
   _resolveAddressee(target, slots, intents, present) {

@@ -281,7 +281,9 @@ export class App {
     });
     on('world.minute', ({ clock }) => {
       if (this.mode !== 'run') return;
-      for (const b of Object.values(this.brains)) b.tick(clock.totalMinutes, 1);
+      for (const [id, b] of Object.entries(this.brains)) {
+        if (this.cast[id]?.present) b.tick(clock.totalMinutes, 1);
+      }
       this.relationships.tick();
     });
     // dialogue engagement suspends wandering
@@ -678,6 +680,33 @@ export class App {
     this.cast[persona.id] = character;
     emit('char.registered', { character });
     return character;
+  }
+
+  /** Send an NPC away (they leave the room/tower). Reversible. VOX can't leave. */
+  despawnCharacter(id) {
+    const c = this.cast[id];
+    if (!c || id === 'vox' || !c.present) return false;
+    c.present = false;
+    c.queue.clear();
+    if (c.actor.root) c.actor.root.visible = false;
+    emit('char.removed', { id });
+    feed(`${c.name} has left.`, 'system');
+    return true;
+  }
+
+  /** Bring an NPC back into the game. */
+  respawnCharacter(id) {
+    const c = this.cast[id];
+    if (!c || c.present) return false;
+    c.present = true;
+    if (c.actor.root) {
+      c.actor.root.visible = true;
+      const [x, z] = ZONES[c.queue.zone]?.anchor ?? [0, 0];
+      c.actor.snapTo?.(x, z);
+    }
+    emit('char.registered', { character: c });
+    feed(`${c.name} returns.`, 'system');
+    return true;
   }
 
   /** VOX is bodiless — the tower itself. Uses duck-typed actor/queue stubs. */

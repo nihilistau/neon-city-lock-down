@@ -26,6 +26,7 @@ export class Character {
     this.consent = defaultConsent();
     this.memory = new Memory();
     this.alive = true;
+    this.present = true;      // in the game right now? (director can send NPCs away)
     this.injuries = [];
 
     this._moodId = null;

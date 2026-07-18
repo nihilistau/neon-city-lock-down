@@ -25,7 +25,8 @@ export function initStatBars() {
   root.innerHTML = '';
   cards.clear();
 
-  on('char.registered', ({ character }) => addCard(character));
+  on('char.registered', ({ character }) => { if (!cards.has(character.id)) addCard(character); });
+  on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
   on('char.stat', ({ id, stats }) => updateBars(id, stats));
   on('char.mood', ({ id, mood }) => { const c = cards.get(id); if (c) c.querySelector('.mood').textContent = mood; });
   on('gate.changed', ({ id, gates }) => updateGates(id, gates));
