@@ -57,7 +57,7 @@ import { Mystery } from '../games/mystery.js';
 import { SaveMenu } from '../ui/saveMenu.js';
 import { initDeathScreen } from '../ui/deathScreen.js';
 import { endRun } from '../sim/death.js';
-import { saveToSlot, readSlot, applySave } from './save.js';
+import { saveToSlot, readSlot, applySave, deleteAutosave } from './save.js';
 import { SCENARIOS } from '../../data/scenarios.js';
 import lola from '../../data/cast/lola.js';
 import aria from '../../data/cast/aria.js';
@@ -74,6 +74,8 @@ import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
 import { InventoryUI } from '../ui/inventory.js';
+import { LOADOUTS } from '../../data/items.js';
+import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
@@ -117,8 +119,9 @@ export class App {
     this.loop.start();
     await showGate18();
     audio.unlock();                 // the gate click is our autoplay gesture
+    const choice = await showMainMenu(this);   // boot scene renders behind the menu
     emit('game.entered', {});
-    await this.startRun();
+    await this.startRun(choice);
   }
 
   /** Load the baked-voice manifest (missing = fine, router falls through). */
@@ -414,7 +417,14 @@ export class App {
     this.scenarioId = scenario.id;
     const resumed = this._startOpts.resume !== false && this._tryResume();
     if (!resumed) {
-      this.inventory.applyLoadout(this._startOpts.loadout || 'fixer');
+      deleteAutosave();     // fresh run supersedes any old autosave
+      const loadout = this._startOpts.loadout || 'fixer';
+      this.inventory.applyLoadout(loadout);
+      const ld = LOADOUTS[loadout];
+      if (ld?.resources) for (const [k, v] of Object.entries(ld.resources)) {
+        this.run.resources[k] = Math.max(0, (this.run.resources[k] || 0) + v);
+      }
+      emit('resources.changed', this.run.resources);
       if (scenario.lighting) this.lighting.apply(scenario.lighting, 0.5);
       for (const [id, deltas] of Object.entries(scenario.castMoodShifts || {})) {
         this.cast[id]?.applyStats(deltas, 'scenario');

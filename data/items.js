@@ -107,3 +107,22 @@ export const STARTING_KITS = {
   hoarder: [{ id: 'shiv', qty: 1 }, { id: 'ration', qty: 3 }, { id: 'medkit', qty: 2 }],
   gunhand: [{ id: 'smg', qty: 1 }, { id: 'sidearm', qty: 1 }, { id: 'stim', qty: 2 }],
 };
+
+/** loadout metadata for the new-game menu: display + starting-resource deltas */
+export const LOADOUTS = {
+  fixer: {
+    id: 'fixer', name: 'The Fixer', icon: '🎯',
+    desc: 'Balanced. A sidearm, a medkit, and a bottle of the good stuff. The professional\'s default.',
+    resources: {},
+  },
+  hoarder: {
+    id: 'hoarder', name: 'The Survivor', icon: '📦',
+    desc: 'Provisions over firepower. Extra food, water, and meds — but light on ammo. Outlast the siege.',
+    resources: { food: 14, water: 20, meds: 3, ammo: -30 },
+  },
+  gunhand: {
+    id: 'gunhand', name: 'The Gunhand', icon: '🔥',
+    desc: 'Loaded for a fight. An SMG, spare ammo, and stims — but the pantry is thin. Live fast.',
+    resources: { ammo: 40, meds: 2, food: -8, luxury: -6 },
+  },
+};
