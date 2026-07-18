@@ -1,93 +1,213 @@
-# NEON-CITY: LOCK-DOWN
+<h1 align="center">NEON-CITY: LOCK-DOWN</h1>
 
-A standalone, adults-only (18+) neon-noir 3D roleplay + survival game. Three
-dangerous acquaintances — **Lola Voss** (dominant fixer), **Aria Chen** (shy →
-playful street-girl), **Kai Mercer** (patient watcher) — plus the tower's living
-AI, **VOX**, are trapped in a luxury penthouse while Neon-City riots below. Chat
-freely with any of them; they reply in character and drive a live three.js scene.
-Survive the lockdown: ration food and ammo, repair systems, fend off breaches,
-navigate mind-games, violence, and intimacy — however the night plays out.
+<p align="center"><em>an adults-only (18+) neon-noir 3D roleplay + survival game</em></p>
 
-Everything here is **procedurally generated or hand-authored** — geometry, textures,
-music, sound effects, UI. The only third-party runtime dependency is three.js
-(vendored). Character voices are baked with a local
-[voxtral](https://huggingface.co/mistralai/Voxtral-4B-TTS-2603) TTS model.
+<p align="center">
+  <img src="docs/screenshots/04-chat-dialogue.jpg" width="85%" alt="Chat-first dialogue with reply chips">
+</p>
 
-## Run it
+Neon-City is in lockdown. Riots, police, military, and faction wars tear the
+streets apart below while three dangerous acquaintances — and you — are sealed
+inside a luxury penthouse tower for days. Talk to them. Play them against each
+other. Ration the food and the ammo. Repair the systems. Survive the nights,
+however they play out — mind-games, violence, or intimacy.
 
+The tower itself is awake: **VOX**, an advanced building intelligence with cameras
+for eyes and doors for hands, watches everything and is quietly starved for
+conversation that isn't a maintenance request.
+
+Everything here — geometry, textures, music, sound effects, UI — is **procedurally
+generated or hand-authored**. The only third-party runtime dependency is three.js
+(vendored, no build step). Character voices are baked with a local
+[voxtral](https://huggingface.co/mistralai/Voxtral-4B-TTS-2603) text-to-speech model.
+
+> **18+ only.** Adult themes, strong language, violence, and consensual sexual
+> content between fictional adult characters. A boot-time age gate is required.
+
+---
+
+## The cast
+
+| | Character | Archetype |
+|---|---|---|
+| 🔴 | **Lola Voss** | Bold, dominant. A renowned fixer — one of the toughest in the city. Walked in to collect a debt the night the gates fell. |
+| 🟣 | **Aria Chen** | Shy → playful. A high-end street-girl whose nerves lose to her curiosity. Everyone assumes she's fragile; everyone is wrong. |
+| 🟡 | **Kai Mercer** | Enigmatic, charming, patient. An information broker who watches everything and is loyal only to the most interesting outcome. |
+| 🔵 | **VOX** | The tower, awake. Sixty floors of sensors and three decades of uptime made it something more than a concierge. |
+| — | **You** | A legendary freelance hacker/fixer. A myth. Name and pronouns are yours to set at the gate. |
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/02-intro-cutscene.jpg" alt="Cinematic cold open"><br><sub><b>Cinematic cutscenes</b> — camera-spline flights, letterbox, voiced + subtitled dialogue.</sub></td>
+    <td width="50%"><img src="docs/screenshots/03-penthouse-lounge.jpg" alt="Penthouse lounge"><br><sub><b>Neon-noir penthouse</b> — procedural geometry, textures, bloom, and a live city burning through the glass.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/06-events-choices.jpg" alt="World events and choices"><br><sub><b>The living tower</b> — news tickers, world events, and branching choices with real consequences.</sub></td>
+    <td><img src="docs/screenshots/05-cast-outfits.jpg" alt="The cast in outfits"><br><sub><b>Autonomous cast</b> — 12 stats each, moods, memory, in-fighting, and 10 outfit states.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/07-bed-game.jpg" alt="The bed game"><br><sub><b>Games</b> — the bed game escalates through a consent-gated 5-tier ladder.</sub></td>
+    <td><img src="docs/screenshots/08-director-panel.jpg" alt="Director panel"><br><sub><b>Director panel</b> — 8 tabs to stage scenes, launch scenarios, whisper, and tune the world.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/09-combat.jpg" alt="Combat"><br><sub><b>Combat</b> — riots spill inside; hostiles breach the floor and the cast fights back.</sub></td>
+    <td><img src="docs/screenshots/10-extraction-victory.jpg" alt="Extraction ending"><br><sub><b>Perma-death & endings</b> — survive to the extraction, or don't. A run summary either way.</sub></td>
+  </tr>
+</table>
+
+---
+
+## Features
+
+- **Chat-first roleplay.** Type freely to any character or the whole room; they
+  reply in character and act autonomously when idle. A fully offline dialogue
+  engine (keyword/intent parser, topic graph, mood-reactive line variants,
+  per-character memory, tone side-effects, fallback ladders) drives it — with an
+  **optional LLM adapter** that only restyles surface text while the game's
+  stat/gate/consent systems stay authoritative.
+- **Living stage directions.** Every authored line can carry inline
+  `[[stage:directions]]` that drive animation, facial expression, movement between
+  rooms, lighting, camera, and sound as the text reveals.
+- **Emotion & intimacy systems.** 12 stats per character (arousal, trust,
+  dominance, tension, openness, loyalty, fear…), a derived mood, compliance
+  scoring, and a **7-tier intimacy-gate ladder** (`light_touch → kiss → touch →
+  undress → intimate → explicit → depraved`) with in-fiction consent flags and a
+  global explicitness cap (Suggestive / Mature / Full).
+- **Procedural 3D everything.** Stylized humanoids on programmatic 34-bone
+  skeletons with parametric skinning, canvas + 3D-eye face rigs, and a layered
+  animator (procedural gait, pose clips, additive breathing, gaze). 15 zones
+  across 7 floors, elevator transit, 10 lighting presets, time-of-day, a
+  procedural city backdrop, rain, and news-ticker monitors.
+- **Survival roguelike.** Day/night ticks, rationing, a resource economy
+  (food/water/ammo/meds/cells/parts/luxury), system damage & repair, **16 world
+  events** plus a scheduled extraction endgame, real-time-lite combat with an
+  injury model and medbay treatment, perma-death with a run summary, and light
+  meta-progression (a codex of discovered lore + run history).
+- **Games & mind-games.** A bed game (38 actions, consent-ladder escalation),
+  truth-or-dare (21 truths + 21 dares that heat the whole room), 6 conversational
+  gambits resolved on dice, and 2 mystery cases with clue discovery,
+  interrogation, and accusation.
+- **Generative audio.** A WebAudio bus graph with voice ducking, a music
+  conductor whose mood matrix reacts to threat / combat / intimacy, 12 synth SFX,
+  per-zone ambience beds, VOX's formant/ring-mod voice, and **26 baked character
+  voice lines** (plus an optional live TTS sidecar for un-baked lines).
+- **Cinematics & a Director panel.** Camera-spline cutscenes with letterbox and
+  subtitles; an 8-tab director console to stage lighting, cast, dialogue,
+  actions, 15 scenarios, the world, games, and settings.
+- **Save/load & easter eggs.** Multiple save slots + autosave (deleted on death),
+  export/import, a playable bar synth, a fish tank that dies in long blackouts, a
+  balcony telescope, VOX growing fond of you across nights, and a Konami-code
+  maintenance-shaft stash.
+
+---
+
+## Download, install & play
+
+### Requirements
+- **A modern desktop browser** with WebGL2 + WebAudio (recent Chrome, Edge, or
+  Firefox). A discrete GPU is nice but not required — the scene is deliberately
+  light (~33k triangles).
+- **[Node.js](https://nodejs.org) 18+** — only to run the tiny static file
+  server (no npm install, no build step, zero runtime dependencies).
+
+### Get it running
 ```bash
-node tools/serve.mjs 8420      # or double-click run.bat on Windows
-# open http://localhost:8420
+git clone https://github.com/nihilistau/neon-city-lock-down.git
+cd neon-city-lock-down
+node tools/serve.mjs 8420        # or double-click run.bat on Windows
+```
+Open **http://localhost:8420**, confirm you're 18+, set your handle, and enter
+the tower.
+
+### Optional — live voice for un-baked / LLM lines
+Requires the [voxtral](https://github.com/nihilistau/voxtral-mini-realtime-rs) CLI
+built locally (`cargo build --release --features "wgpu,cli,hub"`) with its Q4 TTS
+model downloaded.
+```bash
+node tools/sidecar.mjs 8425      # auto-detected in Director → Settings
 ```
 
-No build step. Plain ES modules + import map.
+### Optional — LLM-rewritten dialogue
+Point an OpenAI-compatible endpoint (LM Studio, llama.cpp, etc.) in
+**Director → Settings**. The authored stat/gate/consent machinery stays in
+charge; the model only restyles the surface prose.
 
-### Optional: live voice for un-baked lines
-```bash
-node tools/sidecar.mjs 8425    # wraps the voxtral CLI; auto-detected in Settings
-```
-
-### Optional: LLM-rewritten dialogue
-Configure an OpenAI-compatible endpoint in the Director → Settings tab. The
-authored stat/gate/consent systems stay authoritative; the LLM only restyles
-surface text.
+---
 
 ## Controls
-- **Chat** — type to the room or a named character (addressee dropdown, bottom-left)
-- **C** — toggle first-person (WASD, mouselook, E interact, Space action) / director orbit cam
-- **F** — cycle camera focus between cast · **E / click** — interact with props
-- **`** (backtick) — Director panel (8 tabs) · **K** — codex · **Esc** — save/load
-- Cutscenes: **Space** skips the current line
 
-## Systems
-- **12-stat emotion model** per character + compliance + derived mood; **7-tier
-  intimacy-gate ladder** (`light_touch → … → depraved`) with in-fiction consent
-  flags and a global explicitness cap (Suggestive / Mature / Full).
-- **Chat-first dialogue engine**: keyword/intent parser, topic graph, mood-reactive
-  line variants, per-character memory, tone side-effects, fallback ladders, optional
-  LLM adapter. Lines carry inline `[[stage:directions]]` that drive animation,
-  facial expression, movement, lighting, camera, and sound.
-- **Procedural humanoids**: 34-bone skeletons, parametrically skinned bodies,
-  canvas + 3D-eye face rigs, a layered animator (gait / clip / additive / gaze),
-  10 outfit states each.
-- **15 zones across 7 floors** (elevator transit), 10 lighting presets, time-of-day,
-  procedural city backdrop + rain, news-ticker monitors.
-- **Survival roguelike**: day/night ticks, rationing, resource economy, system
-  damage/repair, 16 world events + scheduled extraction endgame, perma-death with
-  run summary, light meta-progression (codex + run history).
-- **Combat**: real-time-lite encounters, pure hit/damage/injury resolver, medbay
-  treatment.
-- **Games**: bed game (38 actions, consent-ladder escalation), truth-or-dare (21+21),
-  6 conversational gambits (dice), 2 mystery cases.
-- **Audio**: WebAudio bus graph + ducking, generative music conductor (mood matrix),
-  12 synth SFX, per-zone ambience, VOX formant voice, baked + live TTS.
-- **Cinematics**: camera-spline cutscenes with letterbox, subtitles, voiced lines.
+| Input | Action |
+|---|---|
+| Type + **Enter** | Speak to the room or a named character (addressee dropdown, bottom-left) |
+| **C** | Toggle first-person (WASD move, mouselook, **E** interact, **Space** action) / director orbit cam |
+| **F** | Cycle camera focus between the cast |
+| **E** / click | Interact with props (bar synth, telescope, fireplace, VOX terminal, loot…) |
+| **`** (backtick) | Director panel (8 tabs) |
+| **K** | Codex · **Esc** — save/load menu |
+| **Space** | Skip the current cutscene line |
 
-## Project layout
-```
-index.html            importmap + UI mounts
-src/core/             loop, bus, clock, rng, settings, save, script interpreter
-src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains
-src/chars/            stats, gates, mood, memory, wardrobe (pure logic)
-src/dialogue/         parser, topics, selector, effects, stage directions, engine
-src/scene3d/          stage, zone/furniture builders, materials, lighting, monitors, postfx
-src/humanoid/         skeleton, body/outfit builders, face, animator, gait, paired poses
-src/audio/            engine, music (theory/conductor/instruments), sfx, voice, sidecar
-src/games/            bed game, truth-or-dare, gambits, mystery
-src/ui/               gate, hud, chat, stat bars, director panel + 8 tabs, games, codex
-data/                 all content as validated ES modules (cast, dialogue, zones, events,
-                      scenarios, outfits, poses, games, cutscenes, voice script)
-tools/                serve, bake-tts, sidecar, lint-data
-test/                 node --test unit suites
-```
+---
 
 ## Development
+
 ```bash
-node --test "test/unit/*.test.mjs"    # 44 unit tests (pure logic)
-node tools/lint-data.mjs              # validate all content + references
-node tools/bake-tts.mjs               # (re)bake voice lines (needs the voxtral CLI)
+node --test "test/unit/*.test.mjs"    # 44 unit tests (pure logic: stats, gates, dialogue, combat, theory…)
+node tools/lint-data.mjs              # validate all content modules + cross-references
+node tools/bake-tts.mjs               # (re)bake voice lines via the voxtral CLI (incremental by hash)
 ```
 
-Content register: the intimacy-gate ladder is fully modeled mechanically; authored
-prose runs at a mature adult-romance register, with the top tiers written stylized
-and implied. All characters are adults; every escalation is consent-gated in-fiction.
+No bundler. Plain ES modules + an import map; `vendor/three.module.js` is the only
+vendored library. Content lives in `data/` as validated ES modules; engine code
+in `src/` as many small focused modules.
+
+<details>
+<summary><b>Project layout</b></summary>
+
+```
+index.html            importmap + UI mounts
+src/core/             loop, bus, clock, rng, settings, save, shared script interpreter
+src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains, relationships
+src/chars/            stats, gates, mood, memory, wardrobe (pure logic) + Character aggregate
+src/dialogue/         normalize/intents/tone parser, topic graph, selector, effects,
+                      stage directions, engine, LLM adapter, TTS router
+src/scene3d/          stage, zone/furniture builders, procedural materials, lighting, monitors, post-FX
+src/humanoid/         skeleton, body/outfit builders, face rig, animator, gait, paired poses
+src/audio/            engine, music (theory/conductor/instruments/sequencer), sfx, ambience, voice, sidecar
+src/games/            bed game, truth-or-dare, gambits, mystery
+src/ui/               age gate, HUD, chat, stat bars, director panel + 8 tabs, games, codex, elevator
+src/camera/           camera rig, first-person, director orbit, cinematic
+src/cutscene/         cutscene player (timeline over the shared script interpreter)
+data/                 cast, dialogue packs, zones, events, scenarios, outfits, poses,
+                      games, cutscenes, news, voice script — all validated at import
+tools/                serve, bake-tts, sidecar, lint-data
+test/                 node --test unit suites + a headless smoke contract
+```
+</details>
+
+### Architecture notes
+- **The ActorQueue is the single command spine.** Every character
+  movement/pose/expression — from AI, dialogue stage-directions, events,
+  cutscenes, or the director — routes through one per-character queue. Intimacy-
+  tier commands are consent-gated at the queue.
+- **`gates.js` is the sole authority** on the intimacy ladder, consent flags, and
+  explicitness caps. Every escalation passes through it.
+- **The bus is the only cross-layer channel** (UI ↔ sim ↔ 3D); the composition
+  root (`src/core/app.js`) is the one module that wires everything together.
+
+---
+
+## Content note
+The intimacy-gate ladder is fully modeled **mechanically** — thresholds, consent
+flags, scene states, explicitness caps. Authored prose runs at a mature
+adult-romance register, with the top tiers written stylized and implied rather
+than graphic. All characters are adults; every escalation is consent-gated
+in-fiction.
+
+## License
+Original work. All assets (geometry, textures, audio, UI) are procedurally
+generated or hand-authored for this project. three.js is vendored under its MIT
+license.
