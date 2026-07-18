@@ -54,6 +54,7 @@ export class FirstPersonControls {
     /** @type {import('../humanoid/actor3d.js').Actor3D|null} player body (third person) */
     this.body = null;
     this.thirdPerson = false;    // over-the-shoulder camera + visible body
+    this.aiming = false;         // combat active → hold the two-handed aim stance
     this._moving = false;
 
     this._settleUntil = 0;      // ignore mouselook until this timestamp (ms)
@@ -168,7 +169,8 @@ export class FirstPersonControls {
       // face where the camera aims (horizontal): forward = (-sin, -cos)
       this.body.root.rotation.y = Math.atan2(-Math.sin(this.yaw), -Math.cos(this.yaw));
       this.body.facingTarget = this.body.root.rotation.y;
-      const clip = this._moving ? 'walk' : (this.body.persona.personality.idleClip || 'idle_confident');
+      const clip = this.aiming ? 'aim'
+        : (this._moving ? 'walk' : (this.body.persona.personality.idleClip || 'idle_confident'));
       if (this.body.animator.current?.id !== clip) this.body.playClip(clip, 0.18);
       this.body.update(dt);
     }

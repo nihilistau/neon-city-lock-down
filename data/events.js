@@ -1,7 +1,10 @@
 // @ts-check
-// World event definitions. Slice ships two (blackout, refugee); the full 16 land
-// in Phase 5 with the same schema. Scripts are step lists run by eventRunner's
-// vocabulary (vox/news/light/choice/fx/stat/resource/wait/restore).
+// World event definitions — 17 events (blackout, riot_breach, supply_drop,
+// faction_envoy, drone_strike, kitchen_fire, water_failure, med_emergency,
+// looter, curfew_flyover, courier_offer, defence_misfire, news_bombshell,
+// elevator_stranger, emp_wavefront, extraction_offer, refugee). Each `script` is
+// a step list run by eventRunner's step vocabulary (see docs/event-catalog.md).
+// Weighted-random via the scheduler; extraction_offer is scheduled-only (weight 0).
 
 /**
  * @typedef {Object} EventDef

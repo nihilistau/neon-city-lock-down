@@ -2,6 +2,7 @@
 // Composition root. The only module allowed to import everything and wire it up.
 import '../../data/poses/base.js';
 import '../../data/poses/intimate.js';
+import '../../data/poses/combat.js';
 import '../../data/dialogue/intents.js';
 import '../../data/dialogue/lola/fallbacks.js';
 import '../../data/dialogue/lola/core.js';
@@ -27,6 +28,7 @@ import { Picker } from '../scene3d/picking.js';
 import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
 import { buildPlayerPersona } from '../../data/cast/player.js';
+import { buildWeapon } from '../humanoid/weaponModel.js';
 import { ActorQueue } from '../sim/actors/actorQueue.js';
 import { Character } from '../chars/character.js';
 import { DialogueEngine } from '../dialogue/engine.js';
@@ -195,8 +197,10 @@ export class App {
       }
     });
     // music matrix: combat and intimacy override the baseline mood
-    on('combat.started', () => this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }));
-    on('combat.resolved', () => this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }));
+    on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
+    on('combat.resolved', () => { this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = false; });
+    // keep the hand weapon model in sync with the equipped weapon
+    on('inventory.equipped', () => this._setWeaponModel());
     on('bedgame.started', () => this.conductor.setMood({ intimacy: 0.8, warmth: 0.7, energy: 0.28, tension: 0.05 }));
     on('bedgame.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
     // blackout visuals + consequences
@@ -503,7 +507,23 @@ export class App {
         setTimeout(() => this.cutscene.play(scenario.openingCutscene), 600);
       }
     }
+    this._setWeaponModel();   // resume path emits inventory.changed, not .equipped
     dbg('run started', scenario.id);
+  }
+
+  /** Attach the procedural weapon mesh for the equipped weapon to the player's right hand. */
+  _setWeaponModel() {
+    const hand = this.playerActor?.rig?.byName?.handR;
+    if (!hand) return;
+    if (this._weaponMesh) { hand.remove(this._weaponMesh); this._weaponMesh = null; }
+    const id = this.inventory?.equipped;
+    const key = (id && id !== 'fists') ? this.inventory.equippedWeapon().key : 'fists';
+    const w = buildWeapon(key);
+    // hand-local placement: grip in the fist, barrel clearing the fingers forward
+    w.position.set(0.03, 0.0, 0.06);
+    w.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+    hand.add(w);
+    this._weaponMesh = w;
   }
 
   /** Offer/apply autosave resume. Returns true if a save was restored. */
