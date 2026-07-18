@@ -13,18 +13,36 @@
 // smooth the result.
 import * as THREE from 'three';
 import { settings } from '../core/settings.js';
+import { cfg } from '../core/config.js';
+import { on } from '../core/bus.js';
 
-const EYE = 1.62;
-const RADIUS = 0.26;
-const MAX_DELTA = 40;           // px per event — normal fast flick; larger is clamped
-const SPIKE_DELTA = 200;        // px per event — impossible for a real mouse; dropped
-const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/blur
-const SHOULDER_DIST = 2.7;      // third-person camera distance behind the player
-const SHOULDER_SIDE = 0.85;     // over-the-shoulder side offset (body sits in one third)
-const SHOULDER_UP = 0.14;       // raise the pivot above the eye so the cam clears the head
-const ASSIST_STRENGTH = 7.0;    // per-second pull toward the sticky target (fraction of the error)
-const ASSIST_STICK_DEG = 22;    // half-angle cone (deg) within which magnetism engages
-const ASSIST_SOFTEN_MS = 220;   // magnetism fades back in over this long after a manual look
+// Tuning is config-backed (config/camera.yaml → data/configDefaults.js). These
+// module vars mirror the live config and refresh on load / live edit, so every
+// usage site below stays a plain constant read. See docs/config/camera.md.
+let EYE, RADIUS, MAX_DELTA, SPIKE_DELTA, SETTLE_MS, SHOULDER_DIST, SHOULDER_SIDE, SHOULDER_UP,
+  ASSIST_STRENGTH, ASSIST_STICK_DEG, ASSIST_SOFTEN_MS, MOUSE_SENS, PITCH_CLAMP, LOOK_SMOOTH,
+  WALK_SPEED, RUN_SPEED;
+function _readCameraConfig() {
+  EYE = cfg('camera.eye', 1.62);
+  RADIUS = cfg('camera.radius', 0.26);
+  MAX_DELTA = cfg('camera.mouselook.maxDelta', 40);
+  SPIKE_DELTA = cfg('camera.mouselook.spikeDelta', 200);
+  SETTLE_MS = cfg('camera.mouselook.settleMs', 160);
+  SHOULDER_DIST = cfg('camera.thirdPerson.shoulderDist', 2.7);
+  SHOULDER_SIDE = cfg('camera.thirdPerson.shoulderSide', 0.85);
+  SHOULDER_UP = cfg('camera.thirdPerson.shoulderUp', 0.14);
+  ASSIST_STRENGTH = cfg('camera.aimAssist.strength', 7.0);
+  ASSIST_STICK_DEG = cfg('camera.aimAssist.stickDeg', 22);
+  ASSIST_SOFTEN_MS = cfg('camera.aimAssist.softenMs', 220);
+  MOUSE_SENS = cfg('camera.mouseSensitivity', 0.0019);
+  PITCH_CLAMP = cfg('camera.pitchClamp', 1.35);
+  LOOK_SMOOTH = cfg('camera.lookSmoothing', 30);
+  WALK_SPEED = cfg('camera.walkSpeed', 2.6);
+  RUN_SPEED = cfg('camera.runSpeed', 4.4);
+}
+_readCameraConfig();
+on('config.loaded', _readCameraConfig);
+on('config.changed', (e) => { if (!e || e.group === 'camera') _readCameraConfig(); });
 
 // reusable scratch (avoid per-frame allocation)
 const _EULER = new THREE.Euler();
@@ -77,9 +95,9 @@ export class FirstPersonControls {
       if (Math.abs(mx) > SPIKE_DELTA || Math.abs(my) > SPIKE_DELTA) return; // impossible jump → drop
       mx = THREE.MathUtils.clamp(mx, -MAX_DELTA, MAX_DELTA);
       my = THREE.MathUtils.clamp(my, -MAX_DELTA, MAX_DELTA);
-      const sens = 0.0019 * (settings.mouseSensitivity ?? 1);
+      const sens = MOUSE_SENS * (settings.mouseSensitivity ?? 1);
       this._targetYaw -= mx * sens;
-      this._targetPitch = THREE.MathUtils.clamp(this._targetPitch - my * sens, -1.35, 1.35);
+      this._targetPitch = THREE.MathUtils.clamp(this._targetPitch - my * sens, -PITCH_CLAMP, PITCH_CLAMP);
       this._lastLookMs = performance.now();   // player is aiming → suspend auto-track
     };
     this._settle = () => { this._settleUntil = performance.now() + SETTLE_MS; };
@@ -176,7 +194,7 @@ export class FirstPersonControls {
     const soft = THREE.MathUtils.clamp((performance.now() - this._lastLookMs) / ASSIST_SOFTEN_MS, 0, 1);
     const k = Math.min(0.5, ASSIST_STRENGTH * prox * soft * dt);
     this._targetYaw += bestYaw * k;
-    this._targetPitch = THREE.MathUtils.clamp(this._targetPitch + bestPitch * k, -1.35, 1.35);
+    this._targetPitch = THREE.MathUtils.clamp(this._targetPitch + bestPitch * k, -PITCH_CLAMP, PITCH_CLAMP);
   }
 
   /** @param {number} dt seconds */
@@ -185,13 +203,13 @@ export class FirstPersonControls {
     this._aimAssist(dt);   // hostile auto-track nudges the targets before smoothing
     // ease actual view toward the target — small smoothing kills jitter without
     // adding perceptible lag (≈1 frame at 60fps)
-    const k = Math.min(1, dt * 30);
+    const k = Math.min(1, dt * LOOK_SMOOTH);
     this.yaw += (this._targetYaw - this.yaw) * k;
     this.pitch += (this._targetPitch - this.pitch) * k;
     if (!Number.isFinite(this.yaw)) { this.yaw = this._targetYaw = Math.PI; }
     if (!Number.isFinite(this.pitch)) { this.pitch = this._targetPitch = 0; }
 
-    const speed = this.keys.has('ShiftLeft') ? 4.4 : 2.6;
+    const speed = this.keys.has('ShiftLeft') ? RUN_SPEED : WALK_SPEED;
     const f = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     this._moving = !!(f || s);

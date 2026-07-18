@@ -7,6 +7,7 @@
 // C-toggle / orbit / first-person drops out of it.
 import * as THREE from 'three';
 import { on } from '../core/bus.js';
+import { cfg } from '../core/config.js';
 
 const HEAD = new THREE.Vector3();
 const A = new THREE.Vector3();
@@ -35,11 +36,13 @@ export class CameraDirector {
   }
 
   _subscribe() {
-    on('chat.reply', ({ speaker }) => this._push('dialogue', 3, 4.5, { speaker }));
-    on('combat.started', () => this._push('action', 6, 1e9, {}));
+    const sp = (t) => cfg(`camera.director.shots.${t}.priority`, { dialogue: 3, action: 6, event: 4 }[t]);
+    const st = (t) => cfg(`camera.director.shots.${t}.ttl`, { dialogue: 4.5, action: 1e9, event: 4 }[t]);
+    on('chat.reply', ({ speaker }) => this._push('dialogue', sp('dialogue'), st('dialogue'), { speaker }));
+    on('combat.started', () => this._push('action', sp('action'), st('action'), {}));
     on('combat.resolved', () => { this._pop('action'); this._shake = 0; });
-    on('player.health', () => { if (this._top()?.type === 'action') this._shake = 0.5; });
-    on('event.fired', () => this._push('event', 4, 4, {}));
+    on('player.health', () => { if (this._top()?.type === 'action') this._shake = cfg('camera.director.shakeOnHit', 0.5); });
+    on('event.fired', () => this._push('event', sp('event'), st('event'), {}));
     on('bedgame.started', () => { this._suspended = true; });
     on('bedgame.ended', () => { this._suspended = false; });
   }
@@ -74,16 +77,16 @@ export class CameraDirector {
     // hard cut when the subject changes; smooth ease within a shot
     const cut = type !== this._activeType;
     this._activeType = type;
-    const k = cut ? 1 : 1 - Math.pow(0.0008, dt);
+    const k = cut ? 1 : 1 - Math.pow(cfg('camera.director.easeBase', 0.0008), dt);
     this._pos.lerp(frame.eye, k);
     this._look.lerp(frame.look, k);
 
     // handheld shake during action, decaying
     let px = 0, py = 0;
     if (this._shake > 0.001) {
-      const s = this._shake * 0.06;
+      const s = this._shake * cfg('camera.director.shakeAmp', 0.06);
       px = Math.sin(this._t * 47) * s; py = Math.cos(this._t * 41) * s;
-      this._shake *= Math.pow(0.06, dt);
+      this._shake *= Math.pow(cfg('camera.director.shakeDecay', 0.06), dt);
     }
     this.camera.position.set(this._pos.x + px, this._pos.y + py, this._pos.z);
     this.camera.lookAt(this._look);
@@ -106,9 +109,10 @@ export class CameraDirector {
       for (const ch of cast) c.add(ch.actor.root.position);
       c.multiplyScalar(1 / cast.length); c.y = 1.15;
     } else { c.set(-3.5, 1.15, 0); }
-    const a = this._t * 0.12;
+    const radius = cfg('camera.director.establishing.radius', 4.2);
+    const a = this._t * cfg('camera.director.establishing.speed', 0.12);
     return {
-      eye: B.set(c.x + Math.cos(a) * 4.2, 2.6, c.z + Math.sin(a) * 4.2).clone(),
+      eye: B.set(c.x + Math.cos(a) * radius, cfg('camera.director.establishing.height', 2.6), c.z + Math.sin(a) * radius).clone(),
       look: c.clone(),
     };
   }
@@ -146,15 +150,16 @@ export class CameraDirector {
     const axis = B.subVectors(target, player); axis.y = 0;
     if (axis.lengthSq() < 0.01) axis.set(1, 0, 0);
     axis.normalize();
-    const perp = new THREE.Vector3(-axis.z, 0, axis.x).multiplyScalar(span * 0.9 + 1.5);
-    const eye = mid.clone().add(perp); eye.y = 2.2;
+    const perp = new THREE.Vector3(-axis.z, 0, axis.x)
+      .multiplyScalar(span * cfg('camera.director.action.spanFactor', 0.9) + cfg('camera.director.action.spanPad', 1.5));
+    const eye = mid.clone().add(perp); eye.y = cfg('camera.director.action.eyeY', 2.2);
     return { eye, look: mid.clone() };
   }
 
   /** brief wide of the room when an event fires, then it expires back to normal */
   _compose_event() {
     const est = this._compose_establishing();
-    est.eye.y = 3.1;
+    est.eye.y = cfg('camera.director.event.eyeY', 3.1);
     return est;
   }
 }

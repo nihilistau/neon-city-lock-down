@@ -7,9 +7,13 @@
 // NEAR_M of the intersection) — standing in the open behind a distant couch
 // does nothing.
 
-const MIN_TOP = 0.5;    // too low to hide behind
-const MAX_TOP = 1.45;   // taller than this and it's a wall, not crouch-cover
-const NEAR_M = 2.2;     // defender must be this close behind the obstacle
+// Cover tuning — defaults from data/configDefaults.js (combat.cover), shared with
+// config/combat.yaml. Sourced at module load (pure/Node-safe for the unit test).
+import { CONFIG_DEFAULTS } from '../../../data/configDefaults.js';
+const C = CONFIG_DEFAULTS.combat.cover;
+const MIN_TOP = C.minTop;   // too low to hide behind
+const MAX_TOP = C.maxTop;   // taller than this and it's a wall, not crouch-cover
+const NEAR_M = C.nearM;     // defender must be this close behind the obstacle
 
 /** does the 2D segment (x0,z0)→(x1,z1) cross the box's XZ rectangle? slab test */
 function segmentHitsBoxXZ(x0, z0, x1, z1, box) {
@@ -47,7 +51,7 @@ export function coverBetween(pos, from, colliders) {
     if (t == null) continue;
     const distToObstacle = t * segLen;
     if (distToObstacle > NEAR_M) continue;   // obstacle too far ahead to duck behind
-    const quality = top >= 0.9 ? 0.65 : 0.4;
+    const quality = top >= C.tallAt ? C.qualityTall : C.qualityLow;
     if (quality > best) best = quality;
   }
   return best;
@@ -72,12 +76,12 @@ export function findCoverSpot(colliders, threat, near, walkable) {
     const len = Math.hypot(dx, dz) || 1;
     dx /= len; dz /= len;
     // stand just past the box on the away-from-threat side
-    const px = cx + dx * (Math.abs(dx) * halfX + Math.abs(dz) * halfX + 0.55);
-    const pz = cz + dz * (Math.abs(dz) * halfZ + Math.abs(dx) * halfZ + 0.55);
+    const px = cx + dx * (Math.abs(dx) * halfX + Math.abs(dz) * halfX + C.offset);
+    const pz = cz + dz * (Math.abs(dz) * halfZ + Math.abs(dx) * halfZ + C.offset);
     if (walkable && !walkable(px, pz)) continue;
-    const quality = top >= 0.9 ? 0.65 : 0.4;
+    const quality = top >= C.tallAt ? C.qualityTall : C.qualityLow;
     const distNear = Math.hypot(px - near.x, pz - near.z);
-    if (distNear > 14) continue;
+    if (distNear > C.maxRange) continue;
     const score = quality * 10 - distNear;
     if (score > bestScore) { bestScore = score; best = { x: px, z: pz, quality }; }
   }

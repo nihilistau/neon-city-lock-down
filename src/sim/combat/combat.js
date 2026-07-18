@@ -12,9 +12,12 @@
 // - LOOT: downed hostiles are stripped for ammo and the occasional item.
 import * as THREE from 'three';
 import { Actor3D } from '../../humanoid/actor3d.js';
-import { resolveAttack, rollInjury, WEAPONS, HOSTILE_ARCHETYPES, hitChance } from './resolver.js';
+import { resolveAttack, rollInjury, hitChance } from './resolver.js';
 import { coverBetween, findCoverSpot } from './cover.js';
 import { emit } from '../../core/bus.js';
+import { cfg } from '../../core/config.js';
+// Live combat data (hot-reloadable via config/combat.yaml)
+const weapons = () => cfg('combat.weapons');
 import { feed } from '../../core/log.js';
 import { spend } from '../world.js';
 
@@ -40,9 +43,8 @@ function hostilePersona(arch, i, rng) {
   };
 }
 
-const TURRET_PERIOD = 2.6;
-const WAVE_DELAY = 6;
-const MAG_SIZE = { sidearm: 12, smg: 25, pipe: 1, shiv: 1 };
+// TURRET_PERIOD / WAVE_DELAY / MAG_SIZE now live in config/combat.yaml
+// (data/configDefaults.js) — read via cfg() at use so edits hot-reload.
 
 export class Combat {
   /**
@@ -101,7 +103,7 @@ export class Combat {
 
     // load the magazine from the reserve for the equipped weapon
     const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm' };
-    this.magSize = MAG_SIZE[wpn.key] ?? 12;
+    this.magSize = cfg('combat.magSize')[wpn.key] ?? 12;
     this.mag = Math.min(this.magSize, this.d.run().resources.ammo);
     this.d.run().resources.ammo -= this.mag;
 
@@ -115,7 +117,7 @@ export class Combat {
     const waveSpec = this._pendingWaves.shift();
     if (!waveSpec) return;
     this.wave++;
-    const arch = HOSTILE_ARCHETYPES[waveSpec.archetype];
+    const arch = cfg('combat.hostileArchetypes')[waveSpec.archetype];
     for (let i = 0; i < waveSpec.count; i++) {
       const persona = hostilePersona(waveSpec.archetype, i, this.d.rng);
       const actor = new Actor3D(persona);
@@ -213,7 +215,7 @@ export class Combat {
   /** hit % preview for the HUD */
   playerHitChance(h) {
     const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm', ranged: true };
-    const weapon = WEAPONS[wpn.key] || WEAPONS.sidearm;
+    const weapon = weapons()[wpn.key] || weapons().sidearm;
     const p = this.d.playerMarker.position;
     const dist = h.actor.root.position.distanceTo(p);
     const cover = coverBetween(
@@ -272,7 +274,7 @@ export class Combat {
     if (!this.active || h.hp <= 0) return;
     const run = this.d.run();
     const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm', ranged: true, name: 'Sidearm' };
-    const weapon = WEAPONS[wpn.key] || WEAPONS.sidearm;
+    const weapon = weapons()[wpn.key] || weapons().sidearm;
     const p = this.d.playerMarker.position;
     const dist = h.actor.root.position.distanceTo(p);
 
@@ -359,7 +361,7 @@ export class Combat {
       const tCover = coverBetween(
         { x: target.actor.root.position.x, z: target.actor.root.position.z },
         { x: cp.x, z: cp.z }, this._colliders());
-      const res = resolveAttack({ weapon: WEAPONS.sidearm, skill, distance: dist, cover: tCover }, this.d.rng);
+      const res = resolveAttack({ weapon: weapons().sidearm, skill, distance: dist, cover: tCover }, this.d.rng);
       c.actor.lookAt(target.actor.root);
       this._fxShot(new THREE.Vector3(cp.x, 1.3, cp.z), target.actor.root.position.clone().setY(1.2), res.hit);
       if (res.hit) {
@@ -389,12 +391,12 @@ export class Combat {
     turret.yoke.lookAt(tp.x, 1.2, tp.z);
 
     this._turretT += dt;
-    if (this._turretT < TURRET_PERIOD) return;
+    if (this._turretT < cfg('combat.turretPeriod', 2.6)) return;
     this._turretT = 0;
 
     const skill = 20 + grid.hp * 0.55;    // a healthy grid shoots straight
     const dist = world.distanceTo(tp);
-    const res = resolveAttack({ weapon: WEAPONS.smg, skill, distance: Math.max(2, dist * 0.6) }, this.d.rng);
+    const res = resolveAttack({ weapon: weapons().smg, skill, distance: Math.max(2, dist * 0.6) }, this.d.rng);
     turret.muzzle.material.emissiveIntensity = 6;
     this.d.sfx('gunshot');
     const muzzleW = turret.muzzle.getWorldPosition(new THREE.Vector3());
@@ -426,7 +428,7 @@ export class Combat {
         const d2 = h.actor.root.position.distanceTo(t.pos);
         if (d2 < bestD) { bestD = d2; best = t; }
       }
-      const weapon = WEAPONS[h.arch.weapon];
+      const weapon = weapons()[h.arch.weapon];
       const reach = weapon.range + 0.4;
       const hp3 = h.actor.root.position;
 
@@ -509,9 +511,9 @@ export class Combat {
         this._waveCountdown += dt;
         if (this._waveCountdown === dt) {
           emit('hud.alert', { text: 'MORE INBOUND — drop the shutters or dig in', kind: 'warn' });
-          emit('combat.waveIncoming', { inSec: WAVE_DELAY });
+          emit('combat.waveIncoming', { inSec: cfg('combat.waveDelay', 6) });
         }
-        if (this._waveCountdown >= WAVE_DELAY) {
+        if (this._waveCountdown >= cfg('combat.waveDelay', 6)) {
           this._waveCountdown = 0;
           this._spawnWave();
         }

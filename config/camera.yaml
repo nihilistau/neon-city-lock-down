@@ -1,0 +1,47 @@
+# Camera config — first/third person controller, situational director, orbit rig.
+# Loaded at boot over data/configDefaults.js. Delete any key to keep its default;
+# delete the file entirely to use pure defaults. Full reference: docs/config/camera.md.
+# Edits here take effect on reload (or live via the config API / creation kit).
+# NOTE: saving through the in-game config API reformats this file and drops
+# comments (js-yaml dump) — the authoritative docs live in docs/config/camera.md.
+
+eye: 1.62                 # eye height, metres
+radius: 0.26              # body collision radius
+walkSpeed: 2.6            # m/s
+runSpeed: 4.4             # m/s (Shift)
+mouseSensitivity: 0.0019  # base radians per mouse pixel (× settings.mouseSensitivity)
+pitchClamp: 1.35          # max look up/down, radians
+lookSmoothing: 30         # ease rate toward the look target (× dt)
+
+mouselook:
+  maxDelta: 40            # px/event clamp (fast flick)
+  spikeDelta: 200         # px/event dropped as an impossible spike (anti spin-out)
+  settleMs: 160           # ignore mouselook this long after pointer-lock/focus/blur
+
+thirdPerson:
+  shoulderDist: 2.7       # camera distance behind the player
+  shoulderSide: 0.85      # over-the-shoulder side offset (body sits in one third)
+  shoulderUp: 0.14        # pivot raise above the eye
+
+aimAssist:                # continuous combat magnetism (sticky aim)
+  strength: 7.0           # per-second pull toward the target
+  stickDeg: 22            # half-angle cone (deg) within which magnetism engages
+  softenMs: 220           # magnetism ramps back over this long after a manual look
+
+director:                 # situational auto-camera (mode 'auto')
+  shots:                  # priority (higher wins) + time-to-live seconds
+    dialogue: { priority: 3, ttl: 4.5 }
+    action:   { priority: 6, ttl: 1000000000 }
+    event:    { priority: 4, ttl: 4 }
+  easeBase: 0.0008        # per-second lerp base (1 - base^dt)
+  shakeOnHit: 0.5         # handheld shake impulse when the player is hit
+  shakeDecay: 0.06        # shake decay base (^dt)
+  shakeAmp: 0.06          # shake amplitude, metres
+  establishing: { radius: 4.2, height: 2.6, speed: 0.12 }
+  action:        { eyeY: 2.2, spanFactor: 0.9, spanPad: 1.5 }
+  event:         { eyeY: 3.1 }
+
+rig:
+  orbit: { damping: 0.08, maxPolar: 1.6336, minDist: 1.2, maxDist: 18 }
+  target: [-3.5, 1.1, 0]
+  initialPos: [2.5, 3.2, 5.5]

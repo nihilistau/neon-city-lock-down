@@ -7,6 +7,7 @@ import { FirstPersonControls } from './firstPerson.js';
 import { CameraDirector } from './cameraDirector.js';
 import { emit } from '../core/bus.js';
 import { settings, setSetting } from '../core/settings.js';
+import { cfg } from '../core/config.js';
 
 export class CameraRig {
   /**
@@ -19,12 +20,12 @@ export class CameraRig {
 
     this.orbit = new OrbitControls(this.camera, stage.renderer.domElement);
     this.orbit.enableDamping = true;
-    this.orbit.dampingFactor = 0.08;
-    this.orbit.maxPolarAngle = Math.PI * 0.52;
-    this.orbit.minDistance = 1.2;
-    this.orbit.maxDistance = 18;
-    this.orbit.target.set(-3.5, 1.1, 0);
-    this.camera.position.set(2.5, 3.2, 5.5);
+    this.orbit.dampingFactor = cfg('camera.rig.orbit.damping', 0.08);
+    this.orbit.maxPolarAngle = cfg('camera.rig.orbit.maxPolar', Math.PI * 0.52);
+    this.orbit.minDistance = cfg('camera.rig.orbit.minDist', 1.2);
+    this.orbit.maxDistance = cfg('camera.rig.orbit.maxDist', 18);
+    this.orbit.target.set(...cfg('camera.rig.target', [-3.5, 1.1, 0]));
+    this.camera.position.set(...cfg('camera.rig.initialPos', [2.5, 3.2, 5.5]));
 
     this.fp = new FirstPersonControls(this.camera, stage.renderer.domElement, world);
     /** @type {CameraDirector|null} situational auto-camera (attached post-setup) */

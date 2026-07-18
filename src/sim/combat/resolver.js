@@ -1,5 +1,10 @@
 // @ts-check
 // PURE combat math — no three.js/DOM. Attack resolution, damage, injuries.
+// WEAPONS/HOSTILE_ARCHETYPES default values live in data/configDefaults.js
+// (combat group) so they share one source of truth with config/combat.yaml.
+// These exports are the defaults (used by tests + the HUD preview); the runtime
+// combat controller reads live values via cfg('combat.*') for hot-reload.
+import { CONFIG_DEFAULTS } from '../../../data/configDefaults.js';
 
 /**
  * @typedef {Object} Weapon
@@ -10,12 +15,7 @@
  */
 
 /** @type {Record<string, Weapon>} */
-export const WEAPONS = {
-  sidearm: { id: 'sidearm', damage: [12, 22], accuracy: 0.78, range: 9 },
-  smg: { id: 'smg', damage: [8, 14], accuracy: 0.6, range: 7 },
-  pipe: { id: 'pipe', damage: [6, 12], accuracy: 0.85, range: 1.2 },
-  shiv: { id: 'shiv', damage: [5, 10], accuracy: 0.8, range: 1 },
-};
+export const WEAPONS = CONFIG_DEFAULTS.combat.weapons;
 
 /**
  * Probability an attack lands (shared by resolveAttack and the combat HUD's
@@ -75,8 +75,4 @@ export function rollInjury(damage, rng, atMinute = 0) {
  * Hostile archetype stats.
  * @type {Record<string, {hp:number, skill:number, weapon:string, speed:number, aggression:number}>}
  */
-export const HOSTILE_ARCHETYPES = {
-  rioter: { hp: 45, skill: 30, weapon: 'pipe', speed: 1.5, aggression: 0.8 },
-  looter: { hp: 35, skill: 25, weapon: 'shiv', speed: 1.7, aggression: 0.5 },
-  merc: { hp: 70, skill: 65, weapon: 'smg', speed: 1.3, aggression: 0.95 },
-};
+export const HOSTILE_ARCHETYPES = CONFIG_DEFAULTS.combat.hostileArchetypes;

@@ -6,6 +6,7 @@ import { join, normalize, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleLLM } from './llmProxy.mjs';
 import { handleEngine } from './gameEngine.mjs';
+import { handleConfig } from './configApi.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const PORT = Number(process.argv[2] || 8420);
@@ -32,6 +33,10 @@ createServer(async (req, res) => {
     // legacy LM Studio REST proxy (kept as a fallback path)
     if (url.pathname.startsWith('/api/llm/')) {
       if (await handleLLM(req, res, url)) return;
+    }
+    // engine config read/write (creation kit)
+    if (url.pathname.startsWith('/api/config')) {
+      if (await handleConfig(req, res, url)) return;
     }
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) path += 'index.html';

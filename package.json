@@ -7,7 +7,9 @@
   "scripts": {
     "serve": "node tools/serve.mjs 8420",
     "test": "node --test test/unit/*.mjs",
-    "lint": "node tools/lint-data.mjs",
+    "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs",
+    "lint:data": "node tools/lint-data.mjs",
+    "lint:config": "node tools/lint-config.mjs",
     "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true"
   },
   "dependencies": {
