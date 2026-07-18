@@ -69,7 +69,7 @@ export function initHud() {
   });
 
   const camHint = root.querySelector('#hud-hint');
-  const keyHelp = ' · ` director · K codex · Esc save';
+  const keyHelp = ' · ` director · I inventory · K codex · Esc save';
   on('camera.mode', ({ mode }) => {
     camHint.textContent = (mode === 'firstPerson'
       ? 'C director cam · WASD move · E interact · click mouselook'

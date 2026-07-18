@@ -72,6 +72,8 @@ import { ZONES, FLOORS } from '../../data/zones.js';
 import { zoneAt } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
+import { Inventory } from '../sim/inventory.js';
+import { InventoryUI } from '../ui/inventory.js';
 import { addCodex } from '../sim/meta.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
@@ -127,8 +129,12 @@ export class App {
     } catch { return {}; }
   }
 
-  /** Build the world and begin a run (slice: straight into the penthouse). */
-  async startRun() {
+  /**
+   * Build the world and begin a run.
+   * @param {{scenarioId?:string, loadout?:string, resume?:boolean}} [opts]
+   */
+  async startRun(opts = {}) {
+    this._startOpts = opts;
     this.bootScene.dispose();
     this.bootScene = null;
     this.mode = 'run';
@@ -306,6 +312,10 @@ export class App {
     this.stage.scene.add(this.playerMarker);
     this.player = { name: settings.playerName, dominance: 55 };
 
+    // player inventory + items UI
+    this.inventory = new Inventory(this);
+    this.inventoryUI = new InventoryUI(this);
+
     // combat controller (needs picker + playerMarker)
     this.combat = new Combat({
       stage: this.stage,
@@ -316,6 +326,7 @@ export class App {
       sfx: (id) => playSfx(audio, id),
       picker: this.picker,
       nowMinute: () => this.clock.totalMinutes,
+      equipped: () => this.inventory.equippedWeapon(),
     });
 
     // voice: baked manifest + optional live sidecar
@@ -398,20 +409,25 @@ export class App {
     emit('resources.changed', this.run.resources);
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
 
-    // scenario: mood shifts + opening cutscene (fresh runs only)
-    const scenario = SCENARIOS.first_night;
+    // scenario + loadout (fresh runs only); resume restores everything from autosave
+    const scenario = SCENARIOS[this._startOpts.scenarioId] || SCENARIOS.first_night;
     this.scenarioId = scenario.id;
-    const resumed = this._tryResume();
+    const resumed = this._startOpts.resume !== false && this._tryResume();
     if (!resumed) {
+      this.inventory.applyLoadout(this._startOpts.loadout || 'fixer');
+      if (scenario.lighting) this.lighting.apply(scenario.lighting, 0.5);
       for (const [id, deltas] of Object.entries(scenario.castMoodShifts || {})) {
         this.cast[id]?.applyStats(deltas, 'scenario');
       }
+      for (const [id, [zone, wp]] of Object.entries(scenario.placements || {})) {
+        const c = this.cast[id];
+        if (c && c.id !== 'vox') { c.queue.clear(); c.queue.goto(zone, wp); }
+      }
       if (scenario.openingCutscene) {
-        // slight delay so the first frame settles before the camera takes over
         setTimeout(() => this.cutscene.play(scenario.openingCutscene), 600);
       }
     }
-    dbg('run started');
+    dbg('run started', scenario.id);
   }
 
   /** Offer/apply autosave resume. Returns true if a save was restored. */
@@ -597,14 +613,45 @@ export class App {
         this.cast.vox; // (VOX joins the cast in Phase 3)
         break;
       }
-      case prop.id === 'med_cabinet': gainRes('meds', 3, 'You find 3 med units.'); break;
-      case prop.id === 'weapon_rack': gainRes('ammo', 24, 'You strip 24 rounds from the racks.'); break;
+      case prop.id === 'med_cabinet':
+        if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); break; }
+        looted[prop.id] = true;
+        gainRes('meds', 3, 'You find 3 med units and a field kit.');
+        this.inventory.add('medkit', 1);
+        break;
+      case prop.id === 'weapon_rack':
+        if (looted[prop.id]) { emit('hud.alert', { text: 'The racks are stripped.', kind: 'warn' }); break; }
+        looted[prop.id] = true;
+        this.run.resources.ammo += 24;
+        emit('resources.changed', this.run.resources);
+        this.inventory.add('smg', 1);
+        this.inventory.add('sidearm', 1);
+        emit('hud.alert', { text: 'You arm up: an SMG, a sidearm, and 24 rounds.', kind: 'info' });
+        playSfx(audio, 'ui_confirm');
+        break;
       case prop.id === 'ammo_crate': gainRes('ammo', 18, 'The crate holds 18 rounds.'); break;
-      case prop.id === 'supply_crate': gainRes('parts', 3, 'Salvage: 3 spare parts.'); break;
-      case prop.id === 'roof_crate': gainRes('food', 5, 'Someone cached food up here. 5 meals.'); break;
+      case prop.id === 'supply_crate':
+        if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); break; }
+        looted[prop.id] = true;
+        this.run.resources.parts += 3; emit('resources.changed', this.run.resources);
+        this.inventory.add('stim', 2);
+        emit('hud.alert', { text: 'Salvage: 3 parts and 2 combat stims.', kind: 'info' });
+        break;
+      case prop.id === 'roof_crate':
+        if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); break; }
+        looted[prop.id] = true;
+        this.run.resources.food += 5; emit('resources.changed', this.run.resources);
+        this.inventory.add('ration', 3);
+        emit('hud.alert', { text: 'A survival cache — 5 meals and 3 ration bars.', kind: 'info' });
+        break;
       case prop.id === 'stash_crate':
-        gainRes('luxury', 4, 'A smuggler stash — whiskey and cigarettes.');
-        addCodex('stash', 'The Basement Stash', 'Someone was smuggling luxury goods through the carpark. They never came back for them.');
+        if (looted[prop.id]) { emit('hud.alert', { text: 'The stash is empty now.', kind: 'warn' }); break; }
+        looted[prop.id] = true;
+        this.run.resources.luxury += 4; emit('resources.changed', this.run.resources);
+        this.inventory.add('jammer', 1);
+        this.inventory.add('jewels', 3);
+        emit('hud.alert', { text: 'A smuggler stash — whiskey, a signal jammer, loose stones.', kind: 'info' });
+        addCodex('stash', 'The Basement Stash', 'Someone was smuggling contraband through the carpark. They never came back for it.');
         break;
       default:
         feed(`${settings.playerName} used ${prop.id}.`, 'info');

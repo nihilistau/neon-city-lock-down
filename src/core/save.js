@@ -24,6 +24,7 @@ export function buildSave(app, label = '') {
     rng: app.rng.serialize(),
     run: app.run,
     scheduler: app.scheduler.serialize(),
+    inventory: app.inventory?.serialize(),
     lighting: app.lighting.presetId,
     characters: Object.fromEntries(Object.values(app.cast).map((c) => [c.id, {
       ...c.serialize(),
@@ -54,6 +55,7 @@ export function applySave(app, save) {
   app.clock.deserialize(save.clock);
   Object.assign(app.run, save.run);
   app.scheduler.deserialize(save.scheduler);
+  app.inventory?.deserialize(save.inventory);
   app.lighting.apply(save.lighting || 'neon_night', 0.01);
   for (const [id, data] of Object.entries(save.characters)) {
     const c = app.cast[id];

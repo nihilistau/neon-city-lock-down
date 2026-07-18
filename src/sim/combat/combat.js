@@ -90,20 +90,33 @@ export class Combat {
   playerShoot(h) {
     if (!this.active || h.hp <= 0) return;
     const run = this.d.run();
-    if (run.resources.ammo < 1) {
-      emit('hud.alert', { text: 'OUT OF AMMO', kind: 'danger' });
-      this.d.sfx('ui_deny');
-      return;
-    }
-    spend(run, 'ammo', 1);
-    emit('resources.changed', run.resources);
-    this.d.sfx('gunshot');
+    const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm', ranged: true, name: 'Sidearm' };
+    const weapon = WEAPONS[wpn.key] || WEAPONS.sidearm;
     const dist = h.actor.root.position.distanceTo(this.d.playerMarker.position);
-    const res = resolveAttack({ weapon: WEAPONS.sidearm, skill: 70, distance: dist }, this.d.rng);
+
+    // melee weapons need to be in reach; ranged need ammo
+    if (wpn.ranged) {
+      if (run.resources.ammo < 1) {
+        emit('hud.alert', { text: 'OUT OF AMMO — equip a melee weapon (I)', kind: 'danger' });
+        this.d.sfx('ui_deny');
+        return;
+      }
+      spend(run, 'ammo', 1);
+      emit('resources.changed', run.resources);
+      this.d.sfx('gunshot');
+    } else {
+      if (dist > weapon.range + 1.0) {
+        emit('hud.alert', { text: `Too far for the ${wpn.name} — get closer`, kind: 'warn' });
+        return;
+      }
+      this.d.sfx('thump');
+    }
+
+    const res = resolveAttack({ weapon, skill: 70, distance: dist }, this.d.rng);
     if (res.hit) {
       this._damageHostile(h, res.damage, res.crit ? 'Critical hit!' : null);
     } else {
-      feed('Your shot goes wide.', 'combat');
+      feed(wpn.ranged ? 'Your shot goes wide.' : 'You swing and miss.', 'combat');
     }
   }
 
