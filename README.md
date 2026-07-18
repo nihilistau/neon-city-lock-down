@@ -159,14 +159,21 @@ charge; the model only restyles the surface prose.
 | Input | Action |
 |---|---|
 | Type + **Enter** | Speak to the room or a named character (addressee dropdown, bottom-left) |
-| **C** | Toggle first-person (WASD move, mouselook, **E** interact, **Space** action) / director orbit cam |
-| **F** | Cycle camera focus between the cast |
+| **C** | Cycle camera: cinematic auto-director → third-person (over-shoulder) → first-person → free orbit |
+| **WASD** / mouselook | Move the player avatar + aim (first / third person) |
+| **LMB** / **R** | Fire weapon / reload (in combat) · **Space** context action |
+| **F** | Cycle camera focus between the cast (orbit mode) |
 | **E** / click | Interact with props (bar synth, telescope, fireplace, curtains, VOX terminal, loot…) |
-| **`** (backtick) | Director panel (8 tabs) |
+| **P** | Day plan — spend action points (repair, fortify, forage, drill, rest, deal) + objectives |
+| **`** (backtick) | Director panel (8 tabs) · **L** — LLM engine panel |
 | **I** | Inventory · **K** — codex · **Esc** — save/load menu |
 | **Space** | Skip the current cutscene line |
 
-Mouse sensitivity for first-person is adjustable in **Director → Settings**.
+The situational **auto-camera** frames combat, dialogue, and events on its own; any manual mode takes
+over instantly. Toggle it and mouse sensitivity in **Director → Settings**.
+
+📖 **Engine documentation** lives in [`docs/`](docs/README.md) — architecture overview, per-system
+API references, the gameplay loop, and the event catalog.
 
 ---
 
