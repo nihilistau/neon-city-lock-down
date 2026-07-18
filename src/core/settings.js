@@ -7,10 +7,11 @@ const KEY = 'ncld.settings';
 const DEFAULTS = {
   confirmed18: false,
   playerName: 'Cipher',
-  playerPronouns: 'they',        // 'they' | 'she' | 'he'
+  playerPronouns: 'she',         // 'she' (Female) | 'he' (Male)
   explicitness: 'mature',        // 'suggestive' | 'mature' | 'full'
   volumes: { master: 0.8, music: 0.7, sfx: 0.8, ambience: 0.7, voice: 1.0, ui: 0.6 },
   cameraMode: 'director',        // 'director' | 'firstPerson'
+  mouseSensitivity: 1,           // 0.3 .. 2.5 multiplier for first-person look
   subtitleScale: 1,
   llm: { enabled: false, baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
   tts: { sidecarUrl: 'http://localhost:8425', useSidecar: true },

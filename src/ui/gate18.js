@@ -26,11 +26,10 @@ export function showGate18() {
            this content.</p>
         <div class="row"><label for="g18-name">Handle</label>
           <input id="g18-name" type="text" maxlength="18" value="${settings.playerName}" spellcheck="false"></div>
-        <div class="row"><label for="g18-pro">Pronouns</label>
+        <div class="row"><label for="g18-pro">Gender</label>
           <select id="g18-pro">
-            <option value="they" ${settings.playerPronouns === 'they' ? 'selected' : ''}>they / them</option>
-            <option value="she" ${settings.playerPronouns === 'she' ? 'selected' : ''}>she / her</option>
-            <option value="he" ${settings.playerPronouns === 'he' ? 'selected' : ''}>he / him</option>
+            <option value="she" ${settings.playerPronouns !== 'he' ? 'selected' : ''}>Female</option>
+            <option value="he" ${settings.playerPronouns === 'he' ? 'selected' : ''}>Male</option>
           </select></div>
         <div class="actions">
           <button id="g18-leave" class="danger">I'm under 18 — leave</button>

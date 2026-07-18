@@ -2,10 +2,18 @@
 // First-person controls: pointer-lock mouselook + WASD, E interact, SPACE
 // context action, shift run. Collision: the active floor's walk-rect union
 // (rect edges ARE the walls) + furniture AABB push-out.
+//
+// Mouselook robustness: Chromium can deliver enormous movementX/Y spikes right
+// after pointer-lock engages or on alt-tab return, and some devices emit NaN on
+// the first event — either one turns the camera into an uncontrollable spin.
+// We clamp per-event deltas, reject non-finite values, swallow the first event
+// after each lock, and smooth the result.
 import * as THREE from 'three';
+import { settings } from '../core/settings.js';
 
 const EYE = 1.62;
 const RADIUS = 0.26;
+const MAX_DELTA = 120;          // px per event — anything larger is a glitch spike
 
 export class FirstPersonControls {
   /**
@@ -27,10 +35,29 @@ export class FirstPersonControls {
     /** @type {(() => void)|null} context action — SPACE */
     this.onAction = null;
 
+    this._justLocked = false;
+    // smoothed look target (raw deltas write these; update() eases toward them)
+    this._targetYaw = this.yaw;
+    this._targetPitch = this.pitch;
+
     this._onMouse = (e) => {
       if (!this.enabled || document.pointerLockElement !== this.dom) return;
-      this.yaw -= e.movementX * 0.0023;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * 0.0021, -1.35, 1.35);
+      let mx = e.movementX, my = e.movementY;
+      if (!Number.isFinite(mx) || !Number.isFinite(my)) return;   // NaN poisons yaw
+      if (this._justLocked) { this._justLocked = false; return; } // first event = garbage
+      mx = THREE.MathUtils.clamp(mx, -MAX_DELTA, MAX_DELTA);
+      my = THREE.MathUtils.clamp(my, -MAX_DELTA, MAX_DELTA);
+      const sens = 0.0019 * (settings.mouseSensitivity ?? 1);
+      this._targetYaw -= mx * sens;
+      this._targetPitch = THREE.MathUtils.clamp(this._targetPitch - my * sens, -1.35, 1.35);
+    };
+    this._onLockChange = () => {
+      if (document.pointerLockElement === this.dom) {
+        this._justLocked = true;
+      } else {
+        // lock lost (Esc, alt-tab): drop held keys so movement can't run away
+        this.keys.clear();
+      }
     };
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
@@ -39,19 +66,29 @@ export class FirstPersonControls {
       if (e.code === 'Space' && this.onAction) { e.preventDefault(); this.onAction(); }
     };
     this._onKeyUp = (e) => this.keys.delete(e.code);
+    this._onBlur = () => this.keys.clear();
     this._onClick = () => {
-      if (this.enabled && document.pointerLockElement !== this.dom) this.dom.requestPointerLock();
+      if (this.enabled && document.pointerLockElement !== this.dom) {
+        const p = this.dom.requestPointerLock();
+        if (p && p.catch) p.catch(() => { /* gesture rejected — next click retries */ });
+      }
     };
 
     document.addEventListener('mousemove', this._onMouse);
+    document.addEventListener('pointerlockchange', this._onLockChange);
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('blur', this._onBlur);
     dom.addEventListener('click', this._onClick);
   }
 
   enable() {
     this.enabled = true;
-    this.dom.requestPointerLock?.();
+    // sync targets so entering FP never snaps or inherits stale deltas
+    this._targetYaw = this.yaw;
+    this._targetPitch = this.pitch;
+    const p = this.dom.requestPointerLock?.();
+    if (p && p.catch) p.catch(() => { /* needs a click — _onClick will retry */ });
   }
   disable() {
     this.enabled = false;
@@ -62,6 +99,14 @@ export class FirstPersonControls {
   /** @param {number} dt seconds */
   update(dt) {
     if (!this.enabled) return;
+    // ease actual view toward the target — small smoothing kills jitter without
+    // adding perceptible lag (≈1 frame at 60fps)
+    const k = Math.min(1, dt * 30);
+    this.yaw += (this._targetYaw - this.yaw) * k;
+    this.pitch += (this._targetPitch - this.pitch) * k;
+    if (!Number.isFinite(this.yaw)) { this.yaw = this._targetYaw = Math.PI; }
+    if (!Number.isFinite(this.pitch)) { this.pitch = this._targetPitch = 0; }
+
     const speed = this.keys.has('ShiftLeft') ? 4.4 : 2.6;
     const f = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
@@ -121,8 +166,10 @@ export class FirstPersonControls {
 
   dispose() {
     document.removeEventListener('mousemove', this._onMouse);
+    document.removeEventListener('pointerlockchange', this._onLockChange);
     document.removeEventListener('keydown', this._onKeyDown);
     document.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('blur', this._onBlur);
     this.dom.removeEventListener('click', this._onClick);
   }
 }
