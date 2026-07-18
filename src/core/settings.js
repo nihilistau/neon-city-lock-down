@@ -13,7 +13,10 @@ const DEFAULTS = {
   cameraMode: 'director',        // 'director' | 'firstPerson'
   mouseSensitivity: 1,           // 0.3 .. 2.5 multiplier for first-person look
   subtitleScale: 1,
-  llm: { enabled: false, baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
+  // LLM connection is handled server-side by the static-server proxy (keeps the
+  // API token off the client). `enabled` turns the adapter on; `agentMode` lets
+  // the LLM AUTHOR each reply + drive the scene, vs. only restyling authored text.
+  llm: { enabled: false, agentMode: true, temperature: 0.85, reasoning: 'off', baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
   tts: { sidecarUrl: 'http://localhost:8425', useSidecar: true },
   debug: false,
 };

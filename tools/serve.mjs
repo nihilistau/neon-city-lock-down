@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { stat, open } from 'node:fs/promises';
 import { join, normalize, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { handleLLM } from './llmProxy.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const PORT = Number(process.argv[2] || 8420);
@@ -23,6 +24,10 @@ const MIME = {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    // LM Studio proxy (same-origin; keeps the API token server-side)
+    if (url.pathname.startsWith('/api/llm/')) {
+      if (await handleLLM(req, res, url)) return;
+    }
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(ROOT, path));

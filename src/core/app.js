@@ -75,6 +75,8 @@ import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
 import { InventoryUI } from '../ui/inventory.js';
 import { CombatHud } from '../ui/combatHud.js';
+import { CharacterAgent } from '../dialogue/llm/agent.js';
+import { Conversation } from '../dialogue/llm/conversation.js';
 import { LOADOUTS } from '../../data/items.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
@@ -355,6 +357,8 @@ export class App {
       voice: this.voiceBank, sidecar: this.sidecar, vox: this.vox, voiceCast: VOICE_CAST,
     });
     this.llm = new LLMAdapter();
+    this.agent = new CharacterAgent();
+    this.convo = new Conversation();
     this.dialogue = new DialogueEngine({
       cast: this.cast,
       nowMinute: () => this.clock.totalMinutes,
@@ -362,11 +366,19 @@ export class App {
       rng: this.rng.stream('dialogue'),
       vocab: { chars: ['lola', 'aria', 'kai'], zones: Object.keys(ZONES), items: ['whiskey', 'gun', 'food', 'water'] },
       llm: this.llm,
+      agent: this.agent,
+      convo: this.convo,
       tts: this.tts,
       stageCtx: {
         world: this.world, lighting: this.lighting, audio: this.audioFacade(),
         cutscene: null, playerMarker: this.playerMarker,
         playerName: settings.playerName, playerDominance: this.player.dominance,
+        // live accessors for the LLM agent's scene prompt
+        lightingName: () => this.lighting.presetId,
+        timeOfDay: () => this.clock.phase,
+        threat: () => this.run.threat,
+        combat: () => this.combat,
+        explicitness: () => settings.explicitness,
       },
     });
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);

@@ -25,6 +25,8 @@ export class DialogueEngine {
    * @param {Object} deps.stageCtx  world/lighting/audio/cutscene for dispatch
    * @param {{chars?:string[], zones?:string[], items?:string[]}} deps.vocab
    * @param {import('./llmAdapter.js').LLMAdapter} [deps.llm]
+   * @param {import('./llm/agent.js').CharacterAgent} [deps.agent]
+   * @param {import('./llm/conversation.js').Conversation} [deps.convo]
    * @param {import('./ttsRouter.js').TtsRouter} [deps.tts]
    */
   constructor(deps) {
@@ -35,6 +37,8 @@ export class DialogueEngine {
     this.stageCtx = deps.stageCtx;
     this.vocab = deps.vocab;
     this.llm = deps.llm;
+    this.agent = deps.agent;
+    this.convo = deps.convo;
     this.tts = deps.tts;
     /** @type {string|null} who the player is addressing ('room' or a char id) */
     this.addressee = null;
@@ -68,8 +72,11 @@ export class DialogueEngine {
       addressed.applyStats({ trust: 1.5, arousal: 1 }, 'whisper');
     }
 
+    // feed the addressee's rolling memory for LLM continuity
+    this.convo?.notePlayer(addressed.id, rawText);
+
     const replies = [];
-    const primary = await this._respond(addressed, intents, tone, dtone);
+    const primary = await this._respond(addressed, intents, tone, dtone, false, rawText, opts);
     if (primary) replies.push({ speaker: addressed.id, line: primary });
 
     // bystander interjection (room mode only, never for whispers)
@@ -113,14 +120,49 @@ export class DialogueEngine {
     return best || present[0] || null;
   }
 
+  /** Scene context handed to the LLM agent's prompt builder. */
+  _sceneCtx() {
+    return {
+      present: this._presentCast(),
+      playerName: this.stageCtx.playerName,
+      lighting: this.stageCtx.lightingName?.(),
+      timeOfDay: this.stageCtx.timeOfDay?.(),
+      day: this.day(),
+      threat: this.stageCtx.threat?.(),
+      combat: this.stageCtx.combat?.(),
+      explicitness: this.stageCtx.explicitness?.() || globalThis.__ncldExplicitness,
+    };
+  }
+
   /**
    * @param {import('../chars/character.js').Character} char
    * @param {any[]} intents @param {any} tone @param {string} dtone
    * @param {boolean} [isInterjection]
+   * @param {string} [rawText] the guest's actual words (LLM agent path)
+   * @param {{whisper?:boolean}} [opts]
    */
-  async _respond(char, intents, tone, dtone, isInterjection = false) {
+  async _respond(char, intents, tone, dtone, isInterjection = false, rawText = '', opts = {}) {
     const now = this.nowMinute();
     char.setPlayerDominance(this.stageCtx.playerDominance ?? 55);
+
+    // ── LLM agent path: the character AUTHORS its reply + scene tags ──
+    if (this.agent?.enabled && !isInterjection && rawText) {
+      try {
+        const text = await this.agent.respond(
+          char, rawText, this._sceneCtx(), this.convo?.history(char.id) || {}, { whisper: opts.whisper });
+        if (text) {
+          let compiled;
+          try { compiled = compileLine(text); }
+          catch { compiled = { cleanText: text.replace(/\[\[[^\]]*\]\]/g, '').trim(), directions: [] }; }
+          this._perform(char, compiled, { _key: `llm:${char.id}:${now}` });
+          this.convo?.noteReply(char.id, compiled.cleanText);
+          return { compiled, _key: `llm:${char.id}:${now}`, topic: 'llm', branches: null };
+        }
+      } catch (err) {
+        console.warn('[dialogue] agent failed, falling back to authored', err);
+      }
+      // fall through to authored engine on any miss
+    }
 
     const cands = candidateTopics(char, intents, { day: this.day() });
     let topic = null, line = null;
