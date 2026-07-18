@@ -1,0 +1,16 @@
+{
+  "name": "neon-city-lock-down",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Neon-City: Lock-Down — 18+ neon-noir 3D roleplay/survival game (three.js).",
+  "scripts": {
+    "serve": "node tools/serve.mjs 8420",
+    "test": "node --test test/unit/*.mjs",
+    "lint": "node tools/lint-data.mjs",
+    "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@lmstudio/sdk": "^1.5.0"
+  }
+}
