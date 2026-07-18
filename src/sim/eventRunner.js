@@ -104,6 +104,8 @@ export class EventRunner {
         feed(s.locked !== false ? 'VOX has locked the elevator.' : 'Elevator restored.', 'system');
       },
       endRun: (s) => emit('run.extraction', { outcome: s.outcome }),
+      cutscene: (s) => d.cutscene ? d.cutscene().play(s.steps) : null,
+      light: (s) => d.lighting.apply(s.preset, s.fade ?? 1.2),
       combat: (s) => new Promise((resolve) => {
         if (!d.combat) { resolve(); return; }
         d.combat().start({

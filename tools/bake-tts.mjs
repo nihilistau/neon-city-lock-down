@@ -115,7 +115,7 @@ async function main() {
       execFileSync(VOXTRAL_BIN, [
         'speak', '--text', line.text, '--gguf', GGUF, '--voice', voice,
         '--output', tmpOut, '--euler-steps', String(EULER),
-      ], { cwd: VOXTRAL_DIR, stdio: ['ignore', 'ignore', 'ignore'], timeout: 240000 });
+      ], { cwd: VOXTRAL_DIR, stdio: ['ignore', 'ignore', 'ignore'], timeout: 480000 });
 
       const raw = readWav(readFileSync(tmpOut));
       const trimmed = trimSilence(raw.samples, raw.sampleRate);

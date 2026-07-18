@@ -73,6 +73,14 @@ import { zoneAt } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { addCodex } from '../sim/meta.js';
 
+/** run fn after N game-minutes (survives speed changes; dies with the page) */
+function setTimeoutGameSafe(app, minutes, fn) {
+  const target = app.clock.totalMinutes + minutes;
+  const off = on('world.minute', () => {
+    if (app.clock.totalMinutes >= target) { off(); fn(); }
+  });
+}
+
 export class App {
   constructor() {
     const params = new URLSearchParams(location.search);
@@ -144,6 +152,7 @@ export class App {
       audioFacade: () => this.audioFacade(),
       nowMinute: () => this.clock.totalMinutes,
       combat: () => this.combat,
+      cutscene: () => this.cutscene,
     });
     this.worldTick = new WorldTick({
       run: () => this.run,
@@ -156,11 +165,16 @@ export class App {
     // threat feeds music tension + ambience riot loudness (throttled)
     on('threat.changed', ({ threat }) => {
       this._threatT = (this._threatT || 0) + 1;
-      if (this._threatT % 20 === 0) {
+      if (this._threatT % 20 === 0 && !this.combat.active && !this.bedGame?.active) {
         this.conductor.setMood({ tension: Math.min(1, threat / 90) });
         this.ambience.setThreat(threat / 100);
       }
     });
+    // music matrix: combat and intimacy override the baseline mood
+    on('combat.started', () => this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }));
+    on('combat.resolved', () => this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }));
+    on('bedgame.started', () => this.conductor.setMood({ intimacy: 0.8, warmth: 0.7, energy: 0.28, tension: 0.05 }));
+    on('bedgame.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
     // blackout visuals + consequences
     on('power.changed', ({ online }) => {
       this.lighting.apply(online ? 'neon_night' : 'blackout_emergency', online ? 2.5 : 0.8);
@@ -174,6 +188,18 @@ export class App {
         this.run.flags.fishDead = true;
         for (const o of this.world.animated) if (o.name.startsWith('fish_')) o.userData.dead = true;
         feed('The fish tank pump has been silent too long.', 'system');
+      }
+    });
+    // day-3 balcony beat at dusk
+    on('day.started', ({ day }) => {
+      if (day === 3 && !this.run.flags.day3Queued) {
+        this.run.flags.day3Queued = true;
+        const minutesToDusk = Math.max(5, 18.5 * 60 - this.clock.minuteOfDay);
+        setTimeoutGameSafe(this, minutesToDusk, async () => {
+          if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+          const { DAY3_CUTSCENE } = await import('../../data/cutscenes/day3.js');
+          this.cutscene.play(DAY3_CUTSCENE);
+        });
       }
     });
     // the endgame: extraction offer lands on day 7 at dusk

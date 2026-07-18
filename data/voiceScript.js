@@ -37,4 +37,30 @@ export const VOICE_LINES = [
   // --- cutscene cold-open narration beats ---
   { id: 'cut.intro.1', char: 'vox', text: 'Neon City. Day one of the lockdown. The gates are down and the streets belong to the fire.' },
   { id: 'cut.intro.2', char: 'lola', text: 'So we are stuck in here together. Three sharks in a very expensive tank. This should be fun.' },
+
+  // --- day-3 balcony beat ---
+  { id: 'cut.day3.1', char: 'vox', text: 'Day three. The fires have opinions now. They move with purpose.' },
+  { id: 'cut.day3.2', char: 'aria', text: 'It is almost beautiful from up here. Is that terrible? That it can burn and still be beautiful?' },
+  { id: 'cut.day3.3', char: 'kai', text: 'Everything valuable is a little bit on fire. That is what makes it valuable.' },
+  { id: 'cut.day3.4', char: 'lola', text: 'Enjoy the view, both of you. Cities grow back. People do not. Stay sharp.' },
+
+  // --- Kai library ---
+  { id: 'kai.core.name#0', char: 'kai', text: 'Kai Mercer. Broker of introductions, secrets, and the occasional miracle. My card would say consultant, if cards were not traceable.' },
+  { id: 'kai.world.plan#0', char: 'kai', text: 'Plans are for people without information. I know which faction wins. I know when the gates open. Stay useful to me and you will know it too, about an hour before everyone else.' },
+  { id: 'kai.social.trust#1', char: 'kai', text: 'Trust is a currency I deal in daily, which is exactly why I do not spend my own. Ask me again when the food runs low. Answers improve under pressure.' },
+
+  // --- Aria library ---
+  { id: 'aria.core.howareyou#0', char: 'aria', text: 'Honestly? Scared. The sirens have not stopped for two days. But do not tell Lola I said that.' },
+  { id: 'aria.back.lonely#0', char: 'aria', text: 'Yeah. Sometimes. You learn everyone\'s stories and nobody asks for yours. You just did, though. That is new.' },
+  { id: 'aria.world.lockdown#0', char: 'aria', text: 'I watched the barricades go up from the balcony. People just left on the wrong side. The city does not care who you are when the gates come down.' },
+
+  // --- Lola library additions ---
+  { id: 'lola.world.plan#0', char: 'lola', text: 'Plan? We hold. We ration. We do not open that door for anyone with a sad story and empty hands.' },
+  { id: 'lola.back.who#1', char: 'lola', text: 'I am a fixer. The kind people call when the problem has a pulse and they need it to stop having one. I walked in here to collect a debt. Then the gates came down.' },
+
+  // --- VOX event library ---
+  { id: 'vox.curfew', char: 'vox', text: 'Military sweep inbound. Recommend lights out. All of them. Now.' },
+  { id: 'vox.repair_thanks', char: 'vox', text: 'System restored. The tower thanks you. I thank you. We are the same thing, but the sentiment doubles.' },
+  { id: 'vox.extraction', char: 'vox', text: 'Rooftop contact. A licensed extraction shuttle, forty seconds out. Seats limited. Window: three minutes.' },
+  { id: 'vox.day.morning', char: 'vox', text: 'Good morning. The city is still there. Most of it.' },
 ];
