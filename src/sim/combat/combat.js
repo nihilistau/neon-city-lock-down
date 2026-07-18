@@ -42,6 +42,7 @@ function hostilePersona(arch, i, rng) {
 
 const TURRET_PERIOD = 2.6;
 const WAVE_DELAY = 6;
+const MAG_SIZE = { sidearm: 12, smg: 25, pipe: 1, shiv: 1 };
 
 export class Combat {
   /**
@@ -73,6 +74,8 @@ export class Combat {
     this._waveCountdown = 0;
     this.wave = 0;
     this.totalWaves = 1;
+    this.mag = 0;          // rounds in the current magazine (reserve = resources.ammo)
+    this.magSize = 12;
     this._spawnAt = [0, 0];
   }
 
@@ -95,6 +98,12 @@ export class Combat {
     this.totalWaves = waves.length;
     this.wave = 0;
     this._waveCountdown = 0;
+
+    // load the magazine from the reserve for the equipped weapon
+    const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm' };
+    this.magSize = MAG_SIZE[wpn.key] ?? 12;
+    this.mag = Math.min(this.magSize, this.d.run().resources.ammo);
+    this.d.run().resources.ammo -= this.mag;
 
     this._spawnWave();
     this._castTakeCover();
@@ -213,6 +222,51 @@ export class Combat {
     return hitChance({ weapon, skill: 70, distance: dist, cover });
   }
 
+  /**
+   * FPS/TPS fire: raycast from the camera crosshair against hostiles. Hit → the
+   * shared playerShoot resolution; miss → spend ammo + a tracer into the void.
+   * @param {import('three').Camera} camera
+   */
+  fireRay(camera) {
+    if (!this.active) return;
+    const alive = this.hostiles.filter((h) => h.hp > 0);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera({ x: 0, y: 0 }, camera);
+    const hits = ray.intersectObjects(alive.map((h) => h.actor.root), true);
+    if (hits.length) {
+      let obj = hits[0].object, hit = null;
+      while (obj && !hit) { hit = alive.find((x) => x.actor.root === obj); obj = obj.parent; }
+      if (hit) { this.playerShoot(hit); return; }
+    }
+    // clean miss into the distance
+    const run = this.d.run();
+    const wpn = this.d.equipped ? this.d.equipped() : { key: 'sidearm', ranged: true, name: 'Sidearm' };
+    if (!wpn.ranged) return;   // a melee whiff at empty air costs nothing
+    if (this.mag < 1) { emit('hud.alert', { text: run.resources.ammo > 0 ? 'RELOAD — press R' : 'OUT OF AMMO', kind: 'warn' }); this.d.sfx('ui_deny'); return; }
+    this.mag -= 1;
+    emit('combat.mag', { mag: this.mag, magSize: this.magSize, reserve: run.resources.ammo });
+    this.d.sfx('gunshot');
+    const p = this.d.playerMarker.position;
+    const from = new THREE.Vector3(p.x, 1.5, p.z);
+    const to = camera.position.clone().addScaledVector(ray.ray.direction, 24);
+    this._fxShot(from, to, false);
+  }
+
+  /** Top up the magazine from the ammo reserve (R). */
+  reload() {
+    if (!this.active) return;
+    const run = this.d.run();
+    const need = this.magSize - this.mag;
+    if (need <= 0) return;
+    if (run.resources.ammo < 1) { emit('hud.alert', { text: 'No spare ammo', kind: 'warn' }); return; }
+    const take = Math.min(need, run.resources.ammo);
+    run.resources.ammo -= take;
+    this.mag += take;
+    this.d.sfx('door_servo');
+    emit('combat.mag', { mag: this.mag, magSize: this.magSize, reserve: run.resources.ammo });
+    emit('resources.changed', run.resources);
+  }
+
   /** @param {any} h hostile entry */
   playerShoot(h) {
     if (!this.active || h.hp <= 0) return;
@@ -223,13 +277,13 @@ export class Combat {
     const dist = h.actor.root.position.distanceTo(p);
 
     if (wpn.ranged) {
-      if (run.resources.ammo < 1) {
-        emit('hud.alert', { text: 'OUT OF AMMO — equip a melee weapon (I)', kind: 'danger' });
+      if (this.mag < 1) {
+        emit('hud.alert', { text: run.resources.ammo > 0 ? 'RELOAD — press R' : 'OUT OF AMMO — equip melee (I)', kind: 'warn' });
         this.d.sfx('ui_deny');
         return;
       }
-      spend(run, 'ammo', 1);
-      emit('resources.changed', run.resources);
+      this.mag -= 1;
+      emit('combat.mag', { mag: this.mag, magSize: this.magSize, reserve: run.resources.ammo });
       this.d.sfx('gunshot');
     } else {
       if (dist > weapon.range + 1.0) {
@@ -250,6 +304,7 @@ export class Combat {
     else if (res.hit && this.d.fx) this.d.fx.impact(target, 'blood');
     if (res.hit) {
       this._damageHostile(h, res.damage, res.crit ? 'Critical hit!' : null);
+      emit('combat.hit', { crit: res.crit });
     } else {
       feed(cover > 0 ? 'Your shot chews into their cover.' : (wpn.ranged ? 'Your shot goes wide.' : 'You swing and miss.'), 'combat');
     }
@@ -468,6 +523,8 @@ export class Combat {
 
   _resolve(win) {
     this.active = false;
+    // return unspent magazine rounds to the reserve
+    if (this.mag > 0) { this.d.run().resources.ammo += this.mag; this.mag = 0; emit('resources.changed', this.d.run().resources); }
     emit('combat.resolved', { win });
     if (win) {
       // strip the fallen: ammo + occasional gear

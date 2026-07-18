@@ -238,3 +238,27 @@
 .llm-charrow select { flex: 1; min-width: 120px; font-size: 11px; }
 #overlay .panel select { background: rgba(6,8,14,0.9); color: var(--text); border: 1px solid var(--panel-edge); padding: 3px 5px; }
 .llm-status { font-size: 12px; }
+
+/* ── FPS/TPS reticle + ammo readout ── */
+#reticle {
+  position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
+  transform: translate(-50%, -50%); pointer-events: none; z-index: 15;
+}
+#reticle span {
+  position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px rgba(0,0,0,0.7);
+}
+#reticle span:nth-child(1), #reticle span:nth-child(2) { left: 50%; width: 2px; height: 8px; transform: translateX(-50%); }
+#reticle span:nth-child(1) { top: 0; } #reticle span:nth-child(2) { bottom: 0; }
+#reticle span:nth-child(3), #reticle span:nth-child(4) { top: 50%; height: 2px; width: 8px; transform: translateY(-50%); }
+#reticle span:nth-child(3) { left: 0; } #reticle span:nth-child(4) { right: 0; }
+#reticle i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; transform: translate(-50%,-50%); background: rgba(255,255,255,0.6); }
+#reticle.hit span { background: #ff5a5a; box-shadow: 0 0 6px #ff2a2a; }
+#reticle.hidden { display: none; }
+#ammo-readout {
+  position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%);
+  font-size: 15px; color: var(--amber); letter-spacing: 0.06em; z-index: 15; pointer-events: none;
+  text-shadow: 0 0 5px rgba(0,0,0,0.8);
+}
+#ammo-readout b { color: #fff; font-size: 18px; } #ammo-readout b.empty { color: var(--red); }
+#ammo-readout small { color: #aaa; } #ammo-readout span { color: #7fd0ff; }
+#ammo-readout.hidden { display: none; }

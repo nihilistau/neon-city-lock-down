@@ -19,6 +19,14 @@ const RADIUS = 0.26;
 const MAX_DELTA = 40;           // px per event — normal fast flick; larger is clamped
 const SPIKE_DELTA = 200;        // px per event — impossible for a real mouse; dropped
 const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/blur
+const SHOULDER_DIST = 3.1;      // third-person camera distance behind the player
+const SHOULDER_SIDE = 0.55;     // over-the-shoulder side offset
+
+// reusable scratch (avoid per-frame allocation)
+const _EULER = new THREE.Euler();
+const _V1 = new THREE.Vector3();
+const _V2 = new THREE.Vector3();
+const _V3 = new THREE.Vector3();
 
 export class FirstPersonControls {
   /**
@@ -39,6 +47,14 @@ export class FirstPersonControls {
     this.onInteract = null;
     /** @type {(() => void)|null} context action — SPACE */
     this.onAction = null;
+    /** @type {(() => void)|null} fire weapon — LMB while locked */
+    this.onFire = null;
+    /** @type {(() => void)|null} reload — R */
+    this.onReload = null;
+    /** @type {import('../humanoid/actor3d.js').Actor3D|null} player body (third person) */
+    this.body = null;
+    this.thirdPerson = false;    // over-the-shoulder camera + visible body
+    this._moving = false;
 
     this._settleUntil = 0;      // ignore mouselook until this timestamp (ms)
     // smoothed look target (raw deltas write these; update() eases toward them)
@@ -69,6 +85,7 @@ export class FirstPersonControls {
       if (!this.enabled) return;
       this.keys.add(e.code);
       if (e.code === 'KeyE' && this.onInteract) this.onInteract();
+      if (e.code === 'KeyR' && this.onReload) this.onReload();
       if (e.code === 'Space' && this.onAction) { e.preventDefault(); this.onAction(); }
     };
     this._onKeyUp = (e) => this.keys.delete(e.code);
@@ -79,6 +96,12 @@ export class FirstPersonControls {
         if (p && p.catch) p.catch(() => { /* gesture rejected — next click retries */ });
       }
     };
+    this._onMouseDown = (e) => {
+      // LMB while locked = fire the weapon (FP or third-person)
+      if (this.enabled && e.button === 0 && document.pointerLockElement === this.dom && this.onFire) {
+        this.onFire();
+      }
+    };
 
     document.addEventListener('mousemove', this._onMouse);
     document.addEventListener('pointerlockchange', this._onLockChange);
@@ -87,6 +110,7 @@ export class FirstPersonControls {
     window.addEventListener('blur', this._onBlur);
     window.addEventListener('focus', this._onFocus);
     dom.addEventListener('click', this._onClick);
+    dom.addEventListener('mousedown', this._onMouseDown);
   }
 
   enable() {
@@ -129,14 +153,52 @@ export class FirstPersonControls {
     const speed = this.keys.has('ShiftLeft') ? 4.4 : 2.6;
     const f = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
+    this._moving = !!(f || s);
     if (f || s) {
       const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
       const dx = (-sin * f + cos * s) * speed * dt;
       const dz = (-cos * f - sin * s) * speed * dt;
       this._move(dx, dz);
     }
-    this.camera.position.copy(this.pos);
-    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+
+    // drive the player body (visible only in third person)
+    if (this.body) {
+      this.body.root.visible = this.thirdPerson;
+      this.body.root.position.set(this.pos.x, 0, this.pos.z);
+      // face where the camera aims (horizontal): forward = (-sin, -cos)
+      this.body.root.rotation.y = Math.atan2(-Math.sin(this.yaw), -Math.cos(this.yaw));
+      this.body.facingTarget = this.body.root.rotation.y;
+      const clip = this._moving ? 'walk' : (this.body.persona.personality.idleClip || 'idle_confident');
+      if (this.body.animator.current?.id !== clip) this.body.playClip(clip, 0.18);
+      this.body.update(dt);
+    }
+
+    const euler = _EULER.set(this.pitch, this.yaw, 0, 'YXZ');
+    if (this.thirdPerson) {
+      const look = _V1.set(0, 0, -1).applyEuler(euler);
+      const right = _V2.set(1, 0, 0).applyEuler(euler);
+      const pivot = _V3.set(this.pos.x, this.pos.y - 0.08, this.pos.z);
+      const dist = this._camDist(pivot, look, SHOULDER_DIST);
+      this.camera.position.copy(pivot).addScaledVector(look, -dist).addScaledVector(right, SHOULDER_SIDE);
+      this.camera.rotation.copy(euler);
+    } else {
+      this.camera.position.copy(this.pos);
+      this.camera.rotation.copy(euler);
+    }
+  }
+
+  /** attach the visible player body (Actor3D) driven in third-person mode */
+  attachBody(actor) { this.body = actor; }
+
+  /** pull the third-person camera in if a wall is behind the player */
+  _camDist(pivot, look, maxDist) {
+    let d = maxDist;
+    // sample back along -look; stop before leaving the walkable area / hitting a box
+    for (let t = 0.6; t <= maxDist; t += 0.3) {
+      const cx = pivot.x - look.x * t, cz = pivot.z - look.z * t;
+      if (!this._walkable(cx, cz)) { d = Math.max(0.8, t - 0.35); break; }
+    }
+    return d;
   }
 
   /** point inside any walk rect (deflated by the body radius)? */

@@ -40,7 +40,9 @@ export class CameraRig {
       if (e.code === 'KeyC' && !e.repeat && this.mode !== 'cinematic'
           && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         // cycle the user-facing modes; auto is included only when enabled
-        const order = (settings.autoCamera && this.director) ? ['auto', 'director', 'firstPerson'] : ['director', 'firstPerson'];
+        const order = (settings.autoCamera && this.director)
+          ? ['auto', 'thirdPerson', 'firstPerson', 'director']
+          : ['thirdPerson', 'firstPerson', 'director'];
         const i = order.indexOf(this.mode);
         this.setMode(order[(i + 1) % order.length]);
       }
@@ -62,15 +64,19 @@ export class CameraRig {
       : (settings.autoCamera ? 'auto' : 'director'));
   }
 
-  /** @param {'auto'|'director'|'firstPerson'|'cinematic'} mode */
+  /** @param {'auto'|'director'|'thirdPerson'|'firstPerson'|'cinematic'} mode */
   setMode(mode) {
     this.mode = mode;
     this.orbit.enabled = mode === 'director';
-    if (mode === 'firstPerson') this.fp.enable();
-    else this.fp.disable();
-    if (mode === 'director') {           // hand the orbit the director's current framing
-      this.orbit.object.updateMatrixWorld();
-    }
+    this.fp.thirdPerson = mode === 'thirdPerson';
+    if (mode === 'firstPerson' || mode === 'thirdPerson') {
+      // start the controller at the body so entering FP/TPS never teleports
+      if (this.fp.body) { const b = this.fp.body.root.position; this.fp.pos.set(b.x, this.fp.pos.y, b.z); }
+      this.fp.enable();
+    } else this.fp.disable();
+    // the player body is visible in every mode except first person
+    if (this.fp.body) this.fp.body.root.visible = mode !== 'firstPerson';
+    if (mode === 'director') this.orbit.object.updateMatrixWorld();
     if (mode !== 'cinematic') setSetting('cameraMode', mode);
     emit('camera.mode', { mode });
   }
@@ -78,7 +84,7 @@ export class CameraRig {
   /** @param {number} dt seconds */
   update(dt) {
     if (this.mode === 'director') this.orbit.update();
-    else if (this.mode === 'firstPerson') this.fp.update(dt);
+    else if (this.mode === 'firstPerson' || this.mode === 'thirdPerson') this.fp.update(dt);
     else if (this.mode === 'auto' && this.director) this.director.tick(dt);
   }
 }

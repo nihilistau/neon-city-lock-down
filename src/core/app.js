@@ -26,6 +26,7 @@ import { World3D } from '../scene3d/tower/zoneBuilder.js';
 import { Picker } from '../scene3d/picking.js';
 import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
+import { buildPlayerPersona } from '../../data/cast/player.js';
 import { ActorQueue } from '../sim/actors/actorQueue.js';
 import { Character } from '../chars/character.js';
 import { DialogueEngine } from '../dialogue/engine.js';
@@ -76,6 +77,7 @@ import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
 import { InventoryUI } from '../ui/inventory.js';
+import { Reticle } from '../ui/reticle.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { CharacterAgent } from '../dialogue/llm/agent.js';
 import { Conversation } from '../dialogue/llm/conversation.js';
@@ -320,16 +322,28 @@ export class App {
       for (const b of Object.values(this.brains)) b.engage(this.clock.totalMinutes + 1);
     });
 
-    // player presence marker — a look target the cast tracks (follows camera)
+    // player presence marker — a look target the cast track (follows the body)
     this.playerMarker = new THREE.Object3D();
     this.playerMarker.position.set(-2, 1.5, 2);
     this.stage.scene.add(this.playerMarker);
     this.player = { name: settings.playerName, dominance: 55 };
 
+    // visible player avatar (third-person + first-person combat)
+    this.playerActor = new Actor3D(buildPlayerPersona(settings.playerName, settings.playerPronouns));
+    this.playerActor.root.position.set(-2, 0, 2);
+    this.playerActor.root.visible = false;   // shown by the rig per camera mode
+    this.stage.scene.add(this.playerActor.root);
+    this.cameraRig.fp.attachBody(this.playerActor);
+    this.cameraRig.fp.onFire = () => { if (this.combat.active) this.combat.fireRay(this.stage.camera); };
+    this.cameraRig.fp.onReload = () => { if (this.combat.active) this.combat.reload(); };
+    // FP eye ↔ body: seed the fp position at the avatar
+    this.cameraRig.fp.pos.set(-2, 1.62, 2);
+
     // player inventory + items UI
     this.inventory = new Inventory(this);
     this.inventoryUI = new InventoryUI(this);
     this.llmPanel = new LLMPanel(this);
+    this.reticle = new Reticle();
 
     // combat controller (needs picker + playerMarker)
     this.combat = new Combat({
@@ -905,13 +919,13 @@ export class App {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
       this.combatFx.update(dtSec, this.stage.camera);
-      // player marker tracks the camera ONLY when the camera IS the player
-      // (first-person / free orbit). In auto/cinematic the camera flies on its
-      // own, so the marker stays where the player last was.
-      const camIsPlayer = this.cameraRig.mode === 'firstPerson' || this.cameraRig.mode === 'director';
-      if (this.playerMarker && camIsPlayer) {
-        this.playerMarker.position.copy(this.stage.camera.position);
-        this.playerMarker.position.y = Math.min(1.7, this.playerMarker.position.y);
+      // The body moves itself in FP/TPS (fp.update) and stands where it is in
+      // auto/director/cinematic. The cast + combat track the body, not the camera.
+      if (this.playerMarker && this.playerActor) {
+        const b = this.playerActor.root.position;
+        this.playerMarker.position.set(b.x, 1.45, b.z);
+        const fpDriving = this.cameraRig.mode === 'thirdPerson' || this.cameraRig.mode === 'firstPerson';
+        if (!fpDriving) this.playerActor.update(dtSec);
         // penthouse only: swap apartment/balcony beds as the player crosses the glass
         this._ambT = (this._ambT || 0) + dtSec;
         if (this._ambT > 0.5 && this.world.activeFloor === 'penthouse') {
