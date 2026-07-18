@@ -5,7 +5,8 @@
 // checked before acceptance (wired to gates.js in P1.3+).
 import * as THREE from 'three';
 import { emit } from '../../core/bus.js';
-import { findPath, zoneAt } from './nav.js';
+import { findPath, zoneAt, travelMinutes, elevatorPos } from './nav.js';
+import { feed } from '../../core/log.js';
 
 const WALK_SPEED = 1.22;      // m/s
 const ARRIVE_DIST = 0.14;
@@ -109,8 +110,8 @@ export class ActorQueue {
         if (this.seatedAt) this._standUp();
         const [zone, waypoint] = cmd.args;
         const p = a.root.position;
-        this._path = findPath({ x: p.x, z: p.z }, zone, waypoint).map(
-          ([x, z]) => new THREE.Vector3(x, 0, z));
+        this._path = findPath({ x: p.x, z: p.z }, zone, waypoint).map((pt) =>
+          Array.isArray(pt) ? new THREE.Vector3(pt[0], 0, pt[1]) : pt);
         a.playClip('walk', 0.25);
         break;
       }
@@ -191,6 +192,27 @@ export class ActorQueue {
           return true;
         }
         const target = this._path[0];
+        // transit marker: ride the elevator (off-screen wait, then teleport)
+        if (target.transit) {
+          if (this._transitT == null) {
+            const mins = travelMinutes(target.transit.fromFloor, target.transit.toFloor);
+            this._transitT = Math.max(2.5, mins * 1.0); // real seconds ≈ game minutes at 1×
+            a.playClip('idle_stand', 0.3);
+            a.root.visible = false;                     // inside the car
+            feed(`${a.persona.name} takes the elevator.`, 'info');
+          }
+          this._transitT -= dt;
+          if (this._transitT <= 0) {
+            this._transitT = null;
+            const dest = elevatorPos(target.transit.toFloor);
+            a.snapTo(dest[0], dest[1]);
+            a.root.visible = true;
+            this._lastTransitFloor = target.transit.toFloor;
+            this._path.shift();
+            a.playClip('walk', 0.25);
+          }
+          return false;
+        }
         const p = a.root.position;
         const dx = target.x - p.x, dz = target.z - p.z;
         const dist = Math.hypot(dx, dz);

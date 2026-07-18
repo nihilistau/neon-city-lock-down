@@ -1,8 +1,8 @@
 // @ts-check
 // First-person controls: pointer-lock mouselook + WASD, E interact, SPACE
-// context action, shift run. Collision: floor-plan clamps + furniture AABB push-out.
+// context action, shift run. Collision: the active floor's walk-rect union
+// (rect edges ARE the walls) + furniture AABB push-out.
 import * as THREE from 'three';
-import { PENTHOUSE } from '../../data/zones.js';
 
 const EYE = 1.62;
 const RADIUS = 0.26;
@@ -75,22 +75,30 @@ export class FirstPersonControls {
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 
+  /** point inside any walk rect (deflated by the body radius)? */
+  _walkable(x, z) {
+    const rects = this.world.walkRects?.[this.world.activeFloor];
+    if (!rects || !rects.length) return true;
+    for (const r of rects) {
+      if (x >= r.x[0] + RADIUS && x <= r.x[1] - RADIUS &&
+          z >= r.z[0] + RADIUS && z <= r.z[1] - RADIUS) return true;
+    }
+    // near a rect seam the radius margin can reject valid straddles — retry raw
+    for (const r of rects) {
+      if (x >= r.x[0] && x <= r.x[1] && z >= r.z[0] && z <= r.z[1]) return true;
+    }
+    return false;
+  }
+
   _move(dx, dz) {
     let x = this.pos.x + dx, z = this.pos.z + dz;
 
-    // floor-plan clamp: interior rect + balcony reachable through the door gap
-    const F = PENTHOUSE.floor, B = PENTHOUSE.balcony, G = PENTHOUSE.doorGap;
-    const inDoorLane = x > G.x[0] + RADIUS && x < G.x[1] - RADIUS;
-    const maxZ = inDoorLane ? B.z[1] - RADIUS : F.z[1] - RADIUS;
-    if (z > F.z[1] - RADIUS && !inDoorLane) z = F.z[1] - RADIUS;
-    if (this.pos.z > F.z[1]) {
-      // currently on the balcony: clamp to balcony rect unless in the door lane
-      x = THREE.MathUtils.clamp(x, B.x[0] + RADIUS, B.x[1] - RADIUS);
-      if (z < F.z[1] + RADIUS && !inDoorLane) z = F.z[1] + RADIUS;
-    } else {
-      x = THREE.MathUtils.clamp(x, F.x[0] + RADIUS, F.x[1] - RADIUS);
+    // walk-rect clamp with axis sliding
+    if (!this._walkable(x, z)) {
+      if (this._walkable(x, this.pos.z)) z = this.pos.z;
+      else if (this._walkable(this.pos.x, z)) x = this.pos.x;
+      else { x = this.pos.x; z = this.pos.z; }
     }
-    z = THREE.MathUtils.clamp(z, F.z[0] + RADIUS, maxZ);
 
     // furniture AABB push-out (2D)
     for (const box of this.world.colliders) {

@@ -55,8 +55,10 @@ import aria from '../../data/cast/aria.js';
 import { Brain } from '../sim/ai/brain.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
-import { ZONES } from '../../data/zones.js';
+import { ZONES, FLOORS } from '../../data/zones.js';
 import { zoneAt } from '../sim/actors/nav.js';
+import { ElevatorUI } from '../ui/elevator.js';
+import { addCodex } from '../sim/meta.js';
 
 export class App {
   constructor() {
@@ -111,6 +113,7 @@ export class App {
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
     this.lighting = new Lighting(this.stage);
+    this.lighting.clock = this.clock;
     this.lighting.apply('neon_night', 0.01);
 
     this.cameraRig = new CameraRig(this.stage, this.world);
@@ -145,13 +148,24 @@ export class App {
         this.ambience.setThreat(threat / 100);
       }
     });
-    // blackout visuals
+    // blackout visuals + consequences
     on('power.changed', ({ online }) => {
       this.lighting.apply(online ? 'neon_night' : 'blackout_emergency', online ? 2.5 : 0.8);
+      if (!online) this.run.flags.powerDownSince = this.clock.totalMinutes;
+      else this.run.flags.powerDownSince = null;
+    });
+    // the fish don't survive long blackouts (their pump dies)
+    on('world.minute', () => {
+      if (this.run.flags.powerDownSince != null && !this.run.flags.fishDead
+          && this.clock.totalMinutes - this.run.flags.powerDownSince > 90) {
+        this.run.flags.fishDead = true;
+        for (const o of this.world.animated) if (o.name.startsWith('fish_')) o.userData.dead = true;
+        feed('The fish tank pump has been silent too long.', 'system');
+      }
     });
 
-    // news ticker screen above the bar shelves
-    this.newsTicker = new NewsTicker(this.stage.scene, this.rng.stream('news'), {
+    // news ticker screen above the bar shelves (penthouse group so it hides with the floor)
+    this.newsTicker = new NewsTicker(this.world.floorGroups.penthouse, this.rng.stream('news'), {
       position: [4.2, 2.55, -5.55], width: 3.6,
     });
 
@@ -168,21 +182,12 @@ export class App {
       feed('VOX: Lockdown protocol remains in effect.', 'system');
     }, 3500);
 
-    // interactive props
+    // interactive props + easter eggs
+    this.elevatorUI = new ElevatorUI(this);
     for (const prop of this.world.props) {
       this.picker.register({
         ...prop,
-        onInteract: () => {
-          feed(`${settings.playerName} used ${prop.id}.`, 'info');
-          playSfx(audio, prop.id === 'vinyl' ? 'ui_confirm' : 'ui_click');
-          if (prop.id === 'vinyl') {
-            this._vinylHot = !this._vinylHot;
-            this.conductor.setMood(this._vinylHot
-              ? { energy: 0.65, warmth: 0.6 }
-              : { energy: 0.3, warmth: 0.45 });
-          }
-          emit('prop.used', { id: prop.id });
-        },
+        onInteract: () => this._useProp(prop),
       });
     }
 
@@ -336,6 +341,114 @@ export class App {
     }
   }
 
+  /** Prop interactions + easter eggs. One-shot loot is tracked per run. */
+  _useProp(prop) {
+    emit('prop.used', { id: prop.id });
+    const looted = (this.run.flags.looted ||= {});
+    const gainRes = (key, n, msg) => {
+      if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); return; }
+      looted[prop.id] = true;
+      this.run.resources[key] = (this.run.resources[key] || 0) + n;
+      emit('resources.changed', this.run.resources);
+      emit('hud.alert', { text: msg, kind: 'info' });
+      feed(msg, 'info');
+      playSfx(audio, 'ui_confirm');
+    };
+
+    switch (true) {
+      case prop.id.startsWith('elevator_'):
+        this.elevatorUI.openPicker();
+        break;
+      case prop.id === 'vinyl':
+        this._vinylHot = !this._vinylHot;
+        playSfx(audio, 'ui_confirm');
+        this.conductor.setMood(this._vinylHot
+          ? { energy: 0.65, warmth: 0.6 } : { energy: 0.3, warmth: 0.45 });
+        feed(this._vinylHot ? 'The vinyl deck spins up.' : 'The music settles down.', 'info');
+        break;
+      case prop.id === 'synth': {
+        // pentatonic riff — each press advances the phrase
+        const scaleNotes = [220, 261.6, 293.7, 329.6, 392, 440, 523.2];
+        this._synthStep = ((this._synthStep ?? -1) + 1) % scaleNotes.length;
+        const ctx = audio.ctx;
+        if (ctx) {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'square'; o.frequency.value = scaleNotes[this._synthStep];
+          g.gain.setValueAtTime(0.08, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          o.connect(g); g.connect(audio.bus('ui'));
+          o.start(); o.stop(ctx.currentTime + 0.55);
+        }
+        if (this._synthStep === scaleNotes.length - 1) {
+          addCodex('synth_riff', 'The Penthouse Synth', 'Someone left a synth loaded with a seven-note riff.');
+          this.cast.aria?.applyStats({ happiness: 3 }, 'music');
+        }
+        break;
+      }
+      case prop.id === 'fish_tank': {
+        feed('The fish drift in their neon water, oblivious to the apocalypse.', 'info');
+        emit('hud.alert', { text: this.run.flags.fishDead ? 'The fish float belly-up. Grim.' : 'The fish are okay. Something is okay.', kind: 'info' });
+        if (!this.run.flags.fishDead) this.run.player.morale = Math.min(100, this.run.player.morale + 2);
+        break;
+      }
+      case prop.id === 'fireplace':
+        playSfx(audio, 'ui_confirm');
+        this.lighting.apply(this.lighting.presetId === 'fireplace_warm' ? 'neon_night' : 'fireplace_warm', 2);
+        feed('The fire settles into a slow burn.', 'info');
+        break;
+      case prop.id === 'telescope': {
+        const cam = this.stage.camera;
+        const prevFov = cam.fov;
+        cam.fov = 16; cam.updateProjectionMatrix();
+        emit('hud.alert', { text: 'Through the lens: barricades, smoke, a city eating itself.', kind: 'warn' });
+        addCodex('telescope_view', 'Through the Telescope', 'From the 45th floor you can watch the barricade lines move like a slow tide.');
+        setTimeout(() => { cam.fov = prevFov; cam.updateProjectionMatrix(); }, 4000);
+        break;
+      }
+      case prop.id === 'vox_terminal': {
+        const lines = [
+          'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
+          'I have counted the rioters. You do not want the number.',
+          'My cameras miss nothing. Except floor thirteen. There is no floor thirteen.',
+          'Query logged. Curiosity noted. Approval pending.',
+        ];
+        this.vox.say(this.rng.stream('vox_lines').pick(lines));
+        addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+        break;
+      }
+      case prop.id === 'vox_monolith': {
+        for (const o of this.world.animated) {
+          if (o.name.startsWith('vox_ring_')) { o.userData.excite = 1.6; setTimeout(() => o.userData.excite = 0, 3000); }
+        }
+        this.vox.say('Physical contact registered. That is... unusual. Thank you.');
+        this.cast.vox; // (VOX joins the cast in Phase 3)
+        break;
+      }
+      case prop.id === 'med_cabinet': gainRes('meds', 3, 'You find 3 med units.'); break;
+      case prop.id === 'weapon_rack': gainRes('ammo', 24, 'You strip 24 rounds from the racks.'); break;
+      case prop.id === 'ammo_crate': gainRes('ammo', 18, 'The crate holds 18 rounds.'); break;
+      case prop.id === 'supply_crate': gainRes('parts', 3, 'Salvage: 3 spare parts.'); break;
+      case prop.id === 'roof_crate': gainRes('food', 5, 'Someone cached food up here. 5 meals.'); break;
+      case prop.id === 'stash_crate':
+        gainRes('luxury', 4, 'A smuggler stash — whiskey and cigarettes.');
+        addCodex('stash', 'The Basement Stash', 'Someone was smuggling luxury goods through the carpark. They never came back for them.');
+        break;
+      default:
+        feed(`${settings.playerName} used ${prop.id}.`, 'info');
+        playSfx(audio, 'ui_click');
+    }
+  }
+
+  /** floor → ambience bed */
+  setAmbienceForFloor(floorId) {
+    const map = {
+      penthouse: 'apartment', rooftop: 'balcony', fl40: 'server', fl27: 'server',
+      fl12: 'medical', ground: 'lobby', basement: 'carpark',
+    };
+    this.ambience.play(map[floorId] || 'apartment');
+    this._ambienceZone = map[floorId] || 'apartment';
+  }
+
   /** Audio facade handed to stage-direction dispatch + event scripts. */
   audioFacade() {
     return {
@@ -386,9 +499,9 @@ export class App {
       if (this.playerMarker) {
         this.playerMarker.position.copy(this.stage.camera.position);
         this.playerMarker.position.y = Math.min(1.7, this.playerMarker.position.y);
-        // ambience follows the player's zone (throttled)
+        // penthouse only: swap apartment/balcony beds as the player crosses the glass
         this._ambT = (this._ambT || 0) + dtSec;
-        if (this._ambT > 0.5) {
+        if (this._ambT > 0.5 && this.world.activeFloor === 'penthouse') {
           this._ambT = 0;
           const z = zoneAt(this.playerMarker.position.x, this.playerMarker.position.z);
           const amb = z === 'balcony' ? 'balcony' : 'apartment';
@@ -442,6 +555,7 @@ export class App {
         load: (slot) => { const d2 = readSlot(slot ?? 1); if (d2) applySave(this, d2); return !!d2; },
         kill: () => { this.run.player.health = 0; emit('player.health', { health: 0 }); },
         playCutscene: (steps) => this.cutscene.play(steps || SCENARIOS.first_night.openingCutscene),
+        floor: (id) => this.elevatorUI.ride(id),
       },
     };
   }

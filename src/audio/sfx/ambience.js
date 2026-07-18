@@ -97,6 +97,66 @@ export class Ambience {
       rain.connect(rainF); rainF.connect(rainG); rainG.connect(master);
     }
 
+    if (id === 'server') {
+      // dense equipment hum + fan wash
+      const hum = ctx.createOscillator();
+      hum.type = 'sawtooth'; hum.frequency.value = 92;
+      const humF = ctx.createBiquadFilter();
+      humF.type = 'lowpass'; humF.frequency.value = 220;
+      const humG = ctx.createGain(); humG.gain.value = 0.03;
+      hum.connect(humF); humF.connect(humG); humG.connect(master);
+      hum.start(); nodes.push(hum);
+      const fan = loopNoise(3.3);
+      const fanF = ctx.createBiquadFilter();
+      fanF.type = 'bandpass'; fanF.frequency.value = 450; fanF.Q.value = 0.6;
+      const fanG = ctx.createGain(); fanG.gain.value = 0.022;
+      fan.connect(fanF); fanF.connect(fanG); fanG.connect(master);
+    }
+
+    if (id === 'medical') {
+      const hum = ctx.createOscillator();
+      hum.type = 'triangle'; hum.frequency.value = 120;
+      const humG = ctx.createGain(); humG.gain.value = 0.006;
+      hum.connect(humG); humG.connect(master);
+      hum.start(); nodes.push(hum);
+      // slow monitor beep: sine gated by a square LFO
+      const beep = ctx.createOscillator();
+      beep.frequency.value = 880;
+      const beepG = ctx.createGain(); beepG.gain.value = 0;
+      const lfo = ctx.createOscillator();
+      lfo.type = 'square'; lfo.frequency.value = 0.38;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 0.006;
+      lfo.connect(lfoG); lfoG.connect(beepG.gain);
+      beep.connect(beepG); beepG.connect(master);
+      beep.start(); lfo.start(); nodes.push(beep, lfo);
+    }
+
+    if (id === 'lobby') {
+      const air = loopNoise(4.7);
+      const airF = ctx.createBiquadFilter();
+      airF.type = 'bandpass'; airF.frequency.value = 320; airF.Q.value = 0.4;
+      const airG = ctx.createGain(); airG.gain.value = 0.03;
+      air.connect(airF); airF.connect(airG); airG.connect(master);
+    }
+
+    if (id === 'carpark') {
+      const rumble = loopNoise(5.9);
+      const rF = ctx.createBiquadFilter();
+      rF.type = 'lowpass'; rF.frequency.value = 150;
+      const rG = ctx.createGain(); rG.gain.value = 0.05;
+      rumble.connect(rF); rF.connect(rG); rG.connect(master);
+      // drips: narrow ping resonance excited by noise bursts
+      const drip = loopNoise(2.1);
+      const dF = ctx.createBiquadFilter();
+      dF.type = 'bandpass'; dF.frequency.value = 1700; dF.Q.value = 28;
+      const dG = ctx.createGain(); dG.gain.value = 0.012;
+      const dLfo = ctx.createOscillator(); dLfo.frequency.value = 0.09;
+      const dLfoG = ctx.createGain(); dLfoG.gain.value = 0.010;
+      dLfo.connect(dLfoG); dLfoG.connect(dG.gain);
+      dLfo.start(); nodes.push(dLfo);
+      drip.connect(dF); dF.connect(dG); dG.connect(master);
+    }
+
     // distant riot: brown-ish noise rumble scaled by threat (both zones; louder outside)
     const riot = loopNoise(6.1);
     const riotF = ctx.createBiquadFilter();

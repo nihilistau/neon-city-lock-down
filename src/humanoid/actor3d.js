@@ -39,6 +39,13 @@ export class Actor3D {
   /** face a world-space yaw (radians); body eases, doesn't snap */
   faceYaw(yaw) { this.facingTarget = yaw; }
 
+  /** hard-teleport without a gait speed spike */
+  snapTo(x, z, yaw) {
+    this.root.position.set(x, 0, z);
+    if (yaw != null) { this.root.rotation.y = yaw; this.facingTarget = yaw; }
+    this._lastPos.copy(this.root.position);
+  }
+
   /** @param {THREE.Object3D|null} obj */
   lookAt(obj) { this.animator.lookAt(obj); }
 
