@@ -22,6 +22,8 @@ const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/b
 const SHOULDER_DIST = 2.7;      // third-person camera distance behind the player
 const SHOULDER_SIDE = 0.85;     // over-the-shoulder side offset (body sits in one third)
 const SHOULDER_UP = 0.14;       // raise the pivot above the eye so the cam clears the head
+const ASSIST_IDLE_MS = 320;     // resume hostile auto-track this long after the player last aimed
+const ASSIST_RATE = 3.0;        // rad/s cap on the auto-track turn toward the nearest hostile
 
 // reusable scratch (avoid per-frame allocation)
 const _EULER = new THREE.Euler();
@@ -56,6 +58,9 @@ export class FirstPersonControls {
     this.body = null;
     this.thirdPerson = false;    // over-the-shoulder camera + visible body
     this.aiming = false;         // combat active → hold the two-handed aim stance
+    /** @type {(() => THREE.Vector3|null)|null} nearest-hostile aim point during combat */
+    this.aimTarget = null;
+    this._lastLookMs = 0;        // last real mouselook; auto-track backs off right after
     this._moving = false;
 
     this._settleUntil = 0;      // ignore mouselook until this timestamp (ms)
@@ -74,6 +79,7 @@ export class FirstPersonControls {
       const sens = 0.0019 * (settings.mouseSensitivity ?? 1);
       this._targetYaw -= mx * sens;
       this._targetPitch = THREE.MathUtils.clamp(this._targetPitch - my * sens, -1.35, 1.35);
+      this._lastLookMs = performance.now();   // player is aiming → suspend auto-track
     };
     this._settle = () => { this._settleUntil = performance.now() + SETTLE_MS; };
     this._onLockChange = () => {
@@ -141,9 +147,33 @@ export class FirstPersonControls {
     if (document.pointerLockElement === this.dom) document.exitPointerLock();
   }
 
+  /** During combat, when the player isn't actively aiming, ease the aim yaw/pitch
+   *  toward the nearest hostile so the camera keeps the fight framed. Player
+   *  mouselook always wins — a real look input suspends this for ASSIST_IDLE_MS. */
+  _aimAssist(dt) {
+    if (!this.aiming || !this.aimTarget) return;
+    if (performance.now() - this._lastLookMs < ASSIST_IDLE_MS) return;
+    const t = this.aimTarget();
+    if (!t) return;
+    const dx = t.x - this.pos.x, dy = t.y - this.pos.y, dz = t.z - this.pos.z;
+    const horiz = Math.hypot(dx, dz);
+    if (horiz < 0.01) return;
+    const desiredYaw = Math.atan2(-dx, -dz);
+    const desiredPitch = THREE.MathUtils.clamp(Math.atan2(dy, horiz), -1.35, 1.35);
+    const cap = ASSIST_RATE * dt;
+    // shortest-path yaw delta, eased a fraction then capped so the turn stays smooth
+    let dYaw = desiredYaw - this._targetYaw;
+    dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
+    this._targetYaw += THREE.MathUtils.clamp(dYaw * 0.5, -cap, cap);
+    const dPitch = desiredPitch - this._targetPitch;
+    this._targetPitch = THREE.MathUtils.clamp(
+      this._targetPitch + THREE.MathUtils.clamp(dPitch * 0.5, -cap, cap), -1.35, 1.35);
+  }
+
   /** @param {number} dt seconds */
   update(dt) {
     if (!this.enabled) return;
+    this._aimAssist(dt);   // hostile auto-track nudges the targets before smoothing
     // ease actual view toward the target — small smoothing kills jitter without
     // adding perceptible lag (≈1 frame at 60fps)
     const k = Math.min(1, dt * 30);

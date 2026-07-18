@@ -375,6 +375,8 @@ export class App {
       playerSkill: () => this.run.player.skill ?? 70,
     });
     this.combatHud = new CombatHud(this);
+    // combat camera auto-tracks the nearest living hostile (TPS/FP soft assist)
+    this.cameraRig.fp.aimTarget = () => this._nearestHostileAim();
 
     // voice: baked manifest + optional live sidecar
     const manifest = await this._loadVoiceManifest();
@@ -509,6 +511,21 @@ export class App {
     }
     this._setWeaponModel();   // resume path emits inventory.changed, not .equipped
     dbg('run started', scenario.id);
+  }
+
+  /** Torso-height aim point of the nearest living hostile during combat, else null. */
+  _nearestHostileAim() {
+    if (!this.combat?.active) return null;
+    const p = this.playerActor.root.position;
+    let best = null, bestD = Infinity;
+    for (const h of this.combat.hostiles || []) {
+      if (h.hp <= 0) continue;
+      const hp = h.actor.root.position;
+      const dd = (hp.x - p.x) ** 2 + (hp.z - p.z) ** 2;
+      if (dd < bestD) { bestD = dd; best = hp; }
+    }
+    if (!best) return null;
+    return (this._aimVec ||= new THREE.Vector3()).set(best.x, best.y + 1.2, best.z);
   }
 
   /** Attach the procedural weapon mesh for the equipped weapon to the player's right hand. */

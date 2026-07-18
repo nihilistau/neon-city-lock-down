@@ -25,6 +25,10 @@ Despite the name it drives **both** first and third person, and owns the player 
   behind + to one side (`SHOULDER_DIST` 2.7, `SHOULDER_SIDE` 0.85) so the body sits in one third of the
   frame while the camera still looks straight down the aim yaw — the centre reticle and the fire
   raycast stay aligned. `_camDist` pulls the camera in against walls.
+- **Hostile auto-track** (combat): while `aiming`, `_aimAssist` eases the aim yaw/pitch toward the
+  nearest living hostile (`aimTarget()`, wired from `app._nearestHostileAim`) so the fight stays
+  framed. It's a *soft* assist — a real mouselook input suspends it for `ASSIST_IDLE_MS` (320 ms) and
+  it turns no faster than `ASSIST_RATE` (3 rad/s), so manual aim always wins.
 - Hooks set by `app.js`: `onInteract` (E), `onFire` (LMB → `combat.fireRay`), `onReload` (R),
   `onAction` (Space). `attachBody(actor)` attaches the player `Actor3D`. `placeAt(x,z,yaw)` seats the
   eye (used by the bed scene).
