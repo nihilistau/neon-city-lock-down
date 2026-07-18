@@ -78,6 +78,7 @@ import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
 import { InventoryUI } from '../ui/inventory.js';
 import { Reticle } from '../ui/reticle.js';
+import { PlanPanel } from '../ui/planPanel.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { CharacterAgent } from '../dialogue/llm/agent.js';
 import { Conversation } from '../dialogue/llm/conversation.js';
@@ -344,6 +345,7 @@ export class App {
     this.inventoryUI = new InventoryUI(this);
     this.llmPanel = new LLMPanel(this);
     this.reticle = new Reticle();
+    this.planPanel = new PlanPanel(this);
 
     // combat controller (needs picker + playerMarker)
     this.combat = new Combat({
@@ -366,6 +368,7 @@ export class App {
       },
       giveItem: (id, qty) => this.inventory.add(id, qty),
       fx: this.combatFx,
+      playerSkill: () => this.run.player.skill ?? 70,
     });
     this.combatHud = new CombatHud(this);
 

@@ -22,8 +22,11 @@ export function newRunState(seed) {
       elevator: { hp: 100, online: true, locked: false },
       cameras: { hp: 90, online: true },
     },
-    player: { health: 100, hunger: 15, thirst: 10, morale: 70 },
+    player: { health: 100, hunger: 15, thirst: 10, morale: 70, skill: 60 },
     threat: 18,
+    dayPlan: { ap: 4, apMax: 4 },      // action points for the day-plan layer
+    objectives: { done: [] },          // completed mid-run objectives
+    systemsDay: 0,                     // last day passive degradation applied
     eventsFired: [],
     /** @type {{atMinute:number, eventId:string}[]} */
     eventQueue: [],

@@ -3,8 +3,13 @@
 // systems → threat → scheduler → autosave cadence. Emits bus events; owns no UI.
 import { hourlyTick } from './survival.js';
 import { threatTick } from './threat.js';
+import { resetDayPlan } from './dayPlan.js';
+import { updateObjectives } from './objectives.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+
+// per-day passive drift of tower systems (the parts/repair economy's pressure)
+const DEGRADE = { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 };
 
 export class WorldTick {
   /**
@@ -52,9 +57,28 @@ export class WorldTick {
       }
     }
 
-    // day rollover marker
+    // objectives can complete at any minute
+    const done = updateObjectives(run, clock);
+    for (const o of done) {
+      feed(`✔ Objective complete: ${o.title} — ${o.note}`, 'system');
+      emit('objective.done', o);
+      emit('resources.changed', run.resources);
+    }
+
+    // day rollover: passive system degradation + a fresh AP pool
     if (clock.minuteOfDay === 0) {
       feed(`— Day ${clock.day} begins —`, 'system');
+      if (run.systemsDay !== clock.day) {
+        run.systemsDay = clock.day;
+        for (const [k, amt] of Object.entries(DEGRADE)) {
+          const s = run.systems[k];
+          s.hp = Math.max(0, s.hp - amt);
+          if (s.hp <= 12 && s.online) { s.online = false; feed(`The ${k} grid has failed — repair it.`, 'system'); }
+        }
+        emit('systems.changed', run.systems);
+        resetDayPlan(run);
+        emit('dayplan.reset', run.dayPlan);
+      }
       emit('day.started', { day: clock.day });
     }
   }

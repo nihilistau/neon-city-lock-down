@@ -262,3 +262,25 @@
 #ammo-readout b { color: #fff; font-size: 18px; } #ammo-readout b.empty { color: var(--red); }
 #ammo-readout small { color: #aaa; } #ammo-readout span { color: #7fd0ff; }
 #ammo-readout.hidden { display: none; }
+
+/* ── day-plan panel ── */
+.plan-ap { font-size: 14px; color: var(--text); margin: 6px 0 10px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.plan-ap b { color: var(--cyan); font-size: 18px; }
+.plan-sysrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.plan-sys { font-size: 11px; color: #8fe08f; }
+.plan-sys.off { color: var(--red); }
+.plan-last { font-style: italic; color: #ffd6a0; margin-bottom: 8px; }
+.plan-actions { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 12px; }
+.plan-act { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 7px 10px; border: 1px solid var(--panel-edge); background: rgba(10,14,22,0.7); cursor: pointer; }
+.plan-act:hover:not(.disabled) { border-color: var(--cyan); background: rgba(57,230,255,0.06); }
+.plan-act.disabled { opacity: 0.4; cursor: default; }
+.plan-act-name { color: var(--text); font-size: 13px; }
+.plan-act-name em { color: var(--amber); font-style: normal; font-size: 11px; }
+.plan-act-hint { color: #7a8494; font-size: 11px; }
+.plan-obj { margin: 6px 0; }
+.plan-obj-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
+.plan-obj.done .plan-obj-top { color: var(--green); }
+.plan-obj-desc { font-size: 11px; color: #7a8494; }
+.plan-bar { height: 4px; background: rgba(255,255,255,0.08); margin-top: 3px; }
+.plan-bar i { display: block; height: 100%; background: var(--cyan); }
+.plan-obj.done .plan-bar i { background: var(--green); }
