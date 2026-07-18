@@ -115,6 +115,13 @@ export class ActorQueue {
         a.playClip('walk', 0.25);
         break;
       }
+      case 'gotoPos': {
+        // direct world-position move (combat cover, staging) — no zone routing
+        if (this.seatedAt) this._standUp();
+        this._path = [new THREE.Vector3(cmd.args[0], 0, cmd.args[1])];
+        a.playClip('walk', 0.25);
+        break;
+      }
       case 'gotoSocket': {
         if (this.seatedAt) this._standUp();
         const socket = this.world.getSocket(cmd.args[0]);
@@ -186,6 +193,7 @@ export class ActorQueue {
     const a = this.actor;
     switch (cmd.type) {
       case 'goto':
+      case 'gotoPos':
       case 'gotoSocket': {
         if (!this._path || this._path.length === 0) {
           if (cmd.type === 'goto') a.playClip(a.persona.personality.idleClip || 'idle_stand', 0.35);

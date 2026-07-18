@@ -179,3 +179,38 @@
 .letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: 40; }
 .letterbox.top { top: 0; } .letterbox.bottom { bottom: 0; }
 .letterbox.active { height: 11vh; }
+
+/* ── combat HUD ── */
+#combat-hud {
+  position: absolute; top: 54px; left: 50%; transform: translateX(-50%);
+  width: 340px; z-index: 14; pointer-events: none;
+  font-size: 12px; letter-spacing: 0.06em; text-align: center;
+}
+#combat-hud .ch-top { display: flex; justify-content: center; gap: 14px; margin-bottom: 6px; }
+#combat-hud .ch-wave { color: var(--red); font-weight: 700; text-shadow: 0 0 8px rgba(255,71,87,0.7); }
+#combat-hud .ch-cover { color: var(--cyan); }
+#combat-hud .ch-cover.exposed { color: var(--amber); animation: chPulse 1.2s infinite; }
+#combat-hud .ch-turret { color: var(--green); }
+#combat-hud .ch-turret.off { color: #555c68; }
+#combat-hud .ch-incoming {
+  color: var(--amber); font-weight: 700; margin: 4px 0;
+  animation: chPulse 0.8s infinite;
+}
+@keyframes chPulse { 50% { opacity: 0.35; } }
+#combat-hud .ch-hostiles { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
+#combat-hud .ch-hostile {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(6,8,14,0.66); border: 1px solid rgba(255,71,87,0.35); padding: 3px 8px;
+}
+#combat-hud .ch-hname { color: var(--text); width: 64px; text-align: left; font-size: 11px; }
+#combat-hud .ch-bar { flex: 1; height: 5px; background: rgba(255,255,255,0.08); }
+#combat-hud .ch-bar i { display: block; height: 100%; background: var(--red); transition: width 0.25s; }
+#combat-hud .ch-hit { color: var(--amber); width: 36px; text-align: right; font-size: 11px; }
+#combat-hud .ch-shutter {
+  pointer-events: auto; margin-top: 6px;
+  background: rgba(6,8,14,0.8); color: var(--amber); border: 1px solid var(--amber);
+  padding: 5px 14px; font: inherit; cursor: pointer; letter-spacing: 0.1em;
+}
+#combat-hud .ch-shutter:hover:not(:disabled) { background: rgba(255,179,71,0.15); }
+#combat-hud .ch-shutter:disabled { color: #555c68; border-color: #333a44; cursor: default; }
+#combat-hud .ch-shutter.down { color: var(--green); border-color: var(--green); pointer-events: none; }

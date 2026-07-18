@@ -18,6 +18,20 @@ export const WEAPONS = {
 };
 
 /**
+ * Probability an attack lands (shared by resolveAttack and the combat HUD's
+ * hit-% preview).
+ * @param {{weapon:Weapon, skill:number, distance:number, cover?:number, targetDodge?:number}} a
+ */
+export function hitChance(a) {
+  const w = a.weapon;
+  const distFactor = 1 / (1 + Math.max(0, a.distance - 1) / w.range);
+  const skillFactor = 0.6 + (a.skill / 100) * 0.55;
+  const coverFactor = 1 - (a.cover ?? 0) * 0.5;
+  const dodgeFactor = 1 - ((a.targetDodge ?? 20) / 100) * 0.3;
+  return Math.min(0.98, Math.max(0.03, w.accuracy * distFactor * skillFactor * coverFactor * dodgeFactor));
+}
+
+/**
  * Resolve one attack.
  * @param {Object} a
  * @param {Weapon} a.weapon
@@ -30,11 +44,7 @@ export const WEAPONS = {
  */
 export function resolveAttack(a, rng) {
   const w = a.weapon;
-  const distFactor = 1 / (1 + Math.max(0, a.distance - 1) / w.range);
-  const skillFactor = 0.6 + (a.skill / 100) * 0.55;
-  const coverFactor = 1 - (a.cover ?? 0) * 0.5;
-  const dodgeFactor = 1 - ((a.targetDodge ?? 20) / 100) * 0.3;
-  const pHit = Math.min(0.98, Math.max(0.03, w.accuracy * distFactor * skillFactor * coverFactor * dodgeFactor));
+  const pHit = hitChance(a);
 
   if (!rng.chance(pHit)) return { hit: false, crit: false, damage: 0 };
   const crit = rng.chance(0.08 + (a.skill / 100) * 0.1);

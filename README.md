@@ -87,9 +87,18 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 - **New-game flow & roguelike.** A main menu picks from 16 scenarios and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
-  repair, **16 world events** plus a scheduled extraction endgame, real-time-lite
-  combat with an injury model and medbay treatment, perma-death with a run
-  summary, and light meta-progression (a codex of discovered lore + run history).
+  repair, **16 world events** plus a scheduled extraction endgame, perma-death
+  with a run summary, and light meta-progression (a codex of discovered lore +
+  run history).
+- **Combat as a mode.** Breaches arrive in **waves** with a combat HUD (hostile
+  hp bars, live hit-chance, wave countdown). Furniture is real **cover** — it
+  cuts incoming hit chance for you, the cast, and hostiles alike; the cast
+  sprints to cover and fights crouched, mercs advance to cover at mid-range
+  while rioters rush. The building fights back: a **ceiling turret** auto-fires
+  while the defence grid holds (and wears it down), and **blast shutters** can
+  be dropped mid-fight (2 power cells) to seal out un-spawned reinforcement
+  waves. Wins strip the fallen for ammo and gear; injuries are treated at the
+  medbay.
 - **Inventory & items.** A carried inventory (press **I**) of weapons,
   consumables, valuables, and key items. Equip a weapon and combat uses it
   (ranged spend ammo, melee need reach); use medkits, stims, rations, whiskey, and

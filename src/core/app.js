@@ -74,6 +74,7 @@ import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
 import { InventoryUI } from '../ui/inventory.js';
+import { CombatHud } from '../ui/combatHud.js';
 import { LOADOUTS } from '../../data/items.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
@@ -169,6 +170,7 @@ export class App {
       livingCast: () => Object.values(this.cast).filter((c) => c.alive),
       scheduler: this.scheduler,
       events: this.eventRunner,
+      combat: () => this.combat,
       rng: this.rng.stream('world_tick'),
     });
     on('world.minute', ({ clock }) => { if (this.mode === 'run') this.worldTick.minute(clock); });
@@ -330,7 +332,17 @@ export class App {
       picker: this.picker,
       nowMinute: () => this.clock.totalMinutes,
       equipped: () => this.inventory.equippedWeapon(),
+      colliders: () => this.world.colliders,
+      defences: () => this.world.defences,
+      walkable: (x, z) => {
+        const rects = this.world.walkRects?.[this.world.activeFloor];
+        if (!rects?.length) return true;
+        return rects.some((r) => x >= r.x[0] + 0.3 && x <= r.x[1] - 0.3 &&
+                                 z >= r.z[0] + 0.3 && z <= r.z[1] - 0.3);
+      },
+      giveItem: (id, qty) => this.inventory.add(id, qty),
     });
+    this.combatHud = new CombatHud(this);
 
     // voice: baked manifest + optional live sidecar
     const manifest = await this._loadVoiceManifest();

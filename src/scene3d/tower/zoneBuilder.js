@@ -245,6 +245,46 @@ export class World3D {
     this.curtains = new Curtains(group, ceil);
     for (const p of this.curtains.props) this.props.push(p);
 
+    // ── building defences ──
+    // ceiling turret: base + yoke + barrel, watching the stairwell corner
+    const turretMat = new THREE.MeshStandardMaterial({ map: metalTex('#232a3a'), roughness: 0.35, metalness: 0.8 });
+    const turret = new THREE.Group();
+    const tBase = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 12), turretMat);
+    tBase.position.y = -0.09;
+    const yoke = new THREE.Group();
+    yoke.position.y = -0.22;
+    const tHead = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), turretMat);
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.42), turretMat);
+    barrel.position.z = 0.24;
+    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffaa33, emissiveIntensity: 0 }));
+    muzzle.name = 'turret_muzzle';
+    muzzle.position.z = 0.47;
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.neonRed, emissiveIntensity: 1.6 }));
+    eye.position.set(0, 0.06, 0.1);
+    yoke.add(tHead, barrel, muzzle, eye);
+    turret.add(tBase, yoke);
+    turret.position.set(-3.2, ceil - 0.02, 2.2);
+    group.add(turret);
+    // stairwell blast shutter: framed slab that slides down over the breach corner
+    const shutterFrame = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 0.3), mullionMat());
+    shutterFrame.position.set(-6.3, ceil - 0.1, 4.55);
+    group.add(shutterFrame);
+    const shutter = new THREE.Mesh(
+      new THREE.BoxGeometry(3.0, ceil, 0.12),
+      new THREE.MeshStandardMaterial({ map: metalTex('#1c222e'), roughness: 0.5, metalness: 0.7 }));
+    shutter.position.set(-6.3, ceil + ceil / 2 - 0.15, 4.55);   // parked above the ceiling line
+    group.add(shutter);
+    const warnStripe = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 0.13),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.neonAmber, emissiveIntensity: 1.4 }));
+    warnStripe.position.y = -ceil / 2 + 0.2;
+    shutter.add(warnStripe);
+    this.defences = {
+      turret: { group: turret, yoke, muzzle },
+      shutter: { mesh: shutter, upY: ceil + ceil / 2 - 0.15, downY: ceil / 2 - 0.05, down: false },
+    };
+
     // walk rects
     const o = floor.offsetX;
     this._walk('penthouse', o, { x: [-8.35, 7.75], z: [-5.75, 5.75] });
@@ -456,10 +496,18 @@ export class World3D {
 
   /** @param {number} t seconds — ambient animation on the active floor */
   update(t) {
-    if (this.curtains && this.activeFloor === 'penthouse') {
-      const dt = this._lastT ? Math.min(0.1, t - this._lastT) : 0.016;
-      this._lastT = t;
-      this.curtains.update(dt);
+    const dt = this._lastT ? Math.min(0.1, t - this._lastT) : 0.016;
+    this._lastT = t;
+    if (this.curtains && this.activeFloor === 'penthouse') this.curtains.update(dt);
+    // shutter slide + turret muzzle cool-off
+    if (this.defences) {
+      const sh = this.defences.shutter;
+      const targetY = sh.down ? sh.downY : sh.upY;
+      if (Math.abs(sh.mesh.position.y - targetY) > 0.005) {
+        sh.mesh.position.y += (targetY - sh.mesh.position.y) * Math.min(1, dt * 2.2);
+      }
+      const mz = this.defences.turret.muzzle.material;
+      if (mz.emissiveIntensity > 0) mz.emissiveIntensity = Math.max(0, mz.emissiveIntensity - dt * 14);
     }
     for (let i = 0; i < this.fireSprites.length; i++) {
       const s = this.fireSprites[i];

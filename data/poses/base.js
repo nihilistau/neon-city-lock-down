@@ -109,6 +109,23 @@ registerClips([
     },
     hipsPos: [[0, [0.05, -0.34, -0.02]]],
   },
+  // Combat crouch — knees bent low behind cover, braced, alert.
+  {
+    id: 'crouch',
+    duration: 3.2, loop: 'pingpong',
+    bones: {
+      thighL: [-70, 8, -6], thighR: [-95, -6, 4],
+      shinL: [95, 0, 0], shinR: [110, 0, 0],
+      footL: [10, 0, 0], footR: [24, 0, 0],
+      spine1: [18, 0, 0], chest: [8, 0, 0],
+      armL: [20, 0, -30], armR: [35, 0, 25],
+      foreL: [55, 15, -5], foreR: [70, -20, 5],
+    },
+    tracks: {
+      head: [[0, [-12, -6, 0]], [3.2, [-12, 8, 0]]],   // scanning over the cover
+    },
+    hipsPos: [[0, [0, -0.42, -0.06]]],
+  },
   // Talk gesture accents (short, non-looping; layered by dialogue).
   {
     id: 'gesture_lean_in',

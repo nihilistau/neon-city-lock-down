@@ -109,7 +109,7 @@ export class EventRunner {
       combat: (s) => new Promise((resolve) => {
         if (!d.combat) { resolve(); return; }
         d.combat().start({
-          count: s.count, archetype: s.archetype, spawnAt: s.spawnAt,
+          count: s.count, archetype: s.archetype, spawnAt: s.spawnAt, waves: s.waves,
           onResolve: (win) => resolve({ steps: win ? (s.onWin || []) : (s.onLoss || []) }),
         });
       }),
