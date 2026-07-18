@@ -42,7 +42,15 @@ export class WorldTick {
     }
 
     const eventId = this.deps.scheduler.tick(run, clock);
-    if (eventId) this.deps.events.fire(eventId);
+    if (eventId) {
+      // if another event's script is mid-run, re-queue rather than drop it
+      // (critical for scheduled beats like the extraction endgame)
+      if (this.deps.events.busy) {
+        run.eventQueue.push({ atMinute: clock.totalMinutes + 5, eventId });
+      } else {
+        this.deps.events.fire(eventId);
+      }
+    }
 
     // day rollover marker
     if (clock.minuteOfDay === 0) {
