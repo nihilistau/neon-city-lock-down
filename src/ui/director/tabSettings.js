@@ -31,13 +31,9 @@ export function tabSettings(el, app) {
     <div class="dir-section">
       <div class="dir-label">LLM CHARACTERS — <span id="st-llm-status">checking…</span></div>
       <div class="dir-row"><label class="st-check"><input type="checkbox" id="st-llm-on" ${settings.llm.enabled ? 'checked' : ''}> enabled</label>
-        <button id="st-llm-test">test</button></div>
-      <div class="dir-row"><label class="st-check"><input type="checkbox" id="st-llm-agent" ${settings.llm.agentMode ? 'checked' : ''}> agent mode — the LLM writes replies &amp; drives the scene</label></div>
-      <div class="dir-row">
-        <label style="flex:1">warmth <span id="st-llm-tempv">${settings.llm.temperature}</span>
-          <input id="st-llm-temp" type="range" min="0.3" max="1.3" step="0.05" value="${settings.llm.temperature}" style="width:100%"></label>
-      </div>
-      <p class="dir-hint">served via tools/serve.mjs → LM Studio (key stays server-side). Off = authored dialogue engine.</p>
+        <button id="st-llm-test">test</button>
+        <button id="st-llm-open" class="clickable">⚙ Models &amp; per-character…</button></div>
+      <p class="dir-hint">Open the LLM Engine panel (or press <b>L</b>) to pick models, set each character's interaction (agent / rewrite / authored), and toggle thinking.</p>
     </div>
     <div class="dir-section">
       <div class="dir-label">LIVE TTS SIDECAR — <span id="st-side-status">${app.sidecar.healthy ? 'online' : 'offline'}</span></div>
@@ -75,12 +71,8 @@ export function tabSettings(el, app) {
     app.llm.refresh();
     if (e.target.checked) showStatus(true);
   });
-  el.querySelector('#st-llm-agent').addEventListener('change', (e) => setSetting('llm.agentMode', e.target.checked));
   el.querySelector('#st-llm-test').addEventListener('click', () => showStatus(true));
-  el.querySelector('#st-llm-temp').addEventListener('input', (e) => {
-    setSetting('llm.temperature', Number(e.target.value));
-    el.querySelector('#st-llm-tempv').textContent = e.target.value;
-  });
+  el.querySelector('#st-llm-open').addEventListener('click', () => { app.directorPanel?.close?.(); app.llmPanel.show(); });
   el.querySelector('#st-side-on').addEventListener('change', (e) => {
     setSetting('tts.useSidecar', e.target.checked);
   });

@@ -62,6 +62,15 @@ export class LLMPanel {
     return sel;
   }
 
+  /** A select over an explicit option list (no model catalogue). */
+  _plainSelect(id, selected, options, onChange) {
+    const sel = h('select', { id }, options.map((o) =>
+      h('option', { value: o.value, ...(o.value === selected ? { selected: true } : {}) }, [o.label])));
+    sel.value = selected ?? options[0]?.value;
+    sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
+  }
+
   _render(loading) {
     const overlay = document.getElementById('overlay');
     if (this.el) this.el.remove();
@@ -80,7 +89,11 @@ export class LLMPanel {
           ]),
           h('div', { class: 'dir-row' }, [
             h('label', { class: 'st-check' }, [
-              this._checkbox(L.agentMode, (v) => setSetting('llm.agentMode', v)), ' agent mode (LLM writes replies + drives the scene)']),
+              this._checkbox(L.agentMode, (v) => setSetting('llm.agentMode', v)), ' agent mode default (LLM writes replies + drives the scene)']),
+          ]),
+          h('div', { class: 'dir-row' }, [
+            h('label', { class: 'st-check' }, [
+              this._checkbox(L.thinking, (v) => setSetting('llm.thinking', v)), ' let models think first (slower, richer — off = /no_think, fast & clean)']),
           ]),
           h('div', { class: 'dir-row' }, [
             h('label', { style: 'flex:1' }, [`warmth ${L.temperature}`,
@@ -98,11 +111,18 @@ export class LLMPanel {
           h('p', { class: 'dir-hint' }, ['● loaded · ⟳think = reasoning model (slow, needs a big budget). Pick a plain instruct model for snappy replies.']),
         ]),
         h('div', { class: 'dir-section' }, [
-          h('div', { class: 'dir-label' }, ['PER-CHARACTER']),
-          ...CHARS.map((c) => h('div', { class: 'dir-row' }, [`${c.name}: `,
-            this._select(`llm-char-${c.id}`, L.charModels?.[c.id] || 'default',
-              [{ value: 'default', label: 'default model' }, { value: 'authored', label: 'authored dialogue (no LLM)' }],
-              (v) => setSetting('llm.charModels', { ...settings.llm.charModels, [c.id]: v }))])),
+          h('div', { class: 'dir-label' }, ['PER-CHARACTER — interaction + model']),
+          ...CHARS.map((c) => h('div', { class: 'llm-charrow' }, [
+            h('span', { class: 'llm-charname' }, [c.name]),
+            this._plainSelect(`llm-mode-${c.id}`, L.charModes?.[c.id] || (L.agentMode ? 'agent' : 'rewrite'),
+              [{ value: 'agent', label: 'Agent — writes & drives' },
+               { value: 'rewrite', label: 'Rewrite — restyle authored' },
+               { value: 'authored', label: 'Authored — no LLM' }],
+              (v) => setSetting('llm.charModes', { ...settings.llm.charModes, [c.id]: v })),
+            this._select(`llm-charmodel-${c.id}`, L.charModels?.[c.id] || 'default',
+              [{ value: 'default', label: 'default model' }],
+              (v) => setSetting('llm.charModels', { ...settings.llm.charModels, [c.id]: v })),
+          ])),
         ]),
       ];
 

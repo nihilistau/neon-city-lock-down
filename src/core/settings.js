@@ -18,7 +18,9 @@ const DEFAULTS = {
   // the LLM AUTHOR each reply + drive the scene, vs. only restyling authored text.
   // chatModel/functionModel: default model keys the engine uses ('' = whatever's
   // loaded). charModels: per-character override — 'default' | 'authored' | <key>.
-  llm: { enabled: false, agentMode: true, temperature: 0.85, reasoning: 'off', chatModel: '', functionModel: '', charModels: {}, baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
+  // thinking: let reasoning models think before replying (slower, sometimes
+  // richer) vs. reply directly (/no_think — fast, clean). Default off = snappy.
+  llm: { enabled: false, agentMode: true, thinking: false, temperature: 0.85, reasoning: 'off', chatModel: '', functionModel: '', charModels: {}, charModes: {}, baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
   tts: { sidecarUrl: 'http://localhost:8425', useSidecar: true },
   debug: false,
 };

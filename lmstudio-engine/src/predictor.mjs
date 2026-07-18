@@ -126,6 +126,9 @@ export class Predictor {
       temperature: o.temperature ?? 0.85,
       maxTokens: o.maxTokens ?? 320,
       signal: o.signal,
+      // always split <think> reasoning out of content so a thinking model's
+      // chain-of-thought never lands in the reply text
+      reasoningParsing: { enabled: true, startString: '<think>', endString: '</think>' },
     };
     if (o.draftModel) opts.draftModel = o.draftModel;
     if (o.stopStrings?.length) opts.stopStrings = o.stopStrings;

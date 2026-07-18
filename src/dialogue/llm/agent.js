@@ -25,7 +25,16 @@ export class CharacterAgent {
     this._probed = false;
   }
 
-  get enabled() { return !!(settings.llm?.enabled && settings.llm?.agentMode); }
+  get enabled() { return !!settings.llm?.enabled; }
+
+  /** Per-character interaction mode: 'agent' | 'rewrite' | 'authored'. */
+  mode(id) {
+    return settings.llm?.charModes?.[id] || (settings.llm?.agentMode ? 'agent' : 'rewrite');
+  }
+  _modelKey(id) {
+    const k = settings.llm?.charModels?.[id];
+    return k && k !== 'default' && k !== 'authored' ? k : undefined;
+  }
 
   /** Probe engine first, then the legacy proxy. Caches the working mode. */
   async probe(force = false) {
@@ -58,19 +67,18 @@ export class CharacterAgent {
     const others = (ctx.present || []).filter((c) => c.id !== char.id).map((c) => c.name);
     const scrubCtx = { playerName: ctx.playerName, otherNames: others };
     const heated = char.stats.arousal >= 55 || char.gates?.intimate === 'granted' || ctx.combat?.active;
-    const maxTokens = heated ? 420 : 240;
+    // Budget must cover a THINKING model's reasoning + the reply (it stops at EOS
+    // well before this if it's a plain instruct model, so the cap is safe for both).
+    const maxTokens = heated ? 2200 : 1600;
 
-    // per-character model routing: 'authored' opts this character out of the LLM;
-    // a specific key overrides the default chat model; 'default'/unset uses it.
-    const charModel = settings.llm?.charModels?.[char.id];
-    if (charModel === 'authored') return null;
-    const modelKey = charModel && charModel !== 'default' ? charModel : undefined;
+    const modelKey = this._modelKey(char.id);
+    const think = settings.llm?.thinking === true;
 
     if (this._mode === 'engine') {
-      const system = buildSystemPrompt(char, { ...ctx, emitTags: false });
+      const system = buildSystemPrompt(char, { ...ctx, emitTags: false }) + (think ? '' : '\n/no_think');
       const input = buildUserTurn(playerText, hist, { whisper: opts.whisper, action: opts.action, playerName: ctx.playerName });
       const res = await this.engine.chat(
-        { system, input, model: modelKey, temperature: settings.llm?.temperature ?? 0.85, maxTokens: modelKey || charModel ? 700 : maxTokens,
+        { system, input, model: modelKey, temperature: settings.llm?.temperature ?? 0.85, maxTokens,
           extract: { zone: ZONE_OF[char.queue?.zone] || '', name: char.name } },
         opts.onFragment);
       if (!res) return null;
@@ -90,6 +98,30 @@ export class CharacterAgent {
     const text = cleanReply(res.content, scrubCtx);
     if (!this._valid(text)) return null;
     return { text, directions: [] };  // inline [[tags]] compiled downstream
+  }
+
+  /**
+   * Rewrite mode: keep the authored line's meaning but restyle it in the
+   * character's voice via the engine. Returns new text or null.
+   * @param {import('../../chars/character.js').Character} char
+   * @param {string} cleanText @param {any} ctx
+   */
+  async rewrite(char, cleanText, ctx) {
+    if (!this.enabled || this._mode !== 'engine') return null;
+    if (!(await this.probe())) return null;
+    const think = settings.llm?.thinking === true;
+    const system = buildSystemPrompt(char, { ...ctx, emitTags: false })
+      + '\nRewrite the given line in your own voice — SAME meaning and roughly the same length, first person. Output ONLY the rewritten line, nothing else.'
+      + (think ? '' : '\n/no_think');
+    const res = await this.engine.chat(
+      { system, input: `Line: "${cleanText}"`, model: this._modelKey(char.id),
+        temperature: settings.llm?.temperature ?? 0.85, maxTokens: think ? 1600 : 300 },
+      null);
+    if (!res) return null;
+    const others = (ctx.present || []).filter((c) => c.id !== char.id).map((c) => c.name);
+    const text = sanitizeTags(scrubPuppeting(res.content, { playerName: ctx.playerName, otherNames: others }))
+      .replace(/^(line|rewritten|response)\s*:\s*/i, '').replace(/^["']|["']$/g, '');
+    return this._valid(text) ? text : null;
   }
 
   _valid(text) {

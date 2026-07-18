@@ -231,3 +231,10 @@
 #games-panel.bed-hud .bg-ask.ready { background: rgba(200,107,255,0.18); border-color: #c86bff; color: #f0d0ff; width: 100%; margin-top: 6px; }
 #games-panel.bed-hud .bg-climax { color: #ff8fc0; font-weight: 700; letter-spacing: 0.08em; }
 #games-panel.bed-hud .bg-actions button { font-size: 11px; padding: 3px 7px; }
+
+/* ── LLM panel per-character rows ── */
+.llm-charrow { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }
+.llm-charrow .llm-charname { width: 88px; font-size: 12px; color: var(--text); }
+.llm-charrow select { flex: 1; min-width: 120px; font-size: 11px; }
+#overlay .panel select { background: rgba(6,8,14,0.9); color: var(--text); border: 1px solid var(--panel-edge); padding: 3px 5px; }
+.llm-status { font-size: 12px; }

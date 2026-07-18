@@ -146,8 +146,9 @@ export class DialogueEngine {
     char.setPlayerDominance(this.stageCtx.playerDominance ?? 55);
 
     // ── LLM agent path: the character AUTHORS its reply; scene directives come
-    // from inline [[tags]] (legacy) and/or the function-model extraction (engine) ──
-    if (this.agent?.enabled && !isInterjection && rawText) {
+    // from inline [[tags]] (legacy) and/or the function-model extraction (engine).
+    // Only for characters whose interaction mode is 'agent'. ──
+    if (this.agent?.enabled && this.agent.mode(char.id) === 'agent' && !isInterjection && rawText) {
       try {
         const out = await this.agent.respond(
           char, rawText, this._sceneCtx(), this.convo?.history(char.id) || {}, { whisper: opts.whisper });
@@ -197,9 +198,12 @@ export class DialogueEngine {
         directions: compiled.directions,
       };
     }
-    if (this.llm?.enabled && !isInterjection) {
-      const rewritten = await this.llm.rewrite(char, compiled.cleanText, { tone });
-      if (rewritten) compiled = { cleanText: rewritten, directions: compiled.directions };
+    // rewrite mode: authored line, restyled in the character's voice by the engine
+    if (this.agent?.enabled && this.agent.mode(char.id) === 'rewrite' && !isInterjection) {
+      try {
+        const rewritten = await this.agent.rewrite(char, compiled.cleanText, this._sceneCtx());
+        if (rewritten) compiled = { cleanText: rewritten, directions: compiled.directions };
+      } catch (err) { console.warn('[dialogue] rewrite failed', err); }
     }
 
     this._perform(char, compiled, line);

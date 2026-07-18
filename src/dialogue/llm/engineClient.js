@@ -73,7 +73,7 @@ export class EngineClient {
    */
   async chat(req, onFragment) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 45000);
+    const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 90000);
     let content = '', tags = null, stats = null, replyText = null;
     try {
       const resp = await fetch('/engine/chat', {
