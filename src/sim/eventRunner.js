@@ -144,6 +144,9 @@ export class EventRunner {
       console.error('[event]', eventId, err);
     } finally {
       run.activeEventId = null;
+      // stamp when this event ended so the scheduler can enforce a global gap
+      // before the next random event (prevents back-to-back clustering).
+      run.lastEventEndMinute = this.deps.nowMinute();
       emit('event.done', { id: eventId });
     }
   }

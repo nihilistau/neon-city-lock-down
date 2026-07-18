@@ -28,6 +28,7 @@ export function newRunState(seed) {
     /** @type {{atMinute:number, eventId:string}[]} */
     eventQueue: [],
     activeEventId: null,
+    lastEventEndMinute: -Infinity,   // scheduler min-gap anchor (set when an event ends)
     refugees: 0,
     flags: {},
     history: { choices: [], statPeaks: {}, resourcesSpent: {} },

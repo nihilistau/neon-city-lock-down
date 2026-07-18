@@ -3,7 +3,8 @@
 // cadence, respecting window/cooldown/max-per-run.
 import { EVENTS } from '../../data/events.js';
 
-const ROLL_EVERY_MIN = 30;
+const ROLL_EVERY_MIN = 45;    // roll for a random event ~every 45 game-min
+const MIN_GAP_MIN = 150;      // hard floor between the END of one event and the next (~2.5 real min)
 
 export class Scheduler {
   /** @param {import('../core/rng.js').RngStream} rng */
@@ -26,7 +27,12 @@ export class Scheduler {
       const [ev] = run.eventQueue.splice(due, 1);
       return ev.eventId;
     }
-    if (run.activeEventId) return null;   // one at a time
+    if (run.activeEventId) { this._sinceRoll = 0; return null; }   // one at a time; restart the roll clock post-event
+
+    // global minimum gap after the previous event ended — the single biggest
+    // fix for "events too quick". Queued/scheduled beats above bypass this.
+    const lastEnd = run.lastEventEndMinute ?? -Infinity;
+    if (clock.totalMinutes - lastEnd < MIN_GAP_MIN) return null;
 
     this._sinceRoll++;
     if (this._sinceRoll < ROLL_EVERY_MIN) return null;
@@ -46,8 +52,9 @@ export class Scheduler {
     }
     if (!pool.length) return null;
 
-    // global pacing: roughly one random event per ~2.5 game-hours, scaled by threat
-    const fireChance = 0.22 + run.threat * 0.003;
+    // per-roll fire probability, mildly threat-scaled and capped so late game
+    // doesn't turn into a firehose (the MIN_GAP above is the real spacing floor).
+    const fireChance = Math.min(0.4, 0.18 + run.threat * 0.0015);
     if (!this.rng.chance(fireChance)) return null;
 
     const pick = this.rng.weighted(pool, (p) => p.w);
