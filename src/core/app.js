@@ -412,6 +412,15 @@ export class App {
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
 
+    // situational auto-camera: frames combat / dialogue / events. Attached now
+    // that cast, combat, and the player marker all exist.
+    this.cameraRig.attachDirector({
+      stage: this.stage,
+      cast: () => this.cast,
+      combat: () => this.combat,
+      playerMarker: this.playerMarker,
+    });
+
     // cutscenes, saves, death
     this.cutscene = new CutscenePlayer({
       stage: this.stage, cameraRig: this.cameraRig, loop: this.loop,
@@ -889,8 +898,11 @@ export class App {
     if (this.mode === 'run') {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
-      // player marker tracks the camera (where the player "is" for gaze/look)
-      if (this.playerMarker) {
+      // player marker tracks the camera ONLY when the camera IS the player
+      // (first-person / free orbit). In auto/cinematic the camera flies on its
+      // own, so the marker stays where the player last was.
+      const camIsPlayer = this.cameraRig.mode === 'firstPerson' || this.cameraRig.mode === 'director';
+      if (this.playerMarker && camIsPlayer) {
         this.playerMarker.position.copy(this.stage.camera.position);
         this.playerMarker.position.y = Math.min(1.7, this.playerMarker.position.y);
         // penthouse only: swap apartment/balcony beds as the player crosses the glass

@@ -1,9 +1,10 @@
 // @ts-check
-// Camera mode owner: director (orbit) | firstPerson. 'C' toggles.
-// Cinematic mode arrives with the cutscene player (P1.10).
+// Camera mode owner: auto (situational director) | director (free orbit) |
+// firstPerson | cinematic (cutscenes). 'C' cycles the first three.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FirstPersonControls } from './firstPerson.js';
+import { CameraDirector } from './cameraDirector.js';
 import { emit } from '../core/bus.js';
 import { settings, setSetting } from '../core/settings.js';
 
@@ -26,8 +27,10 @@ export class CameraRig {
     this.camera.position.set(2.5, 3.2, 5.5);
 
     this.fp = new FirstPersonControls(this.camera, stage.renderer.domElement, world);
+    /** @type {CameraDirector|null} situational auto-camera (attached post-setup) */
+    this.director = null;
 
-    /** @type {'director'|'firstPerson'|'cinematic'} */
+    /** @type {'auto'|'director'|'firstPerson'|'cinematic'} */
     this.mode = 'director';
     /** @type {THREE.Object3D[]} focus cycle targets (characters) */
     this.focusTargets = [];
@@ -36,7 +39,10 @@ export class CameraRig {
     document.addEventListener('keydown', (e) => {
       if (e.code === 'KeyC' && !e.repeat && this.mode !== 'cinematic'
           && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
-        this.setMode(this.mode === 'director' ? 'firstPerson' : 'director');
+        // cycle the user-facing modes; auto is included only when enabled
+        const order = (settings.autoCamera && this.director) ? ['auto', 'director', 'firstPerson'] : ['director', 'firstPerson'];
+        const i = order.indexOf(this.mode);
+        this.setMode(order[(i + 1) % order.length]);
       }
       if (e.code === 'KeyF' && this.mode === 'director' && this.focusTargets.length) {
         this._focusIdx = (this._focusIdx + 1) % this.focusTargets.length;
@@ -44,17 +50,28 @@ export class CameraRig {
         this.orbit.target.copy(t.position).add(new THREE.Vector3(0, 1.2, 0));
       }
     });
-
-    if (settings.cameraMode === 'firstPerson') this.setMode('firstPerson');
   }
 
-  /** @param {'director'|'firstPerson'|'cinematic'} mode */
+  /** Attach the situational director once cast/combat/playerMarker exist. */
+  attachDirector(deps) {
+    this.director = new CameraDirector(deps);
+    // honour the saved / default mode now that auto is available
+    const saved = settings.cameraMode;
+    this.setMode(saved === 'firstPerson' ? 'firstPerson'
+      : saved === 'director' ? 'director'
+      : (settings.autoCamera ? 'auto' : 'director'));
+  }
+
+  /** @param {'auto'|'director'|'firstPerson'|'cinematic'} mode */
   setMode(mode) {
     this.mode = mode;
     this.orbit.enabled = mode === 'director';
     if (mode === 'firstPerson') this.fp.enable();
     else this.fp.disable();
-    if (mode !== 'cinematic') setSetting('cameraMode', mode === 'firstPerson' ? 'firstPerson' : 'director');
+    if (mode === 'director') {           // hand the orbit the director's current framing
+      this.orbit.object.updateMatrixWorld();
+    }
+    if (mode !== 'cinematic') setSetting('cameraMode', mode);
     emit('camera.mode', { mode });
   }
 
@@ -62,5 +79,6 @@ export class CameraRig {
   update(dt) {
     if (this.mode === 'director') this.orbit.update();
     else if (this.mode === 'firstPerson') this.fp.update(dt);
+    else if (this.mode === 'auto' && this.director) this.director.tick(dt);
   }
 }

@@ -10,7 +10,8 @@ const DEFAULTS = {
   playerPronouns: 'she',         // 'she' (Female) | 'he' (Male)
   explicitness: 'mature',        // 'suggestive' | 'mature' | 'full'
   volumes: { master: 0.8, music: 0.7, sfx: 0.8, ambience: 0.7, voice: 1.0, ui: 0.6 },
-  cameraMode: 'director',        // 'director' | 'firstPerson'
+  cameraMode: 'auto',            // 'auto' (situational director) | 'director' | 'firstPerson'
+  autoCamera: true,              // situational auto-camera reacts to combat/dialogue/events
   mouseSensitivity: 1,           // 0.3 .. 2.5 multiplier for first-person look
   subtitleScale: 1,
   // LLM connection is handled server-side by the static-server proxy (keeps the

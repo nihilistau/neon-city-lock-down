@@ -22,6 +22,11 @@ export function tabSettings(el, app) {
       <div class="dir-row"><input type="range" min="0.3" max="2.5" step="0.1" value="${settings.mouseSensitivity ?? 1}" id="st-sens"></div>
     </div>
     <div class="dir-section">
+      <div class="dir-label">CAMERA</div>
+      <div class="dir-row"><label class="st-check"><input type="checkbox" id="st-autocam" ${settings.autoCamera ? 'checked' : ''}> cinematic auto-camera (frames combat / dialogue / events)</label></div>
+      <p class="dir-hint">C cycles: auto → free orbit → first person. Any manual mode pauses the auto-director.</p>
+    </div>
+    <div class="dir-section">
       <div class="dir-label">AUDIO</div>
       ${['master', 'music', 'sfx', 'ambience', 'voice'].map((b) => `
         <div class="dir-row"><span class="st-vlabel">${b}</span>
@@ -58,6 +63,11 @@ export function tabSettings(el, app) {
   });
   el.querySelector('#st-subs').addEventListener('input', (e) => setSetting('subtitleScale', Number(e.target.value)));
   el.querySelector('#st-sens').addEventListener('input', (e) => setSetting('mouseSensitivity', Number(e.target.value)));
+  el.querySelector('#st-autocam').addEventListener('change', (e) => {
+    setSetting('autoCamera', e.target.checked);
+    if (e.target.checked) app.cameraRig.setMode('auto');
+    else if (app.cameraRig.mode === 'auto') app.cameraRig.setMode('director');
+  });
   const statusEl = el.querySelector('#st-llm-status');
   const showStatus = async (force) => {
     const s = await app.agent.info(force);
