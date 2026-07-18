@@ -11,16 +11,21 @@ const concreteTexLazy = (tint) => concreteTex(tint);
 /** @typedef {{ group: THREE.Group, sockets: Record<string, THREE.Object3D>,
  *              colliders: {min:[number,number,number], max:[number,number,number]}[] }} Furniture */
 
+// Cache non-glow materials so identical surfaces share one material across all
+// furniture (fewer programs, better renderer sorting/state batching). Glow
+// materials vary by color/intensity so they get a per-key cache too.
+const _matCache = new Map();
+const cached = (key, make) => { let m = _matCache.get(key); if (!m) _matCache.set(key, (m = make())); return m; };
 const mat = {
-  fabric: () => new THREE.MeshStandardMaterial({ map: fabricTex(), roughness: 0.9 }),
-  leather: () => new THREE.MeshStandardMaterial({ color: PALETTE.leather, roughness: 0.55, metalness: 0.05 }),
-  wood: () => new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.7 }),
-  marble: () => new THREE.MeshStandardMaterial({ map: marbleTex(), roughness: 0.25, metalness: 0.1 }),
-  metal: () => new THREE.MeshStandardMaterial({ map: metalTex(), roughness: 0.4, metalness: 0.7 }),
-  metalDark: () => new THREE.MeshStandardMaterial({ color: PALETTE.metalDark, roughness: 0.5, metalness: 0.6 }),
-  glow: (color, intensity = 2) => new THREE.MeshStandardMaterial({
+  fabric: () => cached('fabric', () => new THREE.MeshStandardMaterial({ map: fabricTex(), roughness: 0.9 })),
+  leather: () => cached('leather', () => new THREE.MeshStandardMaterial({ color: PALETTE.leather, roughness: 0.55, metalness: 0.05 })),
+  wood: () => cached('wood', () => new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.7 })),
+  marble: () => cached('marble', () => new THREE.MeshStandardMaterial({ map: marbleTex(), roughness: 0.25, metalness: 0.1 })),
+  metal: () => cached('metal', () => new THREE.MeshStandardMaterial({ map: metalTex(), roughness: 0.4, metalness: 0.7 })),
+  metalDark: () => cached('metalDark', () => new THREE.MeshStandardMaterial({ color: PALETTE.metalDark, roughness: 0.5, metalness: 0.6 })),
+  glow: (color, intensity = 2) => cached(`glow:${color}:${intensity}`, () => new THREE.MeshStandardMaterial({
     color: 0x111111, emissive: new THREE.Color(color), emissiveIntensity: intensity,
-  }),
+  })),
 };
 
 function socket(group, name, x, y, z, yaw = 0) {

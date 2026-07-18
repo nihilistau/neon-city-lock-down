@@ -2,6 +2,7 @@
 // In-world HUD: interaction prompt, game clock, resource strip, camera hint,
 // alerts, event-choice modal.
 import { on } from '../core/bus.js';
+import { settings } from '../core/settings.js';
 
 let root = null;
 
@@ -68,9 +69,18 @@ export function initHud() {
   });
 
   const camHint = root.querySelector('#hud-hint');
+  const keyHelp = ' · ` director · K codex · Esc save';
   on('camera.mode', ({ mode }) => {
-    camHint.textContent = mode === 'firstPerson'
-      ? 'C — director cam · WASD — move · E — interact · click — mouselook'
-      : 'C — first person · drag — orbit · F — focus cast · E/click — interact';
+    camHint.textContent = (mode === 'firstPerson'
+      ? 'C director cam · WASD move · E interact · click mouselook'
+      : 'C first person · drag orbit · F focus · E/click interact') + keyHelp;
   });
+  camHint.textContent = 'C camera · drag orbit · F focus · E interact' + keyHelp;
+
+  // subtitle scale from settings
+  const applySubScale = () => {
+    document.getElementById('subtitles').style.fontSize = `${(settings.subtitleScale || 1) * 17}px`;
+  };
+  applySubScale();
+  on('settings.changed', applySubScale);
 }

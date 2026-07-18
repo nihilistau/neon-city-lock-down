@@ -412,6 +412,12 @@ export class World3D {
           gurney0: 'Treat the wounded', gurney1: 'Treat the wounded',
         };
         if (PROP_PROMPTS[f.id]) {
+          // clone materials on prop meshes so hover-highlight can't mutate the
+          // shared cached materials used by non-interactive furniture
+          item.group.traverse((o) => {
+            const m = /** @type {THREE.Mesh} */ (o);
+            if (m.isMesh && m.material && !Array.isArray(m.material)) m.material = m.material.clone();
+          });
           this.props.push({ mesh: item.group, id: f.id, prompt: PROP_PROMPTS[f.id], floor: zone.floor });
         }
       }

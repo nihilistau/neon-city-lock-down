@@ -14,6 +14,10 @@ export function tabSettings(el, app) {
       </div>
     </div>
     <div class="dir-section">
+      <div class="dir-label">SUBTITLE SIZE</div>
+      <div class="dir-row"><input type="range" min="0.7" max="1.6" step="0.1" value="${settings.subtitleScale || 1}" id="st-subs"></div>
+    </div>
+    <div class="dir-section">
       <div class="dir-label">AUDIO</div>
       ${['master', 'music', 'sfx', 'ambience', 'voice'].map((b) => `
         <div class="dir-row"><span class="st-vlabel">${b}</span>
@@ -50,6 +54,7 @@ export function tabSettings(el, app) {
       setSetting(`volumes.${input.dataset.vol}`, Number(input.value));
     });
   });
+  el.querySelector('#st-subs').addEventListener('input', (e) => setSetting('subtitleScale', Number(e.target.value)));
   el.querySelector('#st-llm-on').addEventListener('change', (e) => {
     setSetting('llm.enabled', e.target.checked);
     app.llm.refresh();

@@ -112,3 +112,9 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 #titlecard .tc-main { font-size: 54px; }
 #titlecard .tc-sub { font-size: 15px; letter-spacing: 0.5em; color: var(--text-dim); text-transform: uppercase; }
 .cinema #hud, .cinema #chat, .cinema #statbars, .cinema #director { display: none !important; }
+
+/* codex */
+.cx-list { display: flex; flex-direction: column; gap: 12px; margin: 10px 0; }
+.cx-entry { border-left: 2px solid var(--violet); padding: 6px 12px; background: rgba(157,107,255,0.05); }
+.cx-title { color: var(--violet); font-size: 14px; margin-bottom: 3px; }
+.cx-text { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }

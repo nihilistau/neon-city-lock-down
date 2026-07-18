@@ -34,10 +34,22 @@ export function buildSave(app, label = '') {
 }
 
 /**
+ * Migrate an older save envelope forward to the current VERSION. Add a case per
+ * version bump; each step upgrades v→v+1. Unknown-shaped saves fail loudly.
+ * @param {any} save
+ */
+export function migrate(save) {
+  let s = save;
+  // (future) while (s.version < VERSION) { switch (s.version) { case 1: ...; s.version = 2; } }
+  return s;
+}
+
+/**
  * Restore a save envelope into a live app (same cast composition).
  * @param {import('./app.js').App} app @param {any} save
  */
 export function applySave(app, save) {
+  save = migrate(save);
   if (save.version !== VERSION) throw new Error(`save version ${save.version} unsupported`);
   app.clock.deserialize(save.clock);
   Object.assign(app.run, save.run);

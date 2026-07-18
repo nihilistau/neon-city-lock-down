@@ -36,9 +36,31 @@ async function main() {
   const { topicRegistry, topicsFor } = await import('../src/dialogue/topics.js');
   ok(`topics: ${topicRegistry.size} registered`);
 
+  // content that must at least parse + self-reference cleanly
+  const { SCENARIOS } = await import('../data/scenarios.js');
+  ok(`scenarios: ${Object.keys(SCENARIOS).length}`);
+  const { EVENTS } = await import('../data/events.js');
+  ok(`events: ${Object.keys(EVENTS).length}`);
+  const { MYSTERY_CASES } = await import('../data/games/mysteryCases.js');
+  const { BED_ACTIONS } = await import('../data/games/bedActions.js');
+  const { TRUTHS, DARES } = await import('../data/games/todPrompts.js');
+  ok(`games: ${BED_ACTIONS.length} bed actions, ${TRUTHS.length}+${DARES.length} ToD, ${Object.keys(MYSTERY_CASES).length} cases`);
+
   // referential checks
   const anims = clipRegistry;
-  const knownZones = Object.keys((await import('../data/zones.js')).ZONES);
+  const zonesMod = await import('../data/zones.js');
+  const knownZones = Object.keys(zonesMod.ZONES);
+  // scenario placements must reference real zones
+  for (const s of Object.values(SCENARIOS)) {
+    for (const [cid, [zone]] of Object.entries(s.placements || {})) {
+      if (!knownZones.includes(zone)) err(`scenario ${s.id}: placement ${cid} -> unknown zone "${zone}"`);
+    }
+    if (s.fireEvent && !EVENTS[s.fireEvent]) err(`scenario ${s.id}: fireEvent "${s.fireEvent}" unknown`);
+  }
+  // mystery clue zones exist
+  for (const c of Object.values(MYSTERY_CASES)) {
+    for (const cl of c.clues) if (!knownZones.includes(cl.zone)) err(`case ${c.id}: clue zone "${cl.zone}" unknown`);
+  }
   for (const topic of topicRegistry.values()) {
     // branch goto targets exist
     for (const b of topic.branches || []) {

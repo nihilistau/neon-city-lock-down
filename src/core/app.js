@@ -71,6 +71,7 @@ import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
 import { zoneAt } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
+import { Codex } from '../ui/codex.js';
 import { addCodex } from '../sim/meta.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
@@ -367,7 +368,9 @@ export class App {
       cast: this.cast, voiceBank: this.voiceBank, vox: this.vox, lighting: this.lighting,
     });
     this.saveMenu = new SaveMenu(this);
+    this.codex = new Codex(this);
     initDeathScreen();
+    this._initKonami();
     on('player.health', ({ health }) => {
       if (health <= 0 && this.mode === 'run') {
         this.mode = 'dead';
@@ -589,6 +592,27 @@ export class App {
         feed(`${settings.playerName} used ${prop.id}.`, 'info');
         playSfx(audio, 'ui_click');
     }
+  }
+
+  /** Konami code on the keyboard → maintenance-shaft lore stash easter egg. */
+  _initKonami() {
+    const seq = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+    let idx = 0;
+    document.addEventListener('keydown', (e) => {
+      if (this.mode !== 'run') return;
+      idx = e.code === seq[idx] ? idx + 1 : (e.code === seq[0] ? 1 : 0);
+      if (idx === seq.length) {
+        idx = 0;
+        if (this.run.flags.konami) { emit('hud.alert', { text: 'The shaft is already open.', kind: 'info' }); return; }
+        this.run.flags.konami = true;
+        this.run.resources.luxury += 6;
+        this.run.resources.parts += 3;
+        emit('resources.changed', this.run.resources);
+        emit('hud.alert', { text: 'A maintenance panel clicks open — a previous tenant\'s stash.', kind: 'info' });
+        this.vox.say('Oh. THAT panel. I wondered who\'d remember the old service code. Well done, ghost.');
+        addCodex('konami_shaft', 'The Maintenance Shaft', 'An old service code opens a panel the building forgot it had — someone lived in the walls once, and left supplies behind.');
+      }
+    });
   }
 
   /** floor → ambience bed */
