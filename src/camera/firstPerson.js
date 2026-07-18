@@ -19,8 +19,9 @@ const RADIUS = 0.26;
 const MAX_DELTA = 40;           // px per event — normal fast flick; larger is clamped
 const SPIKE_DELTA = 200;        // px per event — impossible for a real mouse; dropped
 const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/blur
-const SHOULDER_DIST = 3.1;      // third-person camera distance behind the player
-const SHOULDER_SIDE = 0.55;     // over-the-shoulder side offset
+const SHOULDER_DIST = 2.7;      // third-person camera distance behind the player
+const SHOULDER_SIDE = 0.85;     // over-the-shoulder side offset (body sits in one third)
+const SHOULDER_UP = 0.14;       // raise the pivot above the eye so the cam clears the head
 
 // reusable scratch (avoid per-frame allocation)
 const _EULER = new THREE.Euler();
@@ -179,7 +180,10 @@ export class FirstPersonControls {
     if (this.thirdPerson) {
       const look = _V1.set(0, 0, -1).applyEuler(euler);
       const right = _V2.set(1, 0, 0).applyEuler(euler);
-      const pivot = _V3.set(this.pos.x, this.pos.y - 0.08, this.pos.z);
+      // pivot at head height; the side offset pushes the body into one third of
+      // the frame while the camera still looks straight down the aim yaw — so the
+      // centre-screen reticle and the fire raycast stay aligned (no down-tilt).
+      const pivot = _V3.set(this.pos.x, this.pos.y + SHOULDER_UP, this.pos.z);
       const dist = this._camDist(pivot, look, SHOULDER_DIST);
       this.camera.position.copy(pivot).addScaledVector(look, -dist).addScaledVector(right, SHOULDER_SIDE);
       this.camera.rotation.copy(euler);

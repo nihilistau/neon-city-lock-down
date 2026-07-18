@@ -20,8 +20,11 @@ Despite the name it drives **both** first and third person, and owns the player 
   lock/focus/blur (kills the Chromium spike burst), drops impossible >200px events, clamps the rest,
   and smooths (`_targetYaw/_targetPitch` eased). *This was the fix for the spin-out bug.*
 - `update(dt)` moves the body (WASD, camera-relative, walk-rect + AABB collision), faces it to the
-  aim direction, plays walk/idle, then places the camera: at the eye (FP) or over-the-shoulder with
-  wall push-in (`_camDist`, TPS).
+  aim direction, plays walk/idle (or the `aim` hold while `aiming`), then places the camera: at the
+  eye (FP) or over-the-shoulder (TPS). The TPS shot pivots at head height (`SHOULDER_UP`) and offsets
+  behind + to one side (`SHOULDER_DIST` 2.7, `SHOULDER_SIDE` 0.85) so the body sits in one third of the
+  frame while the camera still looks straight down the aim yaw — the centre reticle and the fire
+  raycast stay aligned. `_camDist` pulls the camera in against walls.
 - Hooks set by `app.js`: `onInteract` (E), `onFire` (LMB → `combat.fireRay`), `onReload` (R),
   `onAction` (Space). `attachBody(actor)` attaches the player `Actor3D`. `placeAt(x,z,yaw)` seats the
   eye (used by the bed scene).
