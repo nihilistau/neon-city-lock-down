@@ -2,27 +2,59 @@
 // Parametric skinned body mesh. Only the body is vertex-skinned; head accessories
 // (face decal, eyes, hair) attach as children of bones and ride for free.
 import * as THREE from 'three';
-import { mergeGeometries, rigidSkin, chainSkin, limbGeo, latheGeo, ballGeo } from '../util/geo.js';
+import { mergeGeometries, rigidSkin, chainSkin, limbGeo, latheGeo, ballGeo, weldGeometry } from '../util/geo.js';
 import { BONE_INDEX, ARM_ANGLE } from './skeleton.js';
 
-/** Subtle skin-noise texture so lighting has something to bite. */
-function skinTexture(tone) {
+/** Skin color + roughness maps: subtle tonal variation for a softer, less-plastic
+ *  read. Returns { map, roughnessMap } sharing one canvas pair. */
+function skinMaps(tone) {
+  const size = 256;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = size;
   const ctx = c.getContext('2d');
   ctx.fillStyle = tone;
-  ctx.fillRect(0, 0, 128, 128);
-  const img = ctx.getImageData(0, 0, 128, 128);
+  ctx.fillRect(0, 0, size, size);
+  // large soft blotches of warmth/cool so the flat tone breaks up under light
+  const base = new THREE.Color(tone);
+  for (let i = 0; i < 24; i++) {
+    const warm = Math.random() < 0.5;
+    const col = base.clone().offsetHSL(warm ? 0.01 : -0.01, 0.04, (Math.random() - 0.5) * 0.05);
+    const g = ctx.createRadialGradient(
+      Math.random() * size, Math.random() * size, 4,
+      Math.random() * size, Math.random() * size, 30 + Math.random() * 60);
+    g.addColorStop(0, `rgba(${col.r * 255 | 0},${col.g * 255 | 0},${col.b * 255 | 0},0.16)`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  // fine grain
+  const img = ctx.getImageData(0, 0, size, size);
   for (let i = 0; i < img.data.length; i += 4) {
-    const n = (Math.random() - 0.5) * 9;
+    const n = (Math.random() - 0.5) * 8;
     img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
   }
   ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(3, 3);
-  return tex;
+  const map = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(2, 2);
+
+  // roughness map: brighter = rougher; skin varies subtly (shinier on high points)
+  const rc = document.createElement('canvas');
+  rc.width = rc.height = 128;
+  const rctx = rc.getContext('2d');
+  rctx.fillStyle = '#b8b8b8';
+  rctx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 40; i++) {
+    rctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.15})`;
+    rctx.beginPath();
+    rctx.arc(Math.random() * 128, Math.random() * 128, 6 + Math.random() * 20, 0, Math.PI * 2);
+    rctx.fill();
+  }
+  const roughnessMap = new THREE.CanvasTexture(rc);
+  roughnessMap.wrapS = roughnessMap.wrapT = THREE.RepeatWrapping;
+  roughnessMap.repeat.set(2, 2);
+  return { map, roughnessMap };
 }
 
 /**
@@ -101,14 +133,16 @@ export function buildBodyGeometry(b, j) {
     const sh = j['arm' + side], el = j['fore' + side], wr = j['hand' + side], fg = j['finger' + side];
     const dir = armDir.clone(); dir.x *= m;
 
-    // shoulder cap
-    const cap = ballGeo(sh.clone().addScaledVector(dir, 0.015 * h), 0.040 * h * b.build, { x: 1, y: 1, z: 1 }, 10);
+    // deltoid cap: overlaps the torso and the arm so the shoulder reads as one
+    // rounded mass rather than a floating ball
+    const cap = ballGeo(sh.clone().addScaledVector(dir, 0.008 * h), 0.044 * h * b.build,
+      { x: 1.05, y: 1.1, z: 1.0 });
     rigidSkin(cap, B['arm' + side]);
     parts.push(cap);
 
     const upperLen = el.clone().sub(sh).length();
     const fullLen = wr.clone().sub(sh).length();
-    const arm = limbGeo(sh, wr, 0.034 * h * b.build, 0.020 * h * b.build, 10);
+    const arm = limbGeo(sh, wr, 0.036 * h * b.build, 0.021 * h * b.build);
     const along = (x, y, z) => new THREE.Vector3(x, y, z).sub(sh).dot(dir);
     chainSkin(arm, [
       { bone: B['arm' + side], from: -0.05, to: upperLen },
@@ -116,8 +150,13 @@ export function buildBodyGeometry(b, j) {
     ], 0.028 * h, along);
     parts.push(arm);
 
+    // elbow joint: a small sphere so bends stay rounded when posed
+    const elbow = ballGeo(el, 0.026 * h * b.build, { x: 1, y: 1, z: 1 });
+    rigidSkin(elbow, B['fore' + side]);
+    parts.push(elbow);
+
     const handCenter = wr.clone().addScaledVector(dir, 0.045 * h);
-    const hand = ballGeo(handCenter, 0.030 * h, { x: 0.8, y: 1.35, z: 0.55 }, 10);
+    const hand = ballGeo(handCenter, 0.030 * h, { x: 0.82, y: 1.35, z: 0.6 });
     // orient the elongation along the arm: cheap — rotate about Z by ±ARM_ANGLE
     hand.translate(-handCenter.x, -handCenter.y, -handCenter.z);
     hand.rotateZ(m * -ARM_ANGLE);
@@ -132,7 +171,7 @@ export function buildBodyGeometry(b, j) {
     const thighLen = knee.clone().sub(hip).length();
     const fullLen = ankle.clone().sub(hip).length();
     const legDir = ankle.clone().sub(hip).normalize();
-    const leg = limbGeo(hip, ankle, 0.056 * h * b.build * (0.8 + 0.25 * b.hips), 0.021 * h * b.build, 12);
+    const leg = limbGeo(hip, ankle, 0.056 * h * b.build * (0.8 + 0.25 * b.hips), 0.022 * h * b.build);
     const along = (x, y, z) => new THREE.Vector3(x, y, z).sub(hip).dot(legDir);
     chainSkin(leg, [
       { bone: BONE_INDEX['thigh' + side], from: -0.06, to: thighLen },
@@ -140,16 +179,22 @@ export function buildBodyGeometry(b, j) {
     ], 0.035 * h, along);
     parts.push(leg);
 
-    const foot = ballGeo(new THREE.Vector3(hip.x, 0.026 * h, 0.028 * h), 0.030 * h,
-      { x: 0.95, y: 0.6, z: 2.3 }, 10);
+    // knee joint sphere for rounded bends
+    const kneeBall = ballGeo(j['shin' + side], 0.034 * h * b.build, { x: 1, y: 1.05, z: 1 });
+    rigidSkin(kneeBall, BONE_INDEX['shin' + side]);
+    parts.push(kneeBall);
+
+    const foot = ballGeo(new THREE.Vector3(hip.x, 0.028 * h, 0.03 * h), 0.032 * h,
+      { x: 0.95, y: 0.62, z: 2.3 });
     rigidSkin(foot, BONE_INDEX['foot' + side]);
     parts.push(foot);
   }
 
   const merged = mergeGeometries(parts);
   for (const p of parts) p.dispose();
-  merged.computeVertexNormals();
-  return merged;
+  // weld coincident verts + smooth normals so limb/joint seams stop reading as
+  // faceted ball-joints
+  return weldGeometry(merged, 6e-4);
 }
 
 /**
@@ -159,10 +204,15 @@ export function buildBodyGeometry(b, j) {
  */
 export function buildBody(persona, rig) {
   const geo = buildBodyGeometry(persona.body, rig.joints);
-  const mat = new THREE.MeshStandardMaterial({
-    map: skinTexture(persona.colors.skin),
-    roughness: 0.62,
-    metalness: 0.0,
+  const { map, roughnessMap } = skinMaps(persona.colors.skin);
+  // Physical material with a soft sheen gives skin a subtle fresnel falloff at
+  // grazing angles — the single biggest cue that reads as "skin" not "plastic".
+  const mat = new THREE.MeshPhysicalMaterial({
+    map, roughnessMap,
+    roughness: 0.72, metalness: 0.0,
+    sheen: 0.5,
+    sheenRoughness: 0.8,
+    sheenColor: new THREE.Color(persona.colors.skin).offsetHSL(0, 0.1, 0.08),
   });
   const mesh = new THREE.SkinnedMesh(geo, mat);
   mesh.castShadow = true;
@@ -184,14 +234,22 @@ export function buildHair(persona, rig) {
   const h = persona.body.height;
   const head = rig.byName.head;
   const headWorld = rig.joints.head;
-  const mat = new THREE.MeshStandardMaterial({ color: persona.colors.hair, roughness: 0.42, metalness: 0.12 });
+  // Physical material with anisotropy + clearcoat gives hair a directional sheen
+  // streak instead of a flat matte blob — the classic "hair highlight".
+  const hairCol = new THREE.Color(persona.colors.hair);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: hairCol, roughness: 0.55, metalness: 0.15,
+    clearcoat: 0.6, clearcoatRoughness: 0.35,
+    sheen: 0.6, sheenColor: hairCol.clone().offsetHSL(0, 0, 0.25),
+  });
+  if ('anisotropy' in mat) { mat.anisotropy = 0.7; mat.anisotropyRotation = Math.PI / 2; }
   /** local pos relative to head bone */
   const local = (v) => v.clone().sub(headWorld);
   const style = persona.hairStyle;
 
   // crown cap: upper hemisphere pushed back off the forehead so the face shows.
   const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.069 * h, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.56),
+    new THREE.SphereGeometry(0.069 * h, 28, 22, 0, Math.PI * 2, 0, Math.PI * 0.56),
     mat
   );
   cap.scale.set(1.0, 1.18, 1.06);
@@ -201,7 +259,7 @@ export function buildHair(persona, rig) {
 
   // back of the skull filled in (behind the ears, doesn't touch the face)
   const backCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.066 * h, 16, 14, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.4),
+    new THREE.SphereGeometry(0.066 * h, 24, 18, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.4),
     mat
   );
   backCap.scale.set(1.02, 1.0, 1.06);
@@ -210,7 +268,7 @@ export function buildHair(persona, rig) {
 
   // swept fringe: thin curved slab above the brow, tilted back so it caps the forehead
   const fringe = new THREE.Mesh(
-    new THREE.SphereGeometry(0.064 * h, 18, 6, Math.PI * 0.2, Math.PI * 0.6, 0, Math.PI * 0.22),
+    new THREE.SphereGeometry(0.064 * h, 24, 10, Math.PI * 0.2, Math.PI * 0.6, 0, Math.PI * 0.22),
     mat
   );
   fringe.scale.set(1.02, 1.0, 1.12);

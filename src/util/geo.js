@@ -106,10 +106,10 @@ export function chainSkin(geo, chain, band = 0.045, axisFn) {
  * @param {number} r0 radius at a @param {number} r1 radius at b
  * @param {number} [radial]
  */
-export function limbGeo(a, b, r0, r1, radial = 10) {
+export function limbGeo(a, b, r0, r1, radial = 16) {
   const dir = b.clone().sub(a);
   const len = dir.length();
-  const geo = new THREE.CylinderGeometry(r1, r0, len, radial, 6, false);
+  const geo = new THREE.CylinderGeometry(r1, r0, len, radial, 8, false);
   // cylinder is centered at origin along Y; move so -Y end sits at a, +Y at b... cylinder +Y = top = r1 end
   geo.translate(0, len / 2, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
@@ -124,7 +124,7 @@ export function limbGeo(a, b, r0, r1, radial = 10) {
  * @param {number} zScale flatten front-back
  * @param {number} [radial]
  */
-export function latheGeo(profile, zScale = 0.74, radial = 16) {
+export function latheGeo(profile, zScale = 0.74, radial = 24) {
   const pts = profile.map(([y, r]) => new THREE.Vector2(Math.max(0.001, r), y));
   const geo = new THREE.LatheGeometry(pts, radial);
   geo.scale(1, 1, zScale);
@@ -133,9 +133,56 @@ export function latheGeo(profile, zScale = 0.74, radial = 16) {
 }
 
 /** UV-sphere part, scaled+translated, in bind space. */
-export function ballGeo(center, r, scale = { x: 1, y: 1, z: 1 }, seg = 14) {
-  const geo = new THREE.SphereGeometry(r, seg, Math.max(8, Math.floor(seg * 0.75)));
+export function ballGeo(center, r, scale = { x: 1, y: 1, z: 1 }, seg = 18) {
+  const geo = new THREE.SphereGeometry(r, seg, Math.max(12, Math.floor(seg * 0.8)));
   geo.scale(scale.x, scale.y, scale.z);
   geo.translate(center.x, center.y, center.z);
   return geo;
+}
+
+/**
+ * Weld coincident vertices (within eps) and recompute smooth normals. Used after
+ * merging body parts so the seams between limb segments / joint caps blend
+ * instead of showing hard normal creases. Preserves position + skin attributes.
+ * @param {THREE.BufferGeometry} geo indexed geometry
+ * @param {number} [eps]
+ */
+export function weldGeometry(geo, eps = 1e-4) {
+  const pos = geo.getAttribute('position');
+  const idx = geo.getIndex();
+  if (!pos || !idx) return geo;
+  const si = geo.getAttribute('skinIndex');
+  const sw = geo.getAttribute('skinWeight');
+  const uv = geo.getAttribute('uv');
+  const q = 1 / eps;
+  /** @type {Map<string, number>} */
+  const map = new Map();
+  const remap = new Int32Array(pos.count);
+  const keptPos = [], keptSI = [], keptSW = [], keptUV = [];
+  let next = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const kx = Math.round(pos.getX(i) * q), ky = Math.round(pos.getY(i) * q), kz = Math.round(pos.getZ(i) * q);
+    const key = `${kx},${ky},${kz}`;
+    let vi = map.get(key);
+    if (vi === undefined) {
+      vi = next++;
+      map.set(key, vi);
+      keptPos.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+      if (si) keptSI.push(si.getX(i), si.getY(i), si.getZ(i), si.getW(i));
+      if (sw) keptSW.push(sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i));
+      if (uv) keptUV.push(uv.getX(i), uv.getY(i));
+    }
+    remap[i] = vi;
+  }
+  const newIdx = new Uint32Array(idx.count);
+  for (let i = 0; i < idx.count; i++) newIdx[i] = remap[idx.getX(i)];
+
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(new Float32Array(keptPos), 3));
+  if (si) out.setAttribute('skinIndex', new THREE.BufferAttribute(new Uint16Array(keptSI), 4));
+  if (sw) out.setAttribute('skinWeight', new THREE.BufferAttribute(new Float32Array(keptSW), 4));
+  if (uv) out.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(keptUV), 2));
+  out.setIndex(new THREE.BufferAttribute(newIdx, 1));
+  out.computeVertexNormals();
+  return out;
 }
