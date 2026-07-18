@@ -3,17 +3,22 @@
 // context action, shift run. Collision: the active floor's walk-rect union
 // (rect edges ARE the walls) + furniture AABB push-out.
 //
-// Mouselook robustness: Chromium can deliver enormous movementX/Y spikes right
-// after pointer-lock engages or on alt-tab return, and some devices emit NaN on
-// the first event — either one turns the camera into an uncontrollable spin.
-// We clamp per-event deltas, reject non-finite values, swallow the first event
-// after each lock, and smooth the result.
+// Mouselook robustness: Chromium delivers a BURST of enormous movementX/Y
+// spikes right after pointer-lock engages or on alt-tab/focus return, and some
+// devices emit NaN on the first event — either turns the camera into an
+// uncontrollable spin. We (1) reject non-finite values, (2) ignore ALL mousemove
+// for a short SETTLE window after every lock/focus/blur (not just one event, as
+// the spike arrives as a multi-event burst), (3) drop any single event whose
+// delta is physically impossible for a real mouse, (4) clamp the rest, and (5)
+// smooth the result.
 import * as THREE from 'three';
 import { settings } from '../core/settings.js';
 
 const EYE = 1.62;
 const RADIUS = 0.26;
-const MAX_DELTA = 120;          // px per event — anything larger is a glitch spike
+const MAX_DELTA = 40;           // px per event — normal fast flick; larger is clamped
+const SPIKE_DELTA = 200;        // px per event — impossible for a real mouse; dropped
+const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/blur
 
 export class FirstPersonControls {
   /**
@@ -35,7 +40,7 @@ export class FirstPersonControls {
     /** @type {(() => void)|null} context action — SPACE */
     this.onAction = null;
 
-    this._justLocked = false;
+    this._settleUntil = 0;      // ignore mouselook until this timestamp (ms)
     // smoothed look target (raw deltas write these; update() eases toward them)
     this._targetYaw = this.yaw;
     this._targetPitch = this.pitch;
@@ -43,22 +48,23 @@ export class FirstPersonControls {
     this._onMouse = (e) => {
       if (!this.enabled || document.pointerLockElement !== this.dom) return;
       let mx = e.movementX, my = e.movementY;
-      if (!Number.isFinite(mx) || !Number.isFinite(my)) return;   // NaN poisons yaw
-      if (this._justLocked) { this._justLocked = false; return; } // first event = garbage
+      if (!Number.isFinite(mx) || !Number.isFinite(my)) return;      // NaN poisons yaw
+      if (performance.now() < this._settleUntil) return;             // swallow the lock/focus spike BURST
+      if (Math.abs(mx) > SPIKE_DELTA || Math.abs(my) > SPIKE_DELTA) return; // impossible jump → drop
       mx = THREE.MathUtils.clamp(mx, -MAX_DELTA, MAX_DELTA);
       my = THREE.MathUtils.clamp(my, -MAX_DELTA, MAX_DELTA);
       const sens = 0.0019 * (settings.mouseSensitivity ?? 1);
       this._targetYaw -= mx * sens;
       this._targetPitch = THREE.MathUtils.clamp(this._targetPitch - my * sens, -1.35, 1.35);
     };
+    this._settle = () => { this._settleUntil = performance.now() + SETTLE_MS; };
     this._onLockChange = () => {
-      if (document.pointerLockElement === this.dom) {
-        this._justLocked = true;
-      } else {
-        // lock lost (Esc, alt-tab): drop held keys so movement can't run away
-        this.keys.clear();
-      }
+      // any lock transition (engage OR release) precedes a movement spike
+      this._settle();
+      // lock lost (Esc, alt-tab): drop held keys so movement can't run away
+      if (document.pointerLockElement !== this.dom) this.keys.clear();
     };
+    this._onFocus = () => this._settle();     // alt-tab back can retain lock + a queued spike
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
       this.keys.add(e.code);
@@ -66,7 +72,7 @@ export class FirstPersonControls {
       if (e.code === 'Space' && this.onAction) { e.preventDefault(); this.onAction(); }
     };
     this._onKeyUp = (e) => this.keys.delete(e.code);
-    this._onBlur = () => this.keys.clear();
+    this._onBlur = () => { this.keys.clear(); this._settle(); };
     this._onClick = () => {
       if (this.enabled && document.pointerLockElement !== this.dom) {
         const p = this.dom.requestPointerLock();
@@ -79,11 +85,13 @@ export class FirstPersonControls {
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
     window.addEventListener('blur', this._onBlur);
+    window.addEventListener('focus', this._onFocus);
     dom.addEventListener('click', this._onClick);
   }
 
   enable() {
     this.enabled = true;
+    this._settle();   // ignore the lock-engage spike burst
     // sync targets so entering FP never snaps or inherits stale deltas
     this._targetYaw = this.yaw;
     this._targetPitch = this.pitch;
@@ -94,6 +102,7 @@ export class FirstPersonControls {
   /** Teleport the eye to (x,z) at eye height, aimed at `yaw` (radians). Used to
    *  seat the player somewhere specific — e.g. on the bed for the bed game. */
   placeAt(x, z, yaw, pitch = -0.05) {
+    this._settle();
     this.pos.set(x, this.pos.y, z);
     this.yaw = this._targetYaw = yaw;
     this.pitch = this._targetPitch = pitch;
