@@ -375,8 +375,8 @@ export class App {
       playerSkill: () => this.run.player.skill ?? 70,
     });
     this.combatHud = new CombatHud(this);
-    // combat camera auto-tracks the nearest living hostile (TPS/FP soft assist)
-    this.cameraRig.fp.aimTarget = () => this._nearestHostileAim();
+    // combat camera magnetism: soft continuous pull toward whichever hostile the aim is near
+    this.cameraRig.fp.aimTarget = () => this._hostileAimPoints();
 
     // voice: baked manifest + optional live sidecar
     const manifest = await this._loadVoiceManifest();
@@ -513,19 +513,18 @@ export class App {
     dbg('run started', scenario.id);
   }
 
-  /** Torso-height aim point of the nearest living hostile during combat, else null. */
-  _nearestHostileAim() {
+  /** Torso-height aim points of all living hostiles during combat, else null.
+   *  Feeds the camera's continuous aim magnetism, which picks whichever is
+   *  nearest the current aim direction. */
+  _hostileAimPoints() {
     if (!this.combat?.active) return null;
-    const p = this.playerActor.root.position;
-    let best = null, bestD = Infinity;
+    const out = [];
     for (const h of this.combat.hostiles || []) {
       if (h.hp <= 0) continue;
-      const hp = h.actor.root.position;
-      const dd = (hp.x - p.x) ** 2 + (hp.z - p.z) ** 2;
-      if (dd < bestD) { bestD = dd; best = hp; }
+      const p = h.actor.root.position;
+      out.push({ x: p.x, y: p.y + 1.2, z: p.z });
     }
-    if (!best) return null;
-    return (this._aimVec ||= new THREE.Vector3()).set(best.x, best.y + 1.2, best.z);
+    return out.length ? out : null;
   }
 
   /** Attach the procedural weapon mesh for the equipped weapon to the player's right hand. */

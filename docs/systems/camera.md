@@ -25,10 +25,14 @@ Despite the name it drives **both** first and third person, and owns the player 
   behind + to one side (`SHOULDER_DIST` 2.7, `SHOULDER_SIDE` 0.85) so the body sits in one third of the
   frame while the camera still looks straight down the aim yaw — the centre reticle and the fire
   raycast stay aligned. `_camDist` pulls the camera in against walls.
-- **Hostile auto-track** (combat): while `aiming`, `_aimAssist` eases the aim yaw/pitch toward the
-  nearest living hostile (`aimTarget()`, wired from `app._nearestHostileAim`) so the fight stays
-  framed. It's a *soft* assist — a real mouselook input suspends it for `ASSIST_IDLE_MS` (320 ms) and
-  it turns no faster than `ASSIST_RATE` (3 rad/s), so manual aim always wins.
+- **Hostile aim magnetism** (combat): while `aiming`, `_aimAssist` applies a *continuous* soft pull of
+  the aim yaw/pitch toward whichever live hostile is nearest the current aim (`aimTarget()`, wired from
+  `app._hostileAimPoints` → all live hostile torso points). The pull engages **only inside a stick
+  cone** (`ASSIST_STICK_DEG`, 22°) — aiming at empty space or a different target is never fought — and
+  strengthens as the reticle nears the target (`prox = 1 − err/cone`, sticky adhesion). A manual
+  mouselook softens it to zero and it ramps back over `ASSIST_SOFTEN_MS` (220 ms), so a deliberate
+  flick always wins. `ASSIST_STRENGTH` (7/s) sets the base pull. (These become `config/camera.yaml`
+  keys in the config layer.)
 - Hooks set by `app.js`: `onInteract` (E), `onFire` (LMB → `combat.fireRay`), `onReload` (R),
   `onAction` (Space). `attachBody(actor)` attaches the player `Actor3D`. `placeAt(x,z,yaw)` seats the
   eye (used by the bed scene).

@@ -22,8 +22,9 @@ const SETTLE_MS = 160;          // ignore mouselook this long after lock/focus/b
 const SHOULDER_DIST = 2.7;      // third-person camera distance behind the player
 const SHOULDER_SIDE = 0.85;     // over-the-shoulder side offset (body sits in one third)
 const SHOULDER_UP = 0.14;       // raise the pivot above the eye so the cam clears the head
-const ASSIST_IDLE_MS = 320;     // resume hostile auto-track this long after the player last aimed
-const ASSIST_RATE = 3.0;        // rad/s cap on the auto-track turn toward the nearest hostile
+const ASSIST_STRENGTH = 7.0;    // per-second pull toward the sticky target (fraction of the error)
+const ASSIST_STICK_DEG = 22;    // half-angle cone (deg) within which magnetism engages
+const ASSIST_SOFTEN_MS = 220;   // magnetism fades back in over this long after a manual look
 
 // reusable scratch (avoid per-frame allocation)
 const _EULER = new THREE.Euler();
@@ -147,27 +148,35 @@ export class FirstPersonControls {
     if (document.pointerLockElement === this.dom) document.exitPointerLock();
   }
 
-  /** During combat, when the player isn't actively aiming, ease the aim yaw/pitch
-   *  toward the nearest hostile so the camera keeps the fight framed. Player
-   *  mouselook always wins — a real look input suspends this for ASSIST_IDLE_MS. */
+  /** Continuous combat aim magnetism: a soft, always-on pull toward whichever
+   *  hostile is nearest the current aim, but ONLY once the reticle is within a
+   *  stick cone — so aiming at empty space or a different target is never fought.
+   *  The pull strengthens as the reticle nears the target (sticky adhesion) and
+   *  fades briefly after a manual mouselook (a ramp, not a hard gate), so a
+   *  deliberate flick always wins. `aimTarget()` returns live hostile aim points. */
   _aimAssist(dt) {
     if (!this.aiming || !this.aimTarget) return;
-    if (performance.now() - this._lastLookMs < ASSIST_IDLE_MS) return;
-    const t = this.aimTarget();
-    if (!t) return;
-    const dx = t.x - this.pos.x, dy = t.y - this.pos.y, dz = t.z - this.pos.z;
-    const horiz = Math.hypot(dx, dz);
-    if (horiz < 0.01) return;
-    const desiredYaw = Math.atan2(-dx, -dz);
-    const desiredPitch = THREE.MathUtils.clamp(Math.atan2(dy, horiz), -1.35, 1.35);
-    const cap = ASSIST_RATE * dt;
-    // shortest-path yaw delta, eased a fraction then capped so the turn stays smooth
-    let dYaw = desiredYaw - this._targetYaw;
-    dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
-    this._targetYaw += THREE.MathUtils.clamp(dYaw * 0.5, -cap, cap);
-    const dPitch = desiredPitch - this._targetPitch;
-    this._targetPitch = THREE.MathUtils.clamp(
-      this._targetPitch + THREE.MathUtils.clamp(dPitch * 0.5, -cap, cap), -1.35, 1.35);
+    const targets = this.aimTarget();
+    if (!targets || !targets.length) return;
+    const stick = ASSIST_STICK_DEG * Math.PI / 180;
+    // pick the hostile closest to the current aim (angularly), not just nearest in space
+    let bestErr = Infinity, bestYaw = 0, bestPitch = 0;
+    for (const t of targets) {
+      const dx = t.x - this.pos.x, dy = t.y - this.pos.y, dz = t.z - this.pos.z;
+      const horiz = Math.hypot(dx, dz);
+      if (horiz < 0.01) continue;
+      let dYaw = Math.atan2(-dx, -dz) - this._targetYaw;
+      dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));           // shortest path
+      const dPitch = Math.atan2(dy, horiz) - this._targetPitch;
+      const err = Math.hypot(dYaw, dPitch);
+      if (err < bestErr) { bestErr = err; bestYaw = dYaw; bestPitch = dPitch; }
+    }
+    if (bestErr > stick) return;                                    // aiming away → free look
+    const prox = 1 - bestErr / stick;                               // 1 aligned → 0 at cone edge
+    const soft = THREE.MathUtils.clamp((performance.now() - this._lastLookMs) / ASSIST_SOFTEN_MS, 0, 1);
+    const k = Math.min(0.5, ASSIST_STRENGTH * prox * soft * dt);
+    this._targetYaw += bestYaw * k;
+    this._targetPitch = THREE.MathUtils.clamp(this._targetPitch + bestPitch * k, -1.35, 1.35);
   }
 
   /** @param {number} dt seconds */
