@@ -78,15 +78,22 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   undress → intimate → explicit → depraved`) with in-fiction consent flags and a
   global explicitness cap (Suggestive / Mature / Full).
 - **Procedural 3D everything.** Stylized humanoids on programmatic 34-bone
-  skeletons with parametric skinning, canvas + 3D-eye face rigs, and a layered
-  animator (procedural gait, pose clips, additive breathing, gaze). 15 zones
-  across 7 floors, elevator transit, 10 lighting presets, time-of-day, a
-  procedural city backdrop, rain, and news-ticker monitors.
-- **Survival roguelike.** Day/night ticks, rationing, a resource economy
-  (food/water/ammo/meds/cells/parts/luxury), system damage & repair, **16 world
-  events** plus a scheduled extraction endgame, real-time-lite combat with an
-  injury model and medbay treatment, perma-death with a run summary, and light
-  meta-progression (a codex of discovered lore + run history).
+  skeletons with parametric skinning, physically-shaded skin (sheen) and hair
+  (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
+  (procedural gait, pose clips, additive breathing, gaze). 15 zones across 7
+  floors, elevator transit, 10 lighting presets, time-of-day, a procedural city
+  backdrop, rain, news-ticker monitors, and **openable velvet curtains** that draw
+  across the glass to shut out the city.
+- **New-game flow & roguelike.** A main menu picks from 16 scenarios and 3
+  starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
+  the codex. Day/night ticks, rationing, a resource economy, system damage &
+  repair, **16 world events** plus a scheduled extraction endgame, real-time-lite
+  combat with an injury model and medbay treatment, perma-death with a run
+  summary, and light meta-progression (a codex of discovered lore + run history).
+- **Inventory & items.** A carried inventory (press **I**) of weapons,
+  consumables, valuables, and key items. Equip a weapon and combat uses it
+  (ranged spend ammo, melee need reach); use medkits, stims, rations, whiskey, and
+  a signal jammer; loot the armoury, med cabinet, and crates for real gear.
 - **Games & mind-games.** A bed game (38 actions, consent-ladder escalation),
   truth-or-dare (21 truths + 21 dares that heat the whole room), 6 conversational
   gambits resolved on dice, and 2 mystery cases with clue discovery,
@@ -145,10 +152,12 @@ charge; the model only restyles the surface prose.
 | Type + **Enter** | Speak to the room or a named character (addressee dropdown, bottom-left) |
 | **C** | Toggle first-person (WASD move, mouselook, **E** interact, **Space** action) / director orbit cam |
 | **F** | Cycle camera focus between the cast |
-| **E** / click | Interact with props (bar synth, telescope, fireplace, VOX terminal, loot…) |
+| **E** / click | Interact with props (bar synth, telescope, fireplace, curtains, VOX terminal, loot…) |
 | **`** (backtick) | Director panel (8 tabs) |
-| **K** | Codex · **Esc** — save/load menu |
+| **I** | Inventory · **K** — codex · **Esc** — save/load menu |
 | **Space** | Skip the current cutscene line |
+
+Mouse sensitivity for first-person is adjustable in **Director → Settings**.
 
 ---
 
