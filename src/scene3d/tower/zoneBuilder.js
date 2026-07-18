@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { ZONES, FLOORS, PENTHOUSE } from '../../../data/zones.js';
 import { makeFurniture } from './furniture.js';
+import { Curtains } from './curtains.js';
 import { tileTex, concreteTex, metalTex } from '../materials/texGen.js';
 import { PALETTE } from '../materials/palette.js';
 
@@ -240,6 +241,10 @@ export class World3D {
     this._buildExterior(group);
     this._buildRain(group, { x: [-16, 30], z: [5, 40], y: [0, 18] });
 
+    // velvet curtains over the glass walls
+    this.curtains = new Curtains(group, ceil);
+    for (const p of this.curtains.props) this.props.push(p);
+
     // walk rects
     const o = floor.offsetX;
     this._walk('penthouse', o, { x: [-8.35, 7.75], z: [-5.75, 5.75] });
@@ -451,6 +456,11 @@ export class World3D {
 
   /** @param {number} t seconds — ambient animation on the active floor */
   update(t) {
+    if (this.curtains && this.activeFloor === 'penthouse') {
+      const dt = this._lastT ? Math.min(0.1, t - this._lastT) : 0.016;
+      this._lastT = t;
+      this.curtains.update(dt);
+    }
     for (let i = 0; i < this.fireSprites.length; i++) {
       const s = this.fireSprites[i];
       s.material.opacity = 0.35 + 0.25 * Math.abs(Math.sin(t * (1.3 + i * 0.7) + i * 2));

@@ -210,7 +210,8 @@ export const EVENTS = {
 
   curfew_flyover: {
     id: 'curfew_flyover', cls: 'threat',
-    weight: (run) => 4 + run.threat * 0.05,
+    // drawn curtains hide the tower's lights — sweeps are far less likely to pick you
+    weight: (run) => (run.flags.curtainsClosed ? 1 : 4 + run.threat * 0.05),
     cooldownMin: 700, maxPerRun: 3, window: { phase: ['night'] },
     script: [
       { type: 'vox', text: 'Military sweep inbound. Recommend lights out. All of them. Now.' },

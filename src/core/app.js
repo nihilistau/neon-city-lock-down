@@ -505,6 +505,22 @@ export class App {
         this.lighting.apply(this.lighting.presetId === 'fireplace_warm' ? 'neon_night' : 'fireplace_warm', 2);
         feed('The fire settles into a slow burn.', 'info');
         break;
+      case prop.id.startsWith('curtain_'): {
+        const which = prop.id.slice(8);
+        const nowOpen = this.world.curtains.toggle(which);
+        playSfx(audio, 'door_servo');
+        this.run.flags.curtainsClosed = this.world.curtains.anyClosed;
+        feed(nowOpen ? `You draw the ${which} curtains open — the burning city floods back in.`
+                     : `You draw the ${which} curtains shut. The velvet swallows the sirens.`, 'info');
+        if (!nowOpen) {
+          // curtains closed: cozier, calmer, and safer from curfew sweeps
+          this.ambience.setThreat(Math.max(0, (this.run.threat - 25) / 100));
+          for (const c of Object.values(this.cast)) if (c.id !== 'vox') c.applyStats({ tension: -3, fear: -2, happiness: 2 }, 'curtains');
+        } else {
+          this.ambience.setThreat(this.run.threat / 100);
+        }
+        break;
+      }
       case prop.id === 'telescope': {
         const cam = this.stage.camera;
         const prevFov = cam.fov;
