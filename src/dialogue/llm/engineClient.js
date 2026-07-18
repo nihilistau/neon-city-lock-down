@@ -33,6 +33,23 @@ async function readSSE(resp, onEvent, signal) {
 export class EngineClient {
   constructor() { this._status = { available: false, model: '', checkedAt: 0 }; }
 
+  /** List all downloaded LLMs for the picker. */
+  async models() {
+    try {
+      const r = await fetch('/engine/models', { signal: AbortSignal.timeout(6000) });
+      return (await r.json()).models || [];
+    } catch { return []; }
+  }
+
+  /** Set the engine's default chat/function model keys. */
+  async setConfig(cfg) {
+    try {
+      await fetch('/engine/config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg),
+      });
+    } catch { /* best effort */ }
+  }
+
   async status(force = false) {
     const now = Date.now();
     if (!force && now - this._status.checkedAt < 5000) return this._status;
@@ -63,7 +80,7 @@ export class EngineClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({
-          system: req.system, input: req.input, extract: req.extract,
+          system: req.system, input: req.input, extract: req.extract, model: req.model,
           temperature: req.temperature, maxTokens: req.maxTokens,
         }),
         signal: ctrl.signal,

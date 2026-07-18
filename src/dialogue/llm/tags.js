@@ -127,6 +127,10 @@ function canonTag(type, arg) {
  */
 export function sanitizeTags(raw) {
   let text = String(raw || '');
+  // thinking-model leakage: keep only the post-reasoning answer, scrub markers
+  const rend = text.split(/__LM_STUDIO_INTERNAL[_A-Za-z0-9]*?(?:SYNTHETIC_)?REASONING_END[_A-Za-z0-9]*?__/);
+  if (rend.length > 1) text = rend[rend.length - 1];
+  text = text.replace(/__LM_STUDIO_INTERNAL[_A-Za-z0-9]*?__/g, ' ');
   text = text.replace(TAG_RE, (_m, type, arg) => canonTag(type, arg));
   // strip stray markdown FENCE MARKERS (keep the content) and hr separators
   text = text.replace(/```[a-z]*/gi, ' ').replace(/^\s*[-*_]{3,}\s*$/gm, ' ');

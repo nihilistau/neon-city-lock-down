@@ -78,6 +78,7 @@ import { InventoryUI } from '../ui/inventory.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { CharacterAgent } from '../dialogue/llm/agent.js';
 import { Conversation } from '../dialogue/llm/conversation.js';
+import { LLMPanel } from '../ui/llmPanel.js';
 import { LOADOUTS } from '../../data/items.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
@@ -323,6 +324,7 @@ export class App {
     // player inventory + items UI
     this.inventory = new Inventory(this);
     this.inventoryUI = new InventoryUI(this);
+    this.llmPanel = new LLMPanel(this);
 
     // combat controller (needs picker + playerMarker)
     this.combat = new Combat({
@@ -360,6 +362,13 @@ export class App {
     this.llm = new LLMAdapter();
     this.agent = new CharacterAgent();
     this.convo = new Conversation();
+    // apply any saved model choices to the engine
+    if (settings.llm?.chatModel || settings.llm?.functionModel) {
+      this.agent.engine.setConfig({
+        chatModel: settings.llm.chatModel || undefined,
+        functionModel: settings.llm.functionModel || undefined,
+      });
+    }
     this.dialogue = new DialogueEngine({
       cast: this.cast,
       nowMinute: () => this.clock.totalMinutes,
@@ -833,6 +842,34 @@ export class App {
     if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
     this.cameraRig.setMode(this._bedReturn?.camMode === 'firstPerson' ? 'firstPerson' : 'director');
     this._bedReturn = null;
+  }
+
+  /**
+   * Stream the partner's in-character dirty-talk reaction to a bed action.
+   * Emits 'bedgame.talk' ({frag}|{text,done}); no-op when the LLM is off.
+   * @param {import('../chars/character.js').Character} partner
+   * @param {string} actionPhrase e.g. "traces your jaw"
+   */
+  async bedReaction(partner, actionPhrase) {
+    if (!partner || !this.agent?.enabled) return;
+    if (!(await this.agent.probe())) return;
+    const ctx = {
+      present: [partner], playerName: settings.playerName,
+      lighting: 'candlelit', timeOfDay: this.clock.phase, day: this.clock.day,
+      threat: 0, combat: null, explicitness: settings.explicitness, bedScene: true,
+    };
+    try {
+      // no live fragments — a thinking model would flash its reasoning; show the
+      // finished, cleaned line. Only replace the authored line if we actually got
+      // one (empty → the authored bed line stays; graceful with any model).
+      const out = await this.agent.respond(
+        partner, actionPhrase, ctx, this.convo?.history(partner.id) || {},
+        { action: true });
+      if (out?.text) {
+        emit('bedgame.talk', { text: out.text, done: true });
+        this.convo?.noteReply(partner.id, out.text);
+      }
+    } catch { /* keep the authored line */ }
   }
 
   /** VOX is bodiless — the tower itself. Uses duck-typed actor/queue stubs. */

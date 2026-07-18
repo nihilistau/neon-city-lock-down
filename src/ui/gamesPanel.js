@@ -4,6 +4,7 @@
 // player choices back. Gambits live inline in the Actions tab (dice).
 import { on } from '../core/bus.js';
 import { h } from './widgets.js';
+import { BED_ACTIONS } from '../../data/games/bedActions.js';
 
 export class GamesPanel {
   /** @param {import('../core/app.js').App} app */
@@ -15,6 +16,14 @@ export class GamesPanel {
     document.getElementById('ui').appendChild(this.root);
 
     on('bedgame.state', (s) => { if (this.mode === 'bed') this._renderBed(s); });
+    on('bedgame.talk', (m) => {
+      if (this.mode !== 'bed') return;
+      const el = document.getElementById('bg-line');
+      if (!el) return;
+      if (m.reset) { this._talkBuf = ''; el.textContent = '…'; }
+      else if (m.frag) { this._talkBuf = (this._talkBuf || '') + m.frag; el.textContent = this._talkBuf; }
+      else if (m.done && m.text) { el.textContent = m.text; }
+    });
     on('tod.resolved', () => { if (this.mode === 'tod') this._renderTod(); });
     on('mystery.clue', () => { if (this.mode === 'mystery') this._renderMystery(); });
     on('mystery.solved', () => { if (this.mode === 'mystery') this._renderMystery(); });
@@ -109,7 +118,10 @@ export class GamesPanel {
     this._lastBedLine = r.line || '';
     const lineEl = document.getElementById('bg-line');
     if (lineEl) lineEl.textContent = this._lastBedLine;
-    if (r.withdrawn) this.app.toast?.('They pulled back. Slow down.');
+    if (r.withdrawn) { this.app.toast?.('They pulled back. Slow down.'); return; }
+    // LLM voices the partner's reaction over the authored line (streams in)
+    const label = BED_ACTIONS.find((a) => a.id === id)?.label || 'that';
+    this.app.bedReaction?.(this.app.cast[this._bedPartnerId], label);
   }
 
   _bedAsk() {

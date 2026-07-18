@@ -68,11 +68,20 @@ function server() {
   const e = engine();
   const s = new EngineServer(e);
 
+  // model management for the settings panel
+  s.route('GET', '/models', async () => ({ models: await e.models() }));
+  s.route('POST', '/config', async (body) => {
+    if (body.chatModel !== undefined) e.setChatModel(body.chatModel);
+    if (body.functionModel) e.setFunctionModel(body.functionModel);
+    return { ok: true };
+  });
+
   s.route('POST', '/chat', async (body, { sse, signal }) => {
     if (!sse) return { error: 'chat requires SSE (Accept: text/event-stream)' };
     let prose = '';
     const res = await e.chat(
-      { system: body.system, input: body.input, temperature: body.temperature ?? 0.85,
+      { role: body.model || 'chat',      // per-character model override (a model key)
+        system: body.system, input: body.input, temperature: body.temperature ?? 0.85,
         maxTokens: body.maxTokens ?? 320, signal },
       (frag, m) => { if (!m.reasoning) { prose += frag; sse.send('fragment', { text: frag }); } });
     const clean = (res.content || prose).trim();

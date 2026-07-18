@@ -41,6 +41,12 @@ export class Engine {
     return { ...h, model: h.ok ? await this.client.chatModelName() : '' };
   }
 
+  /** All downloaded LLMs for a picker. */
+  models() { return this.client.listAvailable(); }
+  /** Repoint the default chat / function roles at specific model keys. */
+  setChatModel(key) { this.client.setChatModel(key); }
+  setFunctionModel(key) { this.client.setFunctionModel(key); }
+
   /**
    * Streaming chat through the interceptor pipeline.
    * @param {Object} req  {role, system, input, temperature, maxTokens, draftModel, stopStrings, signal, meta}

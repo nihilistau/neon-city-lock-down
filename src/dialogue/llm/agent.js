@@ -60,11 +60,17 @@ export class CharacterAgent {
     const heated = char.stats.arousal >= 55 || char.gates?.intimate === 'granted' || ctx.combat?.active;
     const maxTokens = heated ? 420 : 240;
 
+    // per-character model routing: 'authored' opts this character out of the LLM;
+    // a specific key overrides the default chat model; 'default'/unset uses it.
+    const charModel = settings.llm?.charModels?.[char.id];
+    if (charModel === 'authored') return null;
+    const modelKey = charModel && charModel !== 'default' ? charModel : undefined;
+
     if (this._mode === 'engine') {
       const system = buildSystemPrompt(char, { ...ctx, emitTags: false });
-      const input = buildUserTurn(playerText, hist, { whisper: opts.whisper, playerName: ctx.playerName });
+      const input = buildUserTurn(playerText, hist, { whisper: opts.whisper, action: opts.action, playerName: ctx.playerName });
       const res = await this.engine.chat(
-        { system, input, temperature: settings.llm?.temperature ?? 0.85, maxTokens,
+        { system, input, model: modelKey, temperature: settings.llm?.temperature ?? 0.85, maxTokens: modelKey || charModel ? 700 : maxTokens,
           extract: { zone: ZONE_OF[char.queue?.zone] || '', name: char.name } },
         opts.onFragment);
       if (!res) return null;
@@ -75,7 +81,7 @@ export class CharacterAgent {
 
     // legacy inline-tag path
     const system = buildSystemPrompt(char, { ...ctx, emitTags: true });
-    const input = buildUserTurn(playerText, hist, { whisper: opts.whisper, playerName: ctx.playerName });
+    const input = buildUserTurn(playerText, hist, { whisper: opts.whisper, action: opts.action, playerName: ctx.playerName });
     const res = await this.rest.generate({
       system, input, temperature: settings.llm?.temperature ?? 0.85, maxTokens,
       reasoning: settings.llm?.reasoning ?? 'off', timeoutMs: 30000,

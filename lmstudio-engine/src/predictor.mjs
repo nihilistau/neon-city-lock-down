@@ -5,6 +5,21 @@
 // zod structured extraction. Knows nothing about the game or tags.
 import { Chat } from '@lmstudio/sdk';
 
+// Some "thinking" GGUFs leak chain-of-thought into the content channel, bracketed
+// by LM Studio's synthetic-reasoning separators. Keep only the post-reasoning
+// answer and scrub the internal markers.
+const REASON_END = /__LM_STUDIO_INTERNAL[_A-Za-z0-9]*?(?:SYNTHETIC_)?REASONING_END[_A-Za-z0-9]*?__/;
+export function stripReasoningArtifacts(text) {
+  let out = String(text || '');
+  const parts = out.split(REASON_END);
+  if (parts.length > 1) out = parts[parts.length - 1];
+  out = out.replace(/__LM_STUDIO_INTERNAL[_A-Za-z0-9]*?__/g, '');
+  out = out.replace(/<\/?think>/gi, '');
+  // a leading "Thinking Process:" / "Reasoning:" block only when no marker split happened
+  if (parts.length === 1) out = out.replace(/^\s*(thinking process|thinking|reasoning|let me think|first,? i)\b[\s\S]*?\n\s*\n/i, '');
+  return out.trim();
+}
+
 /** Build a Chat from a system prompt + input (string or message array). */
 export function toChat(system, input) {
   const chat = Chat.empty();
@@ -65,7 +80,7 @@ export class Predictor {
         else { content += frag.content; onFragment?.(frag.content, { reasoning: false }); }
       }
       const result = await pred.result();
-      return { content: result.content ?? content, reasoning, stats: result.stats };
+      return { content: stripReasoningArtifacts(result.content ?? content), reasoning, stats: result.stats };
     });
   }
 
