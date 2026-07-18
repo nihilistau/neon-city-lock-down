@@ -243,12 +243,27 @@ export class Combat {
     const cover = coverBetween(
       { x: h.actor.root.position.x, z: h.actor.root.position.z },
       { x: p.x, z: p.z }, this._colliders());
-    const res = resolveAttack({ weapon, skill: 70, distance: dist, cover }, this.d.rng);
+    const skill = this.d.playerSkill ? this.d.playerSkill() : 70;
+    const res = resolveAttack({ weapon, skill, distance: dist, cover }, this.d.rng);
+    const target = h.actor.root.position.clone(); target.y = 1.2;
+    if (wpn.ranged) this._fxShot(new THREE.Vector3(p.x, 1.5, p.z), target, res.hit);
+    else if (res.hit && this.d.fx) this.d.fx.impact(target, 'blood');
     if (res.hit) {
       this._damageHostile(h, res.damage, res.crit ? 'Critical hit!' : null);
     } else {
       feed(cover > 0 ? 'Your shot chews into their cover.' : (wpn.ranged ? 'Your shot goes wide.' : 'You swing and miss.'), 'combat');
     }
+  }
+
+  /** muzzle flash + tracer (+ impact on hit) between two world points. */
+  _fxShot(from, to, hit, kind = 'blood') {
+    const fx = this.d.fx;
+    if (!fx) return;
+    fx.muzzleFlash(from);
+    const end = hit ? to
+      : to.clone().add(new THREE.Vector3(this.d.rng.range(-0.9, 0.9), this.d.rng.range(-0.5, 0.5), this.d.rng.range(-0.9, 0.9)));
+    fx.tracer(from, end);
+    if (hit) fx.impact(to, kind);
   }
 
   _damageHostile(h, damage, note) {
@@ -291,6 +306,7 @@ export class Combat {
         { x: cp.x, z: cp.z }, this._colliders());
       const res = resolveAttack({ weapon: WEAPONS.sidearm, skill, distance: dist, cover: tCover }, this.d.rng);
       c.actor.lookAt(target.actor.root);
+      this._fxShot(new THREE.Vector3(cp.x, 1.3, cp.z), target.actor.root.position.clone().setY(1.2), res.hit);
       if (res.hit) {
         this._damageHostile(target, res.damage);
         feed(`${c.name} hits the ${target.actor.persona.name.toLowerCase()}.`, 'combat');
@@ -326,6 +342,8 @@ export class Combat {
     const res = resolveAttack({ weapon: WEAPONS.smg, skill, distance: Math.max(2, dist * 0.6) }, this.d.rng);
     turret.muzzle.material.emissiveIntensity = 6;
     this.d.sfx('gunshot');
+    const muzzleW = turret.muzzle.getWorldPosition(new THREE.Vector3());
+    this._fxShot(muzzleW, tp.clone().setY(1.2), res.hit, 'blood');
     grid.hp = Math.max(0, grid.hp - 0.6);  // barrels wear
     emit('systems.changed', run.systems);
     if (res.hit) {
@@ -402,6 +420,10 @@ export class Combat {
             weapon, skill: h.arch.skill, distance: bestD, cover,
           }, this.d.rng);
           this.d.sfx(h.arch.weapon === 'smg' ? 'gunshot' : 'thump');
+          if (weapon.range > 3) {   // ranged hostile → tracer toward the target
+            this._fxShot(new THREE.Vector3(hp3.x, 1.3, hp3.z),
+              new THREE.Vector3(best.pos.x, 1.3, best.pos.z), res.hit, best.kind === 'player' ? 'spark' : 'blood');
+          }
           if (res.hit) {
             if (best.kind === 'player') {
               run.player.health = Math.max(0, run.player.health - res.damage);

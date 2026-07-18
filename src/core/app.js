@@ -18,6 +18,7 @@ import { settings } from './settings.js';
 import { setDebugLogging, dbg, feed } from './log.js';
 import { emit, on } from './bus.js';
 import { Stage } from '../scene3d/stage.js';
+import { CombatFx } from '../scene3d/combatFx.js';
 import { PostFX } from '../scene3d/postfx.js';
 import { BootScene } from '../scene3d/bootScene.js';
 import { Lighting } from '../scene3d/lighting.js';
@@ -148,6 +149,10 @@ export class App {
     this.mode = 'run';
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
+    // combat FX (tracers/flashes/impacts) + back the previously-undefined
+    // world.particles(kind, pos) hook used by stage directions.
+    this.combatFx = new CombatFx(this.stage.scene);
+    this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
     this.lighting = new Lighting(this.stage);
     this.lighting.clock = this.clock;
     this.lighting.apply('neon_night', 0.01);
@@ -346,6 +351,7 @@ export class App {
                                  z >= r.z[0] + 0.3 && z <= r.z[1] - 0.3);
       },
       giveItem: (id, qty) => this.inventory.add(id, qty),
+      fx: this.combatFx,
     });
     this.combatHud = new CombatHud(this);
 
@@ -898,6 +904,7 @@ export class App {
     if (this.mode === 'run') {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
+      this.combatFx.update(dtSec, this.stage.camera);
       // player marker tracks the camera ONLY when the camera IS the player
       // (first-person / free orbit). In auto/cinematic the camera flies on its
       // own, so the marker stays where the player last was.
