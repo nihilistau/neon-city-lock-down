@@ -75,6 +75,78 @@ const PIECES = {
     parts.forEach((p) => p.dispose());
     return merged;
   },
+  /** open jacket shell over the torso + upper arms */
+  jacket(b, j) {
+    const h = b.height;
+    const parts = [];
+    const shell = latheGeo([
+      [0.60 * h, 0.098 * h * b.waist],
+      [0.70 * h, 0.104 * h],
+      [0.79 * h, 0.112 * h * (0.95 + 0.2 * b.bust)],
+      [0.83 * h, 0.075 * h],
+    ], 0.86, 16);
+    chainSkin(shell, [
+      { bone: BONE_INDEX.spine1, from: 0.58 * h, to: 0.70 * h },
+      { bone: BONE_INDEX.spine2, from: 0.70 * h, to: 0.762 * h },
+      { bone: BONE_INDEX.chest, from: 0.762 * h, to: 0.86 * h },
+    ], 0.03 * h);
+    parts.push(shell);
+    // sleeves: upper arm cover
+    const { ARM_ANGLE } = { ARM_ANGLE: Math.PI / 180 * 42 };
+    for (const side of ['L', 'R']) {
+      const sh = j['arm' + side], el = j['fore' + side];
+      const dir = el.clone().sub(sh).normalize();
+      const end = sh.clone().addScaledVector(dir, 0.75 * el.clone().sub(sh).length());
+      const sleeve = limbGeo(sh, end, 0.045 * h * b.build, 0.038 * h * b.build, 8);
+      rigidSkin(sleeve, BONE_INDEX['arm' + side]);
+      parts.push(sleeve);
+    }
+    const merged = mergeGeometries(parts);
+    parts.forEach((p) => p.dispose());
+    return merged;
+  },
+
+  /** loose robe: shoulders → mid-thigh, draped */
+  robe(b, j) {
+    const h = b.height;
+    const geo = latheGeo([
+      [0.42 * h, 0.135 * h * b.hips],
+      [0.52 * h, 0.120 * h],
+      [0.60 * h, 0.108 * h],
+      [0.70 * h, 0.112 * h],
+      [0.79 * h, 0.118 * h * (0.95 + 0.2 * b.bust)],
+      [0.84 * h, 0.085 * h],
+      [0.86 * h, 0.05 * h],
+    ], 0.88, 16);
+    chainSkin(geo, [
+      { bone: BONE_INDEX.hips, from: 0.40 * h, to: 0.635 * h },
+      { bone: BONE_INDEX.spine1, from: 0.635 * h, to: 0.70 * h },
+      { bone: BONE_INDEX.spine2, from: 0.70 * h, to: 0.762 * h },
+      { bone: BONE_INDEX.chest, from: 0.762 * h, to: 0.87 * h },
+    ], 0.035 * h);
+    return geo;
+  },
+
+  /** towel wrap: chest → mid-thigh, snug */
+  towel(b, j) {
+    const h = b.height;
+    const geo = latheGeo([
+      [0.46 * h, 0.108 * h * b.hips],
+      [0.55 * h, 0.100 * h * b.hips],
+      [0.63 * h, 0.088 * h * b.waist],
+      [0.72 * h, 0.092 * h],
+      [0.785 * h, 0.100 * h * (0.95 + 0.2 * b.bust)],
+      [0.805 * h, 0.07 * h],
+    ], 0.82, 14);
+    chainSkin(geo, [
+      { bone: BONE_INDEX.hips, from: 0.44 * h, to: 0.635 * h },
+      { bone: BONE_INDEX.spine1, from: 0.635 * h, to: 0.70 * h },
+      { bone: BONE_INDEX.spine2, from: 0.70 * h, to: 0.762 * h },
+      { bone: BONE_INDEX.chest, from: 0.762 * h, to: 0.81 * h },
+    ], 0.03 * h);
+    return geo;
+  },
+
   /** thigh-high leggings */
   leggings(b, j) {
     const h = b.height;

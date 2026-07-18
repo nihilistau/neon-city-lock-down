@@ -6,15 +6,20 @@ import { feedEntries } from '../../core/log.js';
 import { tabScene } from './tabScene.js';
 import { tabDialog } from './tabDialog.js';
 import { tabSettings } from './tabSettings.js';
+import { tabActions } from './tabActions.js';
+import { tabGames } from './tabGames.js';
+import { tabCast } from './tabCast.js';
+import { tabScenario } from './tabScenario.js';
+import { tabWorld } from './tabWorld.js';
 
 const TABS = [
   { id: 'scene', label: 'Scene', build: tabScene },
-  { id: 'cast', label: 'Cast', build: null },
+  { id: 'cast', label: 'Cast', build: tabCast },
   { id: 'dialog', label: 'Dialog', build: tabDialog },
-  { id: 'actions', label: 'Actions', build: null },
-  { id: 'scenario', label: 'Scenario', build: null },
-  { id: 'world', label: 'World', build: null },
-  { id: 'games', label: 'Games', build: null },
+  { id: 'actions', label: 'Actions', build: tabActions },
+  { id: 'scenario', label: 'Scenario', build: tabScenario },
+  { id: 'world', label: 'World', build: tabWorld },
+  { id: 'games', label: 'Games', build: tabGames },
   { id: 'settings', label: 'Settings', build: tabSettings },
 ];
 

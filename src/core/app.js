@@ -49,6 +49,11 @@ import { playSfx } from '../audio/sfx/synthKit.js';
 import { VOICE_CAST } from '../../data/voiceScript.js';
 import { CutscenePlayer } from '../cutscene/player.js';
 import { DirectorPanel } from '../ui/director/panel.js';
+import { GamesPanel } from '../ui/gamesPanel.js';
+import { BedGame } from '../games/bedGame.js';
+import { TruthOrDare } from '../games/truthOrDare.js';
+import { Gambits } from '../games/gambits.js';
+import { Mystery } from '../games/mystery.js';
 import { SaveMenu } from '../ui/saveMenu.js';
 import { initDeathScreen } from '../ui/deathScreen.js';
 import { endRun } from '../sim/death.js';
@@ -292,6 +297,22 @@ export class App {
       },
     });
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);
+
+    // games
+    this.bedGame = new BedGame({
+      cast: () => this.cast, explicitness: () => settings.explicitness,
+      nowMinute: () => this.clock.totalMinutes, rng: this.rng.stream('bedgame'),
+      sfx: (id) => playSfx(audio, id),
+    });
+    this.truthOrDare = new TruthOrDare({
+      players: () => Object.values(this.cast).filter((c) => c.id !== 'vox' && c.alive),
+      explicitness: () => settings.explicitness, nowMinute: () => this.clock.totalMinutes,
+      playerName: settings.playerName, rng: this.rng.stream('tod'),
+    });
+    this.gambits = new Gambits({ rng: this.rng.stream('gambits'), playerSkill: 65 });
+    this.mystery = new Mystery({ cast: () => this.cast });
+    this.gamesPanel = new GamesPanel(this);
+
     this.directorPanel = new DirectorPanel(this);
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
@@ -358,9 +379,33 @@ export class App {
     }
   }
 
+  /** transient toast for game feedback */
+  toast(text) {
+    emit('hud.alert', { text, kind: 'info' });
+  }
+
+  /** director activity suggestions */
+  directorAction(act) {
+    if (act === 'drink') {
+      playSfx(audio, 'pour_drink');
+      for (const c of Object.values(this.cast)) if (c.id !== 'vox') c.applyStats({ sobriety: -8, openness: 3, tension: -3 }, 'drinks');
+      feed('Drinks all around. The room loosens.', 'info');
+    } else if (act === 'dance') {
+      this._vinylHot = true;
+      this.conductor.setMood({ energy: 0.7, warmth: 0.55 });
+      feed('Music fills the penthouse.', 'info');
+    } else if (act === 'gather') {
+      for (const id of ['aria', 'kai']) this.cast[id]?.queue.goto('lounge', 'center');
+      feed('You call everyone to the lounge.', 'info');
+    }
+  }
+
   /** Prop interactions + easter eggs. One-shot loot is tracked per run. */
   _useProp(prop) {
     emit('prop.used', { id: prop.id });
+    // feed mystery clue discovery (propId + current player zone)
+    const pz = zoneAt(this.playerMarker.position.x, this.playerMarker.position.z);
+    this.mystery?.onProp(prop.id, pz);
     const looted = (this.run.flags.looted ||= {});
     const gainRes = (key, n, msg) => {
       if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); return; }
