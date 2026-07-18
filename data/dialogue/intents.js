@@ -23,4 +23,8 @@ registerIntents([
   { id: 'command', weighted: [['do', 0.5], ['obey', 2], ['kneel', 2], ['strip', 2], ['sit', 1], ['stand', 1], ['come', 1], ['dance', 1.5]], phrases: ['do it', 'right now', 'i said'] },
   { id: 'apologize', keywords: ['sorry', 'apologize', 'apology', 'forgive'], phrases: ['my bad', 'i apologize'] },
   { id: 'joke', keywords: ['joke', 'funny', 'haha', 'lol', 'lmao'], phrases: ['thats funny'] },
+  { id: 'about_lola', weighted: [['lola', 3], ['voss', 2]], phrases: ['about lola', 'think of lola'] },
+  { id: 'about_aria', weighted: [['aria', 3], ['chen', 2]], phrases: ['about aria', 'think of aria'] },
+  { id: 'about_kai', weighted: [['kai', 3], ['mercer', 2]], phrases: ['about kai', 'think of kai'] },
+  { id: 'about_vox', weighted: [['vox', 3], ['building', 1.5], ['tower', 1]], phrases: ['about vox', 'the building', 'this tower'] },
 ]);

@@ -28,6 +28,11 @@ async function main() {
 
   await import('../data/dialogue/lola/fallbacks.js');
   await import('../data/dialogue/lola/core.js');
+  await import('../data/dialogue/lola/depth.js');
+  await import('../data/dialogue/aria/core.js');
+  await import('../data/dialogue/aria/depth.js');
+  await import('../data/dialogue/kai/core.js');
+  await import('../data/dialogue/vox/core.js');
   const { topicRegistry, topicsFor } = await import('../src/dialogue/topics.js');
   ok(`topics: ${topicRegistry.size} registered`);
 

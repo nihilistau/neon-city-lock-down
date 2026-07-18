@@ -78,6 +78,7 @@ export const EVENTS = {
             label: 'Let them in',
             steps: [
               { type: 'addRefugee' },
+              { type: 'castFlag', flag: 'saw_refugee_in' },
               { type: 'alert', text: 'You opened the doors. One more mouth to feed.', kind: 'info' },
               { type: 'castStat', char: 'aria', deltas: { happiness: 8, trust: 6, loyalty: 4 } },
               { type: 'castStat', char: 'lola', deltas: { tension: 6, trust: -3 } },
@@ -88,6 +89,7 @@ export const EVENTS = {
           {
             label: 'Turn them away',
             steps: [
+              { type: 'castFlag', flag: 'saw_refugee_out' },
               { type: 'alert', text: 'The doors stayed sealed. The screaming faded eventually.', kind: 'danger' },
               { type: 'castStat', char: 'aria', deltas: { happiness: -8, fear: 5, trust: -4 } },
               { type: 'castStat', char: 'lola', deltas: { trust: 3, dominance: 2 } },

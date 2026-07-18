@@ -45,11 +45,16 @@ function addCard(character) {
   const pips = GATE_LADDER.map((t) =>
     `<span class="sb-pip" data-tier="${t}" title="${t}">${GATE_SHORT[t]}</span>`).join('');
   card.innerHTML = `
-    <div class="sb-head"><span class="sb-name">${character.name}</span><span class="mood">—</span></div>
-    <div class="sb-bars">${bars}</div>
-    <div class="sb-gates">${pips}</div>`;
+    <div class="sb-head clickable"><span class="sb-name">${character.name}</span><span class="mood">—</span></div>
+    <div class="sb-body">
+      <div class="sb-bars">${bars}</div>
+      <div class="sb-gates">${pips}</div>
+    </div>`;
   root.appendChild(card);
   cards.set(character.id, card);
+  // click the header to collapse to name + mood + gates only
+  card.querySelector('.sb-head').addEventListener('click', () => card.classList.toggle('collapsed'));
+  if (character.id === 'vox') card.classList.add('collapsed');
   updateBars(character.id, character.stats);
   updateGates(character.id, character.gates);
 }

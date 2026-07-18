@@ -53,6 +53,7 @@ export function condOk(cond, ctx) {
   if (cond.saidBefore && !mem.saidTopic(cond.saidBefore)) return false;
   if (cond.notSaid && mem.saidTopic(cond.notSaid)) return false;
   if (cond.fact) for (const [k, v] of Object.entries(cond.fact)) if (mem.fact(k) !== v) return false;
+  if (cond.minCounter) for (const [k, v] of Object.entries(cond.minCounter)) if (mem.count(k) < v) return false;
   if (cond.dayGte != null && day < cond.dayGte) return false;
   if (cond.zoneAny && !cond.zoneAny.includes(char.queue.zone)) return false;
   if (cond.gateAtLeast) {

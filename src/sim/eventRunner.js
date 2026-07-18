@@ -57,6 +57,9 @@ export class EventRunner {
         for (const c of Object.values(d.cast())) c.applyStats(s.deltas, 'event');
       },
       castStat: (s) => d.cast()[s.char]?.applyStats(s.deltas, 'event'),
+      castFlag: (s) => {
+        for (const c of Object.values(d.cast())) c.memory.setFlag(s.flag);
+      },
       playerMorale: (s) => {
         const p = d.run().player;
         p.morale = Math.max(0, Math.min(100, p.morale + s.amount));

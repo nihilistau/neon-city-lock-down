@@ -4,7 +4,11 @@ import '../../data/poses/base.js';
 import '../../data/dialogue/intents.js';
 import '../../data/dialogue/lola/fallbacks.js';
 import '../../data/dialogue/lola/core.js';
+import '../../data/dialogue/lola/depth.js';
 import '../../data/dialogue/aria/core.js';
+import '../../data/dialogue/aria/depth.js';
+import '../../data/dialogue/kai/core.js';
+import '../../data/dialogue/vox/core.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -52,7 +56,11 @@ import { saveToSlot, readSlot, applySave } from './save.js';
 import { SCENARIOS } from '../../data/scenarios.js';
 import lola from '../../data/cast/lola.js';
 import aria from '../../data/cast/aria.js';
+import kai from '../../data/cast/kai.js';
+import vox from '../../data/cast/vox.js';
 import { Brain } from '../sim/ai/brain.js';
+import { Relationships } from '../sim/ai/relationships.js';
+import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
@@ -196,26 +204,35 @@ export class App {
     this.cast.lola.actor.faceYaw(Math.PI);
     this.spawn(aria, 'bar');
     this.cast.aria.actor.faceYaw(-Math.PI / 2);
+    this.spawn(kai, 'fireplace');
+    this.cast.kai.actor.faceYaw(0.5);
+    this.spawnVox();
 
     // wardrobes (outfit layers over the base body)
     this.cast.lola.wardrobe = new Wardrobe(this.cast.lola, 'evening_wear');
     this.cast.aria.wardrobe = new Wardrobe(this.cast.aria, 'casual_lounge');
 
-    // autonomous brains
+    // autonomous brains (bodied cast only — VOX is omnipresent, no wandering)
     /** @type {Record<string, Brain>} */
     this.brains = {};
     for (const c of Object.values(this.cast)) {
+      if (c.id === 'vox') continue;
       this.brains[c.id] = new Brain(c, {
         rng: this.rng.stream(`brain_${c.id}`),
-        others: (self) => Object.values(this.cast).filter((x) => x !== self && x.alive),
+        others: (self) => Object.values(this.cast).filter((x) => x !== self && x.alive && x.id !== 'vox'),
         threat: () => this.run.threat,
         sfx: (id) => playSfx(audio, id),
         combatActive: () => this.combat?.active ?? false,
       });
     }
+    this.relationships = new Relationships({
+      cast: () => this.cast, brains: this.brains,
+      rng: this.rng.stream('relationships'), nowMinute: () => this.clock.totalMinutes,
+    });
     on('world.minute', ({ clock }) => {
       if (this.mode !== 'run') return;
       for (const b of Object.values(this.brains)) b.tick(clock.totalMinutes, 1);
+      this.relationships.tick();
     });
     // dialogue engagement suspends wandering
     on('chat.reply', ({ speaker }) => {
@@ -484,6 +501,16 @@ export class App {
     const queue = new ActorQueue(actor, this.world);
     const character = new Character(persona, actor, queue);
     this.cast[persona.id] = character;
+    emit('char.registered', { character });
+    return character;
+  }
+
+  /** VOX is bodiless — the tower itself. Uses duck-typed actor/queue stubs. */
+  spawnVox() {
+    const actor = new VoxActorStub(vox);
+    const queue = new VoxQueueStub();
+    const character = new Character(vox, actor, queue);
+    this.cast.vox = character;
     emit('char.registered', { character });
     return character;
   }

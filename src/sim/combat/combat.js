@@ -214,6 +214,7 @@ export class Combat {
       emit('hud.alert', { text: 'THREAT NEUTRALIZED', kind: 'info' });
       for (const c of Object.values(this.d.cast())) {
         c.applyStats({ trust: 5, tension: -6, fear: -4 }, 'victory');
+        c.memory.setFlag('survived_breach');
       }
     } else {
       feed('You are down. The tower has fallen.', 'combat');
