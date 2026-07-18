@@ -105,8 +105,20 @@ export class Curtains {
     else pull.position.set(fixed - 0.12, 1.4, split);
     this.group.add(pull);
 
+    // Large INVISIBLE hit-proxy over the pull/panel so the center-screen crosshair
+    // can actually land a target — the brass ring alone is a ~8 cm torus that the
+    // FP raycast almost never hits. `material.visible=false` still raycasts (the
+    // Object3D stays visible); it just renders nothing.
+    const proxyGeo = axis === 'x'
+      ? new THREE.BoxGeometry(1.7, 1.9, 0.5)
+      : new THREE.BoxGeometry(0.5, 1.9, 1.7);
+    const proxy = new THREE.Mesh(proxyGeo, new THREE.MeshBasicMaterial({ visible: false }));
+    proxy.position.copy(pull.position);
+    proxy.position.y = 1.4;
+    this.group.add(proxy);
+
     this.windows[id] = { left, right, open: true, t: 0, def };  // t: 0 open, 1 closed
-    this.props.push({ mesh: pull, id: `curtain_${id}`, prompt: `Draw the ${id} curtains`, floor: 'penthouse' });
+    this.props.push({ mesh: proxy, id: `curtain_${id}`, prompt: `Draw the ${id} curtains`, floor: 'penthouse' });
     this._apply(id, 0);
   }
 
