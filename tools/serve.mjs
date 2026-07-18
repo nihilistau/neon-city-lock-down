@@ -5,6 +5,7 @@ import { stat, open } from 'node:fs/promises';
 import { join, normalize, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleLLM } from './llmProxy.mjs';
+import { handleEngine } from './gameEngine.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const PORT = Number(process.argv[2] || 8420);
@@ -24,7 +25,11 @@ const MIME = {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
-    // LM Studio proxy (same-origin; keeps the API token server-side)
+    // lmstudio-engine: SDK-based streaming + structured-tag engine (SSE)
+    if (url.pathname.startsWith('/engine/')) {
+      if (await handleEngine(req, res, url)) return;
+    }
+    // legacy LM Studio REST proxy (kept as a fallback path)
     if (url.pathname.startsWith('/api/llm/')) {
       if (await handleLLM(req, res, url)) return;
     }

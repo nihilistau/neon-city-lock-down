@@ -149,6 +149,10 @@ export function sanitizeTags(raw) {
  */
 export function scrubPuppeting(text, ctx = {}) {
   let out = text;
+  // the model (no stop strings on native v1) sometimes runs past its turn and
+  // starts narrating the guest or a next turn — cut at the first such marker.
+  const cut = out.search(/\n\s*(the guest\b|guest:|player:|you say[:,]|\{player\})/i);
+  if (cut > 20) out = out.slice(0, cut);
   const names = (ctx.otherNames || []).filter(Boolean);
   // leading "Speaker:" label the model sometimes prepends
   out = out.replace(/^\s*[A-Z][a-zA-Z]{1,20}:\s+/, '');
@@ -167,4 +171,29 @@ export function scrubPuppeting(text, ctx = {}) {
 /** Full clean: scrub puppeting, then sanitize tags. */
 export function cleanReply(raw, ctx = {}) {
   return sanitizeTags(scrubPuppeting(String(raw || ''), ctx));
+}
+
+const clampD = (n) => Math.max(-15, Math.min(15, Math.round(Number(n) || 0)));
+const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
+
+/**
+ * Map the function-model's structured directive object into stage directions
+ * ({at,type,args}) placed against a reply of `textLen` chars. Movement/anim/gaze
+ * lead; mood/face follow; stat/gate shifts land at the end of the line.
+ * @param {any} tags @param {number} textLen
+ * @returns {import('../core/types.js').StageDirection[]}
+ */
+export function mapStructuredTags(tags, textLen) {
+  if (!tags || typeof tags !== 'object') return [];
+  const out = [];
+  const end = Math.max(1, textLen);
+  if (tags.move && ZONES.has(tags.move)) out.push({ at: 0, type: 'move', args: [tags.move] });
+  if (tags.anim && tags.anim !== 'none' && CLIPS.has(tags.anim)) out.push({ at: 0, type: 'anim', args: [tags.anim] });
+  if (tags.look_at_player) out.push({ at: 1, type: 'look', args: ['player'] });
+  if (tags.mood) out.push({ at: 2, type: 'mood', args: [String(tags.mood)] });
+  if (tags.face && FACES.has(tags.face)) out.push({ at: 3, type: 'face', args: [tags.face] });
+  const ad = clampD(tags.arousal_delta); if (ad) out.push({ at: end, type: 'stat', args: [`arousal${signed(ad)}`] });
+  const td = clampD(tags.tension_delta); if (td) out.push({ at: end, type: 'stat', args: [`tension${signed(td)}`] });
+  if (tags.offer_gate && GATE_TIERS.has(tags.offer_gate)) out.push({ at: end, type: 'gate', args: ['offer', tags.offer_gate] });
+  return out.sort((a, b) => a.at - b.at);
 }

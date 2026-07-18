@@ -64,9 +64,10 @@ export function tabSettings(el, app) {
   el.querySelector('#st-sens').addEventListener('input', (e) => setSetting('mouseSensitivity', Number(e.target.value)));
   const statusEl = el.querySelector('#st-llm-status');
   const showStatus = async (force) => {
-    const s = await app.agent.probe(force).then(() => app.agent.client.status(force));
-    statusEl.textContent = s.available ? `online · ${s.model}` : `offline${s.reason ? ' (' + s.reason + ')' : ''}`;
-    statusEl.style.color = s.available ? 'var(--green)' : 'var(--amber)';
+    const s = await app.agent.info(force);
+    const online = s.available !== false && s.model;
+    statusEl.textContent = online ? `online · ${s.mode} · ${s.model}` : 'offline';
+    statusEl.style.color = online ? 'var(--green)' : 'var(--amber)';
   };
   showStatus(false);
   el.querySelector('#st-llm-on').addEventListener('change', (e) => {

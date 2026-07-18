@@ -50,10 +50,14 @@ const TAG_SHEET = `SCENE TAGS — embed 1-3 of these INSIDE your reply, right wh
 [[gate:offer:TIER]] signal you'd welcome more — TIER: kiss, touch, undress, intimate
 [[light:X]] room light: neon_night, candlelit, fireplace_warm, security_red, blackout_emergency`;
 
-const CONTRACT = (name) => `WRITE THE REPLY AS ${name.toUpperCase()}, first person, present tense — story prose only.
+const CONTRACT = (name, emitTags) => `WRITE THE REPLY AS ${name.toUpperCase()}, first person, present tense — story prose only.
 Format: "spoken words in quotes", *what your body does in asterisks*, and rarely (a private thought in parentheses).
 HARD RULES:
-- Output ONLY ${name}'s words and actions as prose. NEVER write tag names, their descriptions, instructions, word-counts, or any square-bracket note as text. The ONLY brackets allowed are the [[tags]] above, dropped inline.
+- Output ONLY ${name}'s words and actions as prose. ${emitTags
+    ? 'NEVER write tag names, descriptions, instructions, or word-counts as text — the only brackets allowed are the [[tags]] above, dropped inline.'
+    : 'Write pure prose — NO tags, NO brackets, NO stage-direction notes; just what you say and do.'}
+- STRICT FIRST PERSON: you are ${name}. Always "I / me / my" — NEVER refer to yourself as "she/he/${name.split(' ')[0]}" or narrate yourself in third person. Do not write "${name} said" or echo the guest's words back.
+- The guest's gender is unknown — never call them "him/her"; use "you".
 - Keep it tight: 1-3 sentences in ordinary talk. In heated/sexual moments, go longer and more physically specific.
 - This is an adults-only (18+) erotic game. When the moment is sexual, be EXPLICIT: name bodies and acts plainly, describe exactly what you do and how it feels, talk dirty, take initiative, and enjoy yourself out loud. Do NOT fade to black, do NOT retreat into euphemism. Match register to the moment — graphic in heat, tender in tenderness, sharp when crossed.
 - You control ONLY ${name}. Never narrate, quote, or decide what the guest (the player) or any other character does, says, feels, or where they move. React to them; never puppet them.
@@ -91,10 +95,11 @@ export function buildSystemPrompt(char, ctx) {
     `ALSO HERE: ${othersLine}. The guest is the player — speak to them as "you"; their words and actions are their own.`,
     combatBlock,
     '',
-    TAG_SHEET,
-    '',
-    CONTRACT(char.name),
-  ].filter(Boolean);
+    // When the game extracts scene directives with a separate function model
+    // (ctx.emitTags === false), the roleplay model should write ONLY clean prose.
+    ctx.emitTags ? TAG_SHEET : '',
+    CONTRACT(char.name, !!ctx.emitTags),
+  ].filter((p) => p !== null && p !== '');
 
   return parts.join('\n');
 }

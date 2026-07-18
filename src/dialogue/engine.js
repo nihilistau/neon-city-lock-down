@@ -145,15 +145,21 @@ export class DialogueEngine {
     const now = this.nowMinute();
     char.setPlayerDominance(this.stageCtx.playerDominance ?? 55);
 
-    // ── LLM agent path: the character AUTHORS its reply + scene tags ──
+    // ── LLM agent path: the character AUTHORS its reply; scene directives come
+    // from inline [[tags]] (legacy) and/or the function-model extraction (engine) ──
     if (this.agent?.enabled && !isInterjection && rawText) {
       try {
-        const text = await this.agent.respond(
+        const out = await this.agent.respond(
           char, rawText, this._sceneCtx(), this.convo?.history(char.id) || {}, { whisper: opts.whisper });
-        if (text) {
+        if (out?.text) {
           let compiled;
-          try { compiled = compileLine(text); }
-          catch { compiled = { cleanText: text.replace(/\[\[[^\]]*\]\]/g, '').trim(), directions: [] }; }
+          try { compiled = compileLine(out.text); }
+          catch { compiled = { cleanText: out.text.replace(/\[\[[^\]]*\]\]/g, '').trim(), directions: [] }; }
+          if (out.directions?.length) {
+            const L = compiled.cleanText.length;
+            const extra = out.directions.map((d) => ({ ...d, at: Math.min(d.at, L) }));
+            compiled = { cleanText: compiled.cleanText, directions: [...compiled.directions, ...extra].sort((a, b) => a.at - b.at) };
+          }
           this._perform(char, compiled, { _key: `llm:${char.id}:${now}` });
           this.convo?.noteReply(char.id, compiled.cleanText);
           return { compiled, _key: `llm:${char.id}:${now}`, topic: 'llm', branches: null };
