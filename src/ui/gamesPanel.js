@@ -21,10 +21,11 @@ export class GamesPanel {
   }
 
   close() {
+    const wasBed = this.mode === 'bed';
     this.mode = null;
     this.root.className = 'hidden';
     this.root.innerHTML = '';
-    this.app.loop.resume('games');
+    if (!wasBed) this.app.loop.resume('games');   // the bed game never paused the sim
   }
 
   _open() {
@@ -32,7 +33,7 @@ export class GamesPanel {
     this.app.loop.pause('games');
   }
 
-  // ── Bed game ──────────────────────────────────────────────
+  // ── Bed game (in-scene, NON-blocking) ─────────────────────
   bed(partnerId) {
     const res = this.app.bedGame.start(partnerId);
     if (!res.ok) {
@@ -40,12 +41,20 @@ export class GamesPanel {
       return;
     }
     this.mode = 'bed';
-    this._open();
+    this._bedPartnerId = partnerId;
+    this.root.className = 'bed-hud';               // docked, sim keeps running
+    this.app.enterBedScene(this.app.cast[partnerId]);
     this._renderBed(res.state);
   }
 
+  _endBed() {
+    this.app.bedGame.end();
+    this.app.exitBedScene(this.app.cast[this._bedPartnerId]);
+    this.close();
+  }
+
   _renderBed(s) {
-    if (!s) return;
+    if (!s || this.mode !== 'bed') return;
     this.root.innerHTML = '';
     const tiers = s.tiers.map((t) => h('div', { class: `bg-tier ${t.unlocked ? 'open' : 'locked'} ${t.capped ? 'capped' : ''}` }, [
       h('div', { class: 'bg-tier-name' }, [`${t.name}${t.capped ? ' · (capped)' : t.unlocked ? '' : ' · locked'}`]),
@@ -56,21 +65,34 @@ export class GamesPanel {
         }, [a.label]))),
     ]));
 
-    this.root.appendChild(h('div', { class: 'panel game-box' }, [
+    // escalation readiness — desire vs the bar the next tier needs
+    let escalate;
+    if (s.canEscalate) {
+      escalate = h('button', { class: 'bg-ask ready', onclick: () => this._bedAsk() }, [`Ask for ${s.canEscalate.replace('_', ' ')} →`]);
+    } else if (s.nextTier && s.want) {
+      const pct = Math.min(100, Math.round((s.want.score / s.want.need) * 100));
+      escalate = h('div', { class: 'bg-want' }, [
+        `desire for ${s.nextTier.replace('_', ' ')}: `,
+        h('span', { class: 'bg-bar' }, [h('span', { class: 'bg-fill', style: `width:${pct}%;background:#c86bff` }, [])]),
+        ' — keep pleasuring them',
+      ]);
+    } else {
+      escalate = h('div', { class: 'bg-hint' }, ['Nowhere further to go tonight.']);
+    }
+
+    this.root.appendChild(h('div', { class: 'panel game-box bed-box' }, [
       h('div', { class: 'game-head' }, [
-        h('span', { class: 'neon-title', style: 'font-size:20px' }, [`with ${s.partnerName}`]),
-        h('button', { onclick: () => { this.app.bedGame.end(); this.close(); } }, ['End']),
+        h('span', { class: 'neon-title', style: 'font-size:18px' }, [`with ${s.partnerName}`]),
+        h('button', { onclick: () => this._endBed() }, ['End']),
       ]),
       h('div', { class: 'bg-meters' }, [
         this._meter('arousal', s.arousal, '#ff5fa8'),
         this._meter('pleasure', s.pleasure, '#ff8fc0'),
-        h('span', { class: 'bg-gate' }, [`gate: ${s.topGate || 'none'}`]),
+        s.climaxed ? h('span', { class: 'bg-climax' }, ['✦ satisfied']) : h('span', { class: 'bg-gate' }, [`${s.mood || ''} · ${s.topGate || 'none'}`]),
       ]),
       h('div', { id: 'bg-line', class: 'bg-line' }, [this._lastBedLine || '']),
       ...tiers,
-      s.canEscalate
-        ? h('button', { class: 'bg-ask', onclick: () => this._bedAsk() }, [`Ask for more →`])
-        : h('div', { class: 'bg-hint' }, ['Warm them up to open the next tier…']),
+      escalate,
     ]));
   }
 

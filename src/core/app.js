@@ -790,6 +790,46 @@ export class App {
     return true;
   }
 
+  /**
+   * Stage the bed scene in-world (non-blocking): recline the partner on the bed,
+   * seat the player in first person at the bedside facing them. The sim keeps
+   * running so the avatar performs live.
+   * @param {import('../chars/character.js').Character} partner
+   */
+  enterBedScene(partner) {
+    if (!partner) return;
+    // make sure the alcove floor is active so the bed + partner are visible
+    if (this.world.activeFloor !== 'penthouse') this.world.setActiveFloor?.('penthouse');
+    const bed = this.world.getSocket('bed.lie_center');
+    const bedPos = bed ? bed.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
+    this._bedReturn = { camMode: this.cameraRig.mode, lighting: this.lighting.presetId };
+    // eye at the bedside, looking back at the reclined partner
+    const eyeX = bedPos.x + 1.05, eyeZ = bedPos.z + 0.35;
+    // FP forward is (-sin(yaw), -cos(yaw)); solve so it points from eye → bed
+    const yaw = Math.atan2(-(bedPos.x - eyeX), -(bedPos.z - eyeZ));
+    // partner reclines on the bed, body + gaze turned toward the player
+    partner.queue.clear();
+    partner.actor.snapTo(bedPos.x, bedPos.z, Math.atan2(eyeX - bedPos.x, eyeZ - bedPos.z));
+    partner.actor.playClip('lounge', 0.5);
+    partner.actor.lookAt(this.playerMarker);
+    // warm, low light for the alcove (and mood)
+    this.lighting.apply('candlelit', 1.5);
+    this.cameraRig.setMode('firstPerson');
+    this.cameraRig.fp.placeAt(eyeX, eyeZ, yaw, -0.12);
+    this.playerMarker.position.set(eyeX, 1.4, eyeZ);
+  }
+
+  /** Tear down the bed scene and restore the camera + lighting. */
+  exitBedScene(partner) {
+    if (partner) {
+      partner.queue.clear();
+      partner.actor.playClip(partner.persona.personality.idleClip || 'idle_stand', 0.6);
+    }
+    if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
+    this.cameraRig.setMode(this._bedReturn?.camMode === 'firstPerson' ? 'firstPerson' : 'director');
+    this._bedReturn = null;
+  }
+
   /** VOX is bodiless — the tower itself. Uses duck-typed actor/queue stubs. */
   spawnVox() {
     const actor = new VoxActorStub(vox);

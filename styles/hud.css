@@ -214,3 +214,20 @@
 #combat-hud .ch-shutter:hover:not(:disabled) { background: rgba(255,179,71,0.15); }
 #combat-hud .ch-shutter:disabled { color: #555c68; border-color: #333a44; cursor: default; }
 #combat-hud .ch-shutter.down { color: var(--green); border-color: var(--green); pointer-events: none; }
+
+/* ── in-scene bed game: docked HUD (non-blocking, sim keeps running) ── */
+#games-panel.bed-hud {
+  position: absolute; top: 0; right: 0; bottom: 0; left: auto;
+  width: 300px; display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 12px; background: none; pointer-events: none; z-index: 20;
+}
+#games-panel.bed-hud .bed-box {
+  pointer-events: auto; width: 276px; max-height: 92vh; overflow-y: auto;
+  background: rgba(8,6,14,0.82); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,95,168,0.4); box-shadow: 0 0 24px rgba(255,95,168,0.15);
+}
+#games-panel.bed-hud .bg-line { font-style: italic; color: #ffd6ea; min-height: 2.4em; }
+#games-panel.bed-hud .bg-want { font-size: 11px; color: #c9a0ff; margin-top: 6px; }
+#games-panel.bed-hud .bg-ask.ready { background: rgba(200,107,255,0.18); border-color: #c86bff; color: #f0d0ff; width: 100%; margin-top: 6px; }
+#games-panel.bed-hud .bg-climax { color: #ff8fc0; font-weight: 700; letter-spacing: 0.08em; }
+#games-panel.bed-hud .bg-actions button { font-size: 11px; padding: 3px 7px; }

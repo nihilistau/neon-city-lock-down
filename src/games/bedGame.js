@@ -33,19 +33,38 @@ export class BedGame {
   start(partnerId) {
     const partner = this.d.cast()[partnerId];
     if (!partner || partner.id === 'vox') return { ok: false, reason: 'no_partner' };
-    // must at least be willing to be touched
+    // must be at least a little warmed to you — reachable through rapport
     partner.gate('light_touch', 'offer', this.d.nowMinute());
-    if (partner.stats.trust < 20 || partner.stats.openness < 20) {
+    if (partner.stats.trust < 15 && partner.stats.arousal < 20) {
       return { ok: false, reason: 'not_ready', line: this._decline(partner) };
     }
     partner.gate('light_touch', 'grant', this.d.nowMinute());
     this.partner = partner;
     this.active = true;
+    this.climaxed = false;
+    this.peakPleasure = 0;
     // move onto the bed together (paired pose)
     startPairedPose('couch_close', partner, partner); // solo anchor; partner leads
     feed(`${partner.name} and you slip away together.`, 'gate');
     emit('bedgame.started', { partner: partner.id });
     return { ok: true, state: this.state() };
+  }
+
+  /**
+   * Desire-based willingness to open a tier — arousal/horniness/trust pull it up,
+   * tension/fear/withdrawal hold it back. Replaces obedience-"compliance", which
+   * a dominant, guarded character (high dominance clash) could never clear even
+   * when genuinely turned on. 0..~100; each tier raises the bar it must clear.
+   * @param {import('../chars/character.js').Character} p @param {string} tier
+   */
+  _willing(p, tier) {
+    const s = p.stats;
+    if (p.consent.withdrawn || p.consent.safeword) return { willing: false, score: 0, need: 999 };
+    const desire = s.arousal * 0.42 + s.horniness * 0.30 + s.trust * 0.16 + s.openness * 0.12;
+    const resist = s.tension * 0.22 + s.fear * 0.45;
+    const score = Math.max(0, desire - resist);
+    const need = 18 + tierIndex(tier) * 5; // kiss 23 · touch 28 · undress 33 · intimate 38 · explicit 43 · depraved 48
+    return { willing: score >= need, score: Math.round(score), need };
   }
 
   state() {
@@ -64,40 +83,56 @@ export class BedGame {
         })),
       };
     });
+    const nextTier = this._nextTier();
+    const want = nextTier ? this._willing(p, nextTier) : null;
     return {
       partner: p.id, partnerName: p.name,
       arousal: Math.round(p.stats.arousal), pleasure: Math.round(p.stats.pleasure),
-      topGate: p.topGate, compliance: Math.round(p.compliance),
+      horniness: Math.round(p.stats.horniness), tension: Math.round(p.stats.tension),
+      topGate: p.topGate, mood: p.mood?.id,
       canEscalate: this._nextTierOfferable(),
+      nextTier, want,                 // {willing, score, need} — drives the escalate UI
+      climaxed: !!this.climaxed, peakPleasure: Math.round(this.peakPleasure || 0),
       tiers,
     };
   }
 
   /** the next locked gate tier the partner *could* be asked for */
-  _nextTierOfferable() {
+  _nextTier() {
     if (!this.partner) return null;
-    const settings = { explicitness: this.d.explicitness() };
     const top = this.partner.topGate;
     const nextIdx = top ? tierIndex(top) + 1 : 0;
-    const tier = GATE_LADDER[nextIdx];
-    if (!tier) return null;
-    return canOffer(this.partner, tier, settings) ? tier : null;
+    return GATE_LADDER[nextIdx] || null;
   }
 
-  /** Ask the partner to open the next tier. Consent hinges on their stats. */
+  _capTier() {
+    return { suggestive: 'kiss', mature: 'intimate', full: 'depraved' }[this.d.explicitness()];
+  }
+
+  /** the next locked tier the partner is BOTH able and willing to open (or null) */
+  _nextTierOfferable() {
+    const tier = this._nextTier();
+    if (!tier) return null;
+    const settings = { explicitness: this.d.explicitness() };
+    if (tierIndex(tier) > tierIndex(this._capTier())) return null;
+    return (canOffer(this.partner, tier, settings) && this._willing(this.partner, tier).willing) ? tier : null;
+  }
+
+  /** Ask the partner to open the next tier. Consent hinges on their DESIRE. */
   askForMore() {
     if (!this.partner) return { granted: false };
     const settings = { explicitness: this.d.explicitness() };
-    const top = this.partner.topGate;
-    const nextIdx = top ? tierIndex(top) + 1 : 0;
-    const tier = GATE_LADDER[nextIdx];
+    const tier = this._nextTier();
     if (!tier) return { granted: false, line: 'There is nowhere further to go.' };
-    if (tierIndex(tier) > tierIndex({ suggestive: 'kiss', mature: 'intimate', full: 'depraved' }[settings.explicitness])) {
+    if (tierIndex(tier) > tierIndex(this._capTier())) {
       return { granted: false, line: '(The explicitness setting holds this line.)' };
     }
     this.partner.gate(tier, 'offer', this.d.nowMinute());
-    if (canOffer(this.partner, tier, settings) && this.partner.compliance > 35) {
+    const w = this._willing(this.partner, tier);
+    if (canOffer(this.partner, tier, settings) && w.willing) {
       this.partner.gate(tier, 'grant', this.d.nowMinute());
+      // saying yes to more is itself arousing + trust-affirming
+      this.partner.applyStats({ arousal: 4, horniness: 3, trust: 2, tension: -2 }, 'yes');
       const line = this._consentLine(this.partner, tier);
       feed(`${this.partner.name}: ${line}`, 'gate');
       emit('bedgame.state', this.state());
@@ -105,8 +140,8 @@ export class BedGame {
     }
     const line = this._decline(this.partner);
     feed(`${this.partner.name}: ${line}`, 'gate');
-    this.partner.applyStats({ tension: 2, arousal: -2 }, 'declined');
-    return { granted: false, tier, line };
+    this.partner.applyStats({ tension: 2, arousal: -1 }, 'declined');
+    return { granted: false, tier, line, want: w };
   }
 
   /** perform one action (must pass its gate) */
@@ -129,13 +164,40 @@ export class BedGame {
     const line = this.d.rng.pick(a.lines);
     feed(line, 'dialogue');
     emit('bedgame.action', { id: a.id, tier: a.tier, line });
+
+    // pleasure builds toward a climax; giving pleasure is the point and the payoff
+    this.peakPleasure = Math.max(this.peakPleasure || 0, this.partner.stats.pleasure);
+    let climaxed = false;
+    if (!this.climaxed && a.tier >= 4 && this.partner.stats.pleasure >= 82
+        && this.partner.stats.arousal >= 70) {
+      this._climax();
+      climaxed = true;
+    }
     emit('bedgame.state', this.state());
     // safeword check: if the partner's tension spikes past arousal, they pull back
     if (this.partner.stats.tension > this.partner.stats.arousal + 30) {
       this._withdraw();
       return { ok: true, line, withdrawn: true };
     }
-    return { ok: true, line };
+    return { ok: true, line, climaxed };
+  }
+
+  /** The partner comes apart — the reward for attentive, escalating pleasure. */
+  _climax() {
+    if (!this.partner) return;
+    this.climaxed = true;
+    this.partner.applyStats(
+      { pleasure: 6, happiness: 14, loyalty: 8, trust: 8, tension: -18, arousal: -12, horniness: -20 },
+      'climax');
+    this.partner.actor.face.setExpression({ mouth: 'open', browRaise: 0.6, blush: 0.9 });
+    this.d.sfx('thump');
+    const lines = [
+      `${this.partner.name} comes apart in your hands, shaking, your name breaking on their lips.`,
+      `${this.partner.name} arches, gasps, and shatters — utterly undone, clinging to you.`,
+      `You feel ${this.partner.name} tip over the edge, wrecked and gasping and grinning through it.`,
+    ];
+    feed(this.d.rng.pick(lines), 'dialogue');
+    emit('bedgame.climax', { partner: this.partner.id });
   }
 
   _withdraw() {

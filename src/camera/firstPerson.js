@@ -90,6 +90,16 @@ export class FirstPersonControls {
     const p = this.dom.requestPointerLock?.();
     if (p && p.catch) p.catch(() => { /* needs a click — _onClick will retry */ });
   }
+
+  /** Teleport the eye to (x,z) at eye height, aimed at `yaw` (radians). Used to
+   *  seat the player somewhere specific — e.g. on the bed for the bed game. */
+  placeAt(x, z, yaw, pitch = -0.05) {
+    this.pos.set(x, this.pos.y, z);
+    this.yaw = this._targetYaw = yaw;
+    this.pitch = this._targetPitch = pitch;
+    this.camera.position.copy(this.pos);
+    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+  }
   disable() {
     this.enabled = false;
     this.keys.clear();

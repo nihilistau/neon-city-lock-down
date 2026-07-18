@@ -3,10 +3,13 @@
 // tier it requires (checked through gates.js — the sole authority), stat
 // effects, an optional paired/solo anim, and 2-3 authored outcome lines.
 //
-// Register: tiers 1-3 are mature-romance (touch, kiss, caress). Tiers 4-5 are
-// intimate/explicit but written STYLIZED and IMPLIED — the mechanical ladder is
-// fully modeled; the prose fades where the explicitness cap or good taste says so.
-// The global explicitness setting caps which tiers unlock (see gates.EXPLICITNESS_CAP).
+// Register (updated 2026-07-19): this is an adults-only (18+) game and the
+// intimate content is written EXPLICIT, not fade-to-black. Tiers 1-2 are the
+// sensual build; tiers 3-5 are graphic — bodies and acts named plainly. All
+// characters are adults; every escalation is consent-gated through gates.js and
+// the global explicitness cap (gates.EXPLICITNESS_CAP) still bounds which tiers
+// unlock. The LLM agent voices these beats live when enabled; these are the
+// authored floor.
 
 /**
  * @typedef {Object} BedAction
@@ -99,40 +102,44 @@ export const BED_ACTIONS = [
             'They tense and then, deliberately, relax — a permission.'] },
 
   // ── Tier 4 — undress / intimate ──────────────────────────
-  { id: 'undress_them', label: 'Slip a strap from their shoulder', tier: 4, gate: 'undress',
+  { id: 'undress_them', label: 'Strip them bare', tier: 4, gate: 'undress',
     fx: { arousal: 12, horniness: 11, trust: 3 }, anim: 'lounge',
-    lines: ['Fabric slides. They watch your face the whole time, unhurried.',
-            'They help — one clasp, then another — trusting you with the rest.'] },
-  { id: 'undress_self', label: 'Let them undress you', tier: 4, gate: 'undress',
+    lines: ['You peel the last of it away and drink in every inch of bare skin. They let you look, chin up, unashamed.',
+            'Clasp by clasp you undress them until they\'re naked under your hands, nipples tightening in the cool air.'] },
+  { id: 'undress_self', label: 'Let them strip you', tier: 4, gate: 'undress',
     fx: { arousal: 11, horniness: 10, trust: 4, dominance: -3 },
-    lines: ['You let them take the lead. Their hands are steadier than their breathing.',
-            'Being unwrapped is its own kind of surrender. You allow it.'] },
-  { id: 'press_skin', label: 'Press skin to skin', tier: 4, gate: 'intimate',
+    lines: ['You let them undress you, their breath ragged as they bare your body and take in the sight of you hard for them.',
+            'Their hands shake pulling your clothes off. When you\'re naked they groan and press their mouth to your chest.'] },
+  { id: 'press_skin', label: 'Press bare skin to bare skin', tier: 4, gate: 'intimate',
     fx: { arousal: 13, horniness: 12, pleasure: 10, tension: -4 },
-    lines: ['Warmth against warmth, nothing between. The rest of the world goes very far away.',
-            'They exhale like they\'ve been holding it for days.'] },
-  { id: 'worship', label: 'Take your time with them', tier: 4, gate: 'intimate',
+    lines: ['Naked and flush against each other, every hot inch touching. They grind against you with a needy little sound.',
+            'Skin to skin, their hard body writhing under yours, slick where you\'re pressed together.'] },
+  { id: 'go_down', label: 'Use your mouth on them', tier: 4, gate: 'intimate',
+    fx: { arousal: 15, pleasure: 16, horniness: 13, trust: 4 },
+    lines: ['You work your way down and take them in your mouth. They buck and fist the sheets, cursing your name.',
+            'You lick and suck until their thighs are shaking around your head and they\'re begging you not to stop.'] },
+  { id: 'worship', label: 'Take them apart slowly with your hands', tier: 4, gate: 'intimate',
     fx: { arousal: 12, pleasure: 14, happiness: 5, trust: 5 },
-    lines: ['Unhurried, attentive, reading every reaction. They come apart slowly.',
-            'You learn them like a language. They teach you eagerly.'] },
-  { id: 'pin', label: 'Press them into the sheets', tier: 4, gate: 'intimate',
+    lines: ['You stroke them right where they need it, watching their face, reading every gasp, keeping them on the edge.',
+            'Your fingers work them slick and desperate until they\'re rocking into your hand, chasing it.'] },
+  { id: 'pin', label: 'Pin them down and take them', tier: 4, gate: 'intimate',
     fx: { arousal: 14, horniness: 13, dominance: 5, tension: 2 },
-    lines: ['You bear them down, gentle but sure. They arch up to meet you.',
-            'Pinned and grinning, they dare you to keep going.'] },
+    lines: ['You pin their wrists and press into them; they arch up with a broken moan and take all of you.',
+            'Held down and spread open, they wrap their legs around you and pull you deeper, gasping your name.'] },
 
-  // ── Tier 5 — explicit / depraved (stylized, implied) ─────
-  { id: 'together', label: 'Move together', tier: 5, gate: 'explicit',
+  // ── Tier 5 — explicit / depraved ─────────────────────────
+  { id: 'together', label: 'Fuck them slow and deep', tier: 5, gate: 'explicit',
     fx: { arousal: 15, horniness: 14, pleasure: 16 }, anim: 'lounge',
-    lines: ['The rest of the night belongs to the two of you. The city can wait.',
-            'What happens next needs no narration. The lights dim themselves.'] },
-  { id: 'lose_control', label: 'Lose the last of the restraint', tier: 5, gate: 'explicit',
+    lines: ['You sink into them and set a slow, deep rhythm; they meet every thrust, moaning, clinging, wrecked already.',
+            'Buried deep, you roll your hips and they fall apart around you, gasping filth and your name in the same breath.'] },
+  { id: 'lose_control', label: 'Take them hard, no restraint', tier: 5, gate: 'explicit',
     fx: { arousal: 16, horniness: 15, pleasure: 15, sobriety: -2 },
-    lines: ['Whatever was holding either of you back is gone now. Gladly gone.',
-            'The careful distance you both kept all week finally, completely, collapses.'] },
-  { id: 'devote', label: 'Give them everything', tier: 5, gate: 'depraved',
+    lines: ['All the careful distance collapses. You fuck them hard and fast and they beg for more, louder, harder.',
+            'The bed slams the wall. They\'re a mess of curses and pleasure, taking everything you give and demanding the rest.'] },
+  { id: 'devote', label: 'Give them absolutely everything', tier: 5, gate: 'depraved',
     fx: { arousal: 16, horniness: 16, pleasure: 18, loyalty: 6 },
-    lines: ['Nothing held back, nothing off the table. Trust made physical.',
-            'You give and take in equal, staggering measure. Dawn finds you tangled and wrecked and grinning.'] },
+    lines: ['Nothing held back — every filthy thing they whisper, you give them, until you\'re both wrecked and gasping and grinning.',
+            'You take each other apart every way you both want, greedy and shameless. Dawn finds you tangled, ruined, and glowing.'] },
 
   // ── afterglow / cooldown (any gate ≥ kiss) ───────────────
   { id: 'aftercare', label: 'Hold them after', tier: 2, gate: 'kiss',

@@ -21,14 +21,18 @@ export function tierIndex(tier) { return GATE_LADDER.indexOf(tier); }
  * Consent (an in-fiction flag) is separate and required on top for `granted`.
  * @type {Record<GateTier, Partial<Record<StatKey, number>>>}
  */
+// Thresholds are the MINIMUM to even OFFER a tier; the bed game's desire model
+// (bedGame._willing) is the primary willingness check on top. Trust minima are
+// kept modest so foreplay/pleasure can actually reach them — a dominant, guarded
+// character shouldn't be permanently locked out of intimacy she clearly wants.
 export const TIER_THRESHOLDS = {
-  light_touch: { trust: 20, openness: 20 },
-  kiss: { trust: 35, arousal: 25, openness: 35 },
-  touch: { trust: 45, arousal: 40, horniness: 30 },
-  undress: { trust: 55, arousal: 55, horniness: 45, openness: 50 },
-  intimate: { trust: 60, arousal: 65, horniness: 60 },
-  explicit: { trust: 65, arousal: 75, horniness: 70, openness: 60 },
-  depraved: { trust: 70, arousal: 85, horniness: 82, openness: 70, loyalty: 30 },
+  light_touch: { trust: 15, openness: 18 },
+  kiss: { trust: 26, arousal: 22, openness: 30 },
+  touch: { trust: 34, arousal: 38, horniness: 28 },
+  undress: { trust: 42, arousal: 52, horniness: 42, openness: 46 },
+  intimate: { trust: 48, arousal: 62, horniness: 56 },
+  explicit: { trust: 54, arousal: 72, horniness: 66, openness: 56 },
+  depraved: { trust: 60, arousal: 82, horniness: 78, openness: 66, loyalty: 28 },
 };
 
 /** Explicitness caps: the highest tier the global setting permits. */
