@@ -51,6 +51,16 @@ Add captions with the editor of choice, or burn them in ffmpeg (`drawtext`) as a
 **The hook:** edit one hex value in a text file, reload, and the entire 3D scene re-lights. Proves
 the whole engine is data-driven with no rebuild.
 
+### ▶ Rough draft (real capture)
+
+![GIF #1 — live lighting re-tint (rough draft)](gif1_lighting_retint.gif)
+
+Captured from the running build — a deterministic light lerp (`neon_night` → warm) across all six
+lights + fog + exposure on a frozen camera, assembled as a seamless ping-pong loop with `ffmpeg`
+(1024×478, 12 fps, 4.7 MB). This is a **draft**: the hero camera favours the foreground figure and
+the distant character stays shadowed at the warm end — a final pass would re-frame to keep both lit
+and slow the transition. It nails the core beat: cold blue → warm, whole scene, no rebuild.
+
 **Loop length:** ~6 s. **Structure:** split-screen (YAML left ~40%, game right ~60%) *or* hard cut
 from editor to game. Split-screen reads faster in a feed.
 
