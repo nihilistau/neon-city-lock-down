@@ -103,6 +103,17 @@ still reads.
 fires immediately — alert banner, the room snaps to red, the sim reacts. Proves the creation kit is
 real and round-trips into the running world.
 
+### ▶ Rough draft (real capture)
+
+![GIF #2 — Creation Kit event fires live (rough draft)](gif2_creationkit.gif)
+
+Two-phase story: the **Creation Kit** editor (the `breach_drill` JSON — note the `alert` + `light:
+security_red` steps) hard-cuts to the game, where a deterministic `neon_night → security_red` lerp
+floods the room red while the alert banner slams in and a red vignette closes (1024×478, 10 fps,
+3.1 MB). A **draft** — a final pass would capture the real `forceEvent` firing (banner animating in
+on-camera) rather than a staged reveal, and could keep the panel on-screen during the cut. The beat
+lands: author JSON in-game → it fires live, no rebuild.
+
 **Loop length:** ~7 s. **Structure:** start on the **G** panel editor, cut to the game reacting.
 
 ### Anchor frames
