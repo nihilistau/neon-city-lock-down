@@ -65,6 +65,17 @@ the whole scene, no rebuild.** It's framed as a wide establishing shot so severa
 the glass, one on the couch) stay lit through the whole transition, with the cool city + cyan ceiling
 strip holding as a contrast against the warming room.
 
+### ▶ Split-screen variant
+
+![GIF #1 split-screen — YAML editor beside the live scene](gif1_lighting_split.gif)
+
+The beat-sheet's split-screen cut: `config/lighting.yaml` on the left (a real syntax-highlighted
+editor panel — hex values with live colour swatches, a `● saved` badge, changed lines rulered) beside
+the game on the right. As the YAML's values + swatches flip cold→warm, the scene re-tints in lockstep
+— the clearest read of "this value drives that pixel." The editor half is rendered HTML; the scene
+half is the same real config-driven capture (1666×480, 12 fps, 2.3 MB). Best for a feed where the
+cause (the edit) and the effect (the re-tint) need to sit side by side.
+
 **Loop length:** ~6 s. **Structure:** split-screen (YAML left ~40%, game right ~60%) *or* hard cut
 from editor to game. Split-screen reads faster in a feed.
 
