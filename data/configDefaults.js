@@ -242,4 +242,22 @@ export const CONFIG_DEFAULTS = {
       retry: 0,                 // auto-retry a failed generation N times
     },
   },
+
+  // ── voice: Voxtral TTS engine paths + casting (tools/sidecar.mjs voice server) ──
+  voice: {
+    voxtralDir: 'third_party/voxtral', // project-root-relative or absolute; env VOXTRAL_DIR overrides
+    binary: 'target/release/voxtral.exe',        // relative to voxtralDir
+    gguf: 'models/voxtral-tts-q4.gguf',          // Q4 TTS model (relative to voxtralDir)
+    voicesDir: 'models/voxtral-tts/voice_embedding', // dir of <name>.safetensors voice embeddings
+    eulerSteps: 3,             // 3 = real-time, 4 = balanced, 8 = quality
+    maxFrames: 2000,           // cap per synth call (~160 s at 12.5 Hz)
+    sampleRate: 24000,         // voxtral output: 24 kHz / 16-bit / mono WAV
+    port: 8425,                // voice server port
+    cast: {                    // character → voice preset (VOICE_CAST override)
+      lola: 'neutral_female', aria: 'cheerful_female', kai: 'casual_male',
+      vox: 'neutral_male', radio: 'casual_female',
+    },
+    userVoicesDir: 'user/voices',      // saved clips + cloned embeddings land here
+    userDialogueDir: 'user/dialogue',  // user-authored spoken lines
+  },
 };

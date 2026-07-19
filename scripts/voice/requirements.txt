@@ -1,0 +1,8 @@
+# Voice cloning add-on (scripts/voice/clone_voice.py). Optional — the game runs
+# fine without it (20 preset voices + drop-in .safetensors embeddings).
+torch>=2.1
+safetensors>=0.4
+soundfile>=0.12        # reading reference clips for --ref
+# For clip -> embedding extraction you also need the Voxtral speech encoder,
+# typically via mistral-common; see docs/systems/voice.md.
+# mistral-common[audio]

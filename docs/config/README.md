@@ -78,6 +78,7 @@ verifies the defaults themselves satisfy the schema, catching default/schema dri
 | gameplay | `config/gameplay.yaml` | [gameplay.md](gameplay.md) |
 | lighting | `config/lighting.yaml` | [lighting.md](lighting.md) |
 | llm | `config/llm.yaml` | [llm.md](llm.md) |
+| voice | `config/voice.yaml` | [systems/voice.md](../systems/voice.md) |
 
-_(The `voice` config group is added in Phase 4. Audio bus volumes are player preferences in
-`settings.js`, not engine config. Server-side config is read by `tools/serverConfig.mjs`.)_
+_(Audio bus volumes are player preferences in `settings.js`, not engine config. Server-side
+config is read by `tools/serverConfig.mjs`.)_

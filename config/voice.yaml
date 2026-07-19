@@ -1,0 +1,27 @@
+# Voice config — Voxtral TTS engine paths + character casting. Read by the voice
+# server (tools/sidecar.mjs) and bake tool. Loaded over data/configDefaults.js.
+# Reference: docs/systems/voice.md.
+#
+# The vendored fork source is in third_party/voxtral/. Its binary + 2.7GB models
+# are gitignored — run scripts/voice/setup-voxtral.(ps1|sh) to build + download,
+# or set the VOXTRAL_DIR env var to an existing build for testing.
+
+voxtralDir: third_party/voxtral         # project-root-relative or absolute (env VOXTRAL_DIR overrides)
+binary: target/release/voxtral.exe      # relative to voxtralDir
+gguf: models/voxtral-tts-q4.gguf        # Q4 TTS model
+voicesDir: models/voxtral-tts/voice_embedding   # dir of <name>.safetensors embeddings
+
+eulerSteps: 3        # 3 = real-time, 4 = balanced, 8 = quality
+maxFrames: 2000      # cap per synth call (~160 s of audio)
+sampleRate: 24000    # voxtral output: 24 kHz / 16-bit / mono WAV
+port: 8425           # voice server port (settings.tts.sidecarUrl in the browser)
+
+cast:                # character → voice preset (embedding file stem in voicesDir)
+  lola: neutral_female
+  aria: cheerful_female
+  kai: casual_male
+  vox: neutral_male
+  radio: casual_female
+
+userVoicesDir: user/voices        # saved clips + cloned .safetensors embeddings
+userDialogueDir: user/dialogue    # user-authored spoken lines

@@ -132,6 +132,12 @@ export const CONFIG_SCHEMA = {
     structured: { temperature: num(0, 2), maxTokens: num(1, 8192) },
     interceptors: { timing: { type: 'boolean' }, retry: num(0, 10) },
   },
+  voice: {
+    voxtralDir: { type: 'string' }, binary: { type: 'string' }, gguf: { type: 'string' }, voicesDir: { type: 'string' },
+    eulerSteps: num(1, 50), maxFrames: num(100, 20000), sampleRate: num(8000, 48000), port: num(1, 65535),
+    cast: { map: { type: 'string' } },
+    userVoicesDir: { type: 'string' }, userDialogueDir: { type: 'string' },
+  },
 };
 
 function checkNode(node, val, path, errs) {

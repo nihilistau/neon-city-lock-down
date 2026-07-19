@@ -6,3 +6,9 @@ node_modules/*
 Thumbs.db
 # generated voice audio is committed; working temp files are not
 assets/voice/_tmp/
+# vendored Voxtral fork: source is committed, build output + model weights are not
+# (scripts/voice/setup-voxtral.* builds/downloads them). ~2.7GB of weights.
+third_party/voxtral/target/
+third_party/voxtral/models/
+# user-created content + saved/cloned voices (creation kit output)
+user/

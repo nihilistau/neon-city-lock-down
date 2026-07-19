@@ -11,14 +11,16 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scfg } from './serverConfig.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
-const VOXTRAL_DIR = process.env.VOXTRAL_DIR || 'D:/F/shannon-prime-repos/voxtral-mini-realtime-rs';
-const VOXTRAL_BIN = join(VOXTRAL_DIR, 'target/release/voxtral.exe');
-const GGUF = 'models/voxtral-tts-q4.gguf';
-const EULER = 3;
+const abs = (p) => (isAbsolute(p) ? p : resolve(ROOT, p));
+const VOXTRAL_DIR = process.env.VOXTRAL_DIR || abs(scfg('voice.voxtralDir', 'third_party/voxtral'));
+const VOXTRAL_BIN = join(VOXTRAL_DIR, scfg('voice.binary', 'target/release/voxtral.exe'));
+const GGUF = scfg('voice.gguf', 'models/voxtral-tts-q4.gguf');
+const EULER = scfg('voice.eulerSteps', 3);
 const OUT_DIR = join(ROOT, 'assets/voice');
 
 const args = process.argv.slice(2);
