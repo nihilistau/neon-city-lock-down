@@ -3,6 +3,18 @@
 <p align="center"><em>an adults-only (18+) neon-noir 3D roleplay + survival game</em></p>
 
 <p align="center">
+  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-39e6ff?labelColor=0a0a12" alt="v0.2.0"></a>
+</p>
+
+<blockquote align="center">
+🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0">v0.2.0 — Engine + Creation Kit</a></b> is out.<br>
+Neon-City is now an <b>engine + creation kit</b>: every value tunable in editable YAML, a full
+Voxtral <b>voice studio</b> (realtime TTS, library, baking, cloning — press <b>V</b>), and an
+in-game <b>Creation Kit</b> (press <b>G</b>) to author your own scenarios, events, cutscenes, and
+dialogue. <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0">Release notes →</a>
+</blockquote>
+
+<p align="center">
   <img src="docs/screenshots/04-chat-dialogue.jpg" width="85%" alt="Chat-first dialogue with reply chips">
 </p>
 
