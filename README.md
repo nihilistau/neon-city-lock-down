@@ -139,18 +139,25 @@ node tools/serve.mjs 8420        # or double-click run.bat on Windows
 Open **http://localhost:8420**, confirm you're 18+, set your handle, and enter
 the tower.
 
-### Optional — live voice for un-baked / LLM lines
-Requires the [voxtral](https://github.com/nihilistau/voxtral-mini-realtime-rs) CLI
-built locally (`cargo build --release --features "wgpu,cli,hub"`) with its Q4 TTS
-model downloaded.
+### Optional — live voice + the Voice Controls panel (V)
+The Voxtral TTS fork is vendored under `third_party/voxtral/` (source only). Build it +
+fetch the model, then run the voice server:
 ```bash
-node tools/sidecar.mjs 8425      # auto-detected in Director → Settings
+pwsh scripts/voice/setup-voxtral.ps1     # build + download (or -From an existing build)
+node tools/sidecar.mjs                    # voice server (port from config/voice.yaml)
 ```
+Then press **V** in-game for realtime TTS, the voice library, long-text synthesis, custom-line
+baking, per-character voice assignment, and cloning. See [docs/systems/voice.md](docs/systems/voice.md).
 
-### Optional — LLM-rewritten dialogue
-Point an OpenAI-compatible endpoint (LM Studio, llama.cpp, etc.) in
-**Director → Settings**. The authored stat/gate/consent machinery stays in
-charge; the model only restyles the surface prose.
+### Optional — LLM-rewritten / authored dialogue
+Point LM Studio (or any OpenAI-compatible endpoint) in the **LLM Engine panel (L)**; every knob is
+tunable there and in `config/llm.yaml`. The authored stat/gate/consent machinery stays in charge.
+
+### Make it yours — the Creation Kit
+Almost everything is editable. Tune the engine in documented `config/*.yaml`
+([docs/config](docs/config/README.md)); author your own **scenarios, events, cutscenes, and
+dialogue** in the **Creation Kit panel (G)**, saved under `user/`. Nothing you make can break the
+base game. Full guide: [docs/creation-kit](docs/creation-kit/README.md).
 
 ---
 
@@ -194,7 +201,7 @@ in `src/` as many small focused modules.
 
 ```
 index.html            importmap + UI mounts
-src/core/             loop, bus, clock, rng, settings, save, shared script interpreter
+src/core/             loop, bus, clock, rng, settings, save, script interpreter, config (YAML), userContent
 src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains, relationships
 src/chars/            stats, gates, mood, memory, wardrobe (pure logic) + Character aggregate
 src/dialogue/         normalize/intents/tone parser, topic graph, selector, effects,
@@ -208,7 +215,14 @@ src/camera/           camera rig, first-person, director orbit, cinematic
 src/cutscene/         cutscene player (timeline over the shared script interpreter)
 data/                 cast, dialogue packs, zones, events, scenarios, outfits, poses,
                       games, cutscenes, news, voice script — all validated at import
-tools/                serve, bake-tts, sidecar, lint-data
+                      configDefaults/configSchema/lightingPresets (the engine-config source)
+config/               editable engine tuning per group — camera, combat, sim, chars, humanoid,
+                      world, gameplay, lighting, llm, voice (docs/config/)
+user/                 your authored scenarios/events/cutscenes/dialogue + saved voices (gitignored)
+tools/                serve (+ configApi/userApi/gameEngine/llmProxy), serverConfig, sidecar (voice
+                      server), bake-tts, lint-data, lint-config
+scripts/voice/        setup-voxtral, clone_voice.py (voice-cloning add-on)
+third_party/voxtral/  vendored Voxtral TTS fork — source (binary + 2.7GB weights gitignored)
 test/                 node --test unit suites + a headless smoke contract
 ```
 </details>

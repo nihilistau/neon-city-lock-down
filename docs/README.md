@@ -11,6 +11,11 @@ then dive into a subsystem.
   day-plan/action-points, objectives, death, meta, endgame.
 - **[Event Catalog](event-catalog.md)** — the world events + the event-script step vocabulary +
   the scheduler pacing knobs.
+- **[Engine Config](config/README.md)** — the runtime-YAML config layer: every tunable value in
+  editable, validated, documented `config/*.yaml` (camera, combat, sim, chars, humanoid, world,
+  gameplay, lighting, llm, voice), with live edit/save.
+- **[Creation Kit](creation-kit/README.md)** — the player-facing guide to authoring scenarios,
+  events, cutscenes, dialogue, and voices in-game.
 
 ### Systems (`systems/`)
 - [Core](systems/core.md) — bus, loop, clock, rng, settings, save, script.
@@ -25,6 +30,10 @@ then dive into a subsystem.
   wardrobe (+ the skinning gotcha).
 - [Scene, Audio & UI](systems/scene-audio-ui.md) — stage/zone/lighting/post-FX, the audio stack,
   the UI panels, the mini-games.
+- [Voice (Voxtral TTS)](systems/voice.md) — the vendored engine, the voice server, the Voice
+  Controls panel, cloning, and setup.
+- [Scenario Toolkit](systems/scenario-toolkit.md) — the user-content layer + the in-game Creation
+  Kit (author scenarios/events/cutscenes/dialogue).
 - [LM Studio Engine](../lmstudio-engine/README.md) — the standalone LLM control module.
 
 ## Conventions

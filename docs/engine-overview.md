@@ -70,21 +70,53 @@ dialogue/intimacy topics — that is the intended pattern for any presentation l
 - **Determinism where it matters**: seeded `RngStream`s (`src/core/rng.js`) drive sim/combat/dialogue
   selection; cosmetic FX may use `Math.random`.
 
+## Config & the creation kit
+
+The engine is externally tunable and extensible without touching code — the spine of the creation kit.
+
+- **Config layer** (`src/core/config.js`, [docs/config](config/README.md)). At boot, `main.js`
+  `await loadConfig()` overlays editable `config/<group>.yaml` onto baked defaults
+  (`data/configDefaults.js`), validated by `data/configSchema.js`. Systems read `cfg('group.path')`;
+  values hot-reload on the `config.loaded` / `config.changed` bus events. Ten groups cover every
+  tunable: camera, combat, sim, chars, humanoid, world, gameplay, lighting, llm, voice. Edit YAML by
+  hand or live via `/api/config` (the LLM/Voice panels write it). Server code reads the same files
+  through `tools/serverConfig.mjs`.
+- **User-content layer** (`src/core/userContent.js`). After config, `main.js` `await
+  loadUserContent()` registers player-authored **scenarios / events / cutscenes / dialogue** (JSON
+  under `user/`, served by `tools/userApi.mjs`) into the live `SCENARIOS`/`EVENTS` maps + the topic
+  registry. **Fail-soft** — a bad file is skipped with an error, never crashing boot. The **Creation
+  Kit** panel (`src/ui/kitPanel.js`, key **G**) authors + plays them; see
+  [scenario-toolkit](systems/scenario-toolkit.md).
+- **Voice** ([systems/voice.md](systems/voice.md)). A vendored Voxtral TTS fork
+  (`third_party/voxtral/`, source only) behind a config-driven voice server (`tools/sidecar.mjs`);
+  the **Voice Controls** panel (`src/ui/voicePanel.js`, key **V**) does realtime TTS, the voice
+  library, long-text synthesis, custom-line baking, and cloning.
+
+Both layers are non-breaking: with no `config/` or `user/` directory the game boots on pure defaults.
+
 ## Directory map
 
 ```
-src/core/     app.js (root), bus, loop, clock, rng, settings, save, log, script, types
+src/core/     app.js (root), bus, loop, clock, rng, settings, save, log, script, types,
+              config (runtime-YAML store), userContent (creation-kit loader)
 src/sim/      world, tick, survival, threat, scheduler, eventRunner, death, meta, inventory,
               dayPlan, objectives; combat/{combat,resolver,cover}; ai/{brain,needs,…}; actors/{actorQueue,nav}
 src/chars/    stats, gates, mood, memory, character, wardrobe
 src/dialogue/ engine, parser/*, topics, selector, effects, stageDirections, llm/*
 src/scene3d/  stage, lighting, postfx, picking, combatFx, monitors; tower/{zoneBuilder,furniture,curtains}
-src/humanoid/ skeleton, bodyBuilder, outfitBuilder, face, animator, gait, clips, actor3d, pairedPoses
-src/camera/   cameraRig, firstPerson (FP+TPS controller), cameraDirector
-src/audio/    engine, music/*, sfx/*, voice, voxVoice, sidecar
-src/ui/       hud, statBars, chatPanel, combatHud, reticle, planPanel, inventory, llmPanel, director/*
+src/humanoid/ skeleton, bodyBuilder, outfitBuilder, face, animator, gait, clips, actor3d, pairedPoses, weaponModel
+src/camera/   cameraRig, firstPerson (FP+TPS controller, aim magnetism), cameraDirector
+src/audio/    engine, music/*, sfx/*, voice, voxVoice, sidecar (voice-server client)
+src/ui/       hud, statBars, chatPanel, combatHud, reticle, planPanel, inventory, llmPanel, voicePanel, kitPanel, director/*
 src/games/    bedGame, truthOrDare, gambits, mystery
-data/         events, zones, scenarios, items, outfits, cast/*, dialogue/*, poses/*, games/*
-tools/        serve.mjs (+ gameEngine/llmProxy), bake-tts, lint-data, sidecar
-lmstudio-engine/  standalone LLM control module (own README)
+data/         events, zones, scenarios, items, outfits, cast/*, dialogue/*, poses/*, games/*,
+              configDefaults, configSchema, lightingPresets
+config/       editable engine tuning — <group>.yaml (see docs/config/)
+user/         player-authored scenarios/events/cutscenes/dialogue + saved voices (gitignored)
+tools/        serve.mjs (+ gameEngine/llmProxy/configApi/userApi), serverConfig, sidecar (voice server),
+              bake-tts, lint-data, lint-config
+scripts/voice/  setup-voxtral.{ps1,sh}, clone_voice.py (cloning add-on)
+third_party/voxtral/  vendored Voxtral TTS fork — Rust source (binary + weights gitignored)
+lmstudio-engine/      standalone LLM control module (own README)
+vendor/       three.module.js, js-yaml.mjs (import-mapped)
 ```
