@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { handleLLM } from './llmProxy.mjs';
 import { handleEngine } from './gameEngine.mjs';
 import { handleConfig } from './configApi.mjs';
+import { handleUser } from './userApi.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const PORT = Number(process.argv[2] || 8420);
@@ -37,6 +38,10 @@ createServer(async (req, res) => {
     // engine config read/write (creation kit)
     if (url.pathname.startsWith('/api/config')) {
       if (await handleConfig(req, res, url)) return;
+    }
+    // user-authored content (scenario creation toolkit)
+    if (url.pathname.startsWith('/api/user')) {
+      if (await handleUser(req, res, url)) return;
     }
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) path += 'index.html';
