@@ -5,6 +5,7 @@
 // /engine/models. Thinking models are flagged (they need a big token budget and
 // answer slowly); a plain instruct model gives snappy in-character replies.
 import { settings, setSetting } from '../core/settings.js';
+import { cfg, saveConfigFile } from '../core/config.js';
 import { h } from './widgets.js';
 
 const CHARS = [
@@ -124,6 +125,7 @@ export class LLMPanel {
               (v) => setSetting('llm.charModels', { ...settings.llm.charModels, [c.id]: v })),
           ])),
         ]),
+        this._advanced(),
       ];
 
     const el = h('div', { class: 'screen', style: 'background:rgba(4,5,9,0.92)' }, [
@@ -149,5 +151,50 @@ export class LLMPanel {
     const r = h('input', { type: 'range', min, max, step, value: val, style: 'width:100%' });
     r.addEventListener('input', () => onChange(Number(r.value)));
     return r;
+  }
+
+  // ── advanced engine knobs (config/llm.yaml) ──────────────────────────────
+  /** merge a dotted patch into the live llm config + persist to config/llm.yaml */
+  async _saveLlm(relPath, value) {
+    const llm = structuredClone(cfg('llm', {}));
+    const keys = relPath.split('.');
+    let o = llm;
+    for (let i = 0; i < keys.length - 1; i++) o = (o[keys[i]] ??= {});
+    o[keys[keys.length - 1]] = value;
+    const res = await saveConfigFile('llm', llm);
+    if (!res.ok) console.warn('[llm config] save rejected:', res.errors);
+  }
+
+  /** a labelled range bound to an llm.<relPath> config value (saves on release) */
+  _cfgRange(label, relPath, min, max, step) {
+    const val = cfg('llm.' + relPath);
+    const out = h('span', { style: 'opacity:.8' }, [String(val)]);
+    const r = h('input', { type: 'range', min, max, step, value: val, style: 'width:100%' });
+    r.addEventListener('input', () => { out.textContent = r.value; });
+    r.addEventListener('change', () => this._saveLlm(relPath, Number(r.value)));
+    return h('label', { style: 'flex:1' }, [`${label} `, out, r]);
+  }
+
+  _advanced() {
+    return h('div', { class: 'dir-section' }, [
+      h('div', { class: 'dir-label' }, ['ADVANCED ENGINE — config/llm.yaml']),
+      h('div', { class: 'dir-row' }, [this._cfgRange('top-p', 'sampling.topP', 0, 1, 0.01)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('top-k', 'sampling.topK', 0, 200, 1)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('min-p', 'sampling.minP', 0, 0.5, 0.01)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('repeat penalty', 'sampling.repeatPenalty', 1, 2, 0.01)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('budget · normal', 'budgets.normal', 256, 8000, 64)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('budget · heated', 'budgets.heated', 256, 8000, 64)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('budget · rewrite', 'budgets.rewrite', 64, 2000, 32)]),
+      h('div', { class: 'dir-row' }, [this._cfgRange('model TTL (s)', 'ttlSeconds', 60, 86400, 300)]),
+      h('div', { class: 'dir-row' }, ['draft model: ',
+        this._select('llm-draft', cfg('llm.models.draft', ''),
+          [{ value: '', label: 'off (no speculative decoding)' }], (v) => this._saveLlm('models.draft', v))]),
+      h('div', { class: 'dir-row' }, [
+        h('label', { class: 'st-check' }, [
+          this._checkbox(cfg('llm.interceptors.timing', false), (v) => this._saveLlm('interceptors.timing', v)),
+          ' log timing to server console']),
+      ]),
+      h('p', { class: 'dir-hint' }, ['Saved to config/llm.yaml. Sampling + budgets apply on the next reply; models / connection / interceptors need a server restart.']),
+    ]);
   }
 }

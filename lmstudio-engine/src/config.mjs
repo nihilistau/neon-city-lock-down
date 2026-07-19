@@ -63,6 +63,16 @@ export function makeConfig(opts = {}) {
     sampling: {
       temperature: opts.sampling?.temperature ?? 0.85,
       maxTokens: opts.sampling?.maxTokens ?? 320,
+      topP: opts.sampling?.topP,
+      topK: opts.sampling?.topK,
+      minP: opts.sampling?.minP,
+      repeatPenalty: opts.sampling?.repeatPenalty,
+    },
+    // how long a JIT-loaded model stays resident between requests (seconds)
+    ttl: opts.ttl ?? 24 * 3600,
+    // default <think> reasoning-parsing markers (per-request override wins)
+    reasoning: {
+      parsing: opts.reasoning?.parsing ?? { enabled: true, startString: '<think>', endString: '</think>' },
     },
     verbose: opts.verbose ?? false,
   };

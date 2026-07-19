@@ -127,11 +127,17 @@ export class Predictor {
       maxTokens: o.maxTokens ?? 320,
       signal: o.signal,
       // always split <think> reasoning out of content so a thinking model's
-      // chain-of-thought never lands in the reply text
-      reasoningParsing: { enabled: true, startString: '<think>', endString: '</think>' },
+      // chain-of-thought never lands in the reply text (markers configurable)
+      reasoningParsing: o.reasoningParsing ?? { enabled: true, startString: '<think>', endString: '</think>' },
     };
     if (o.draftModel) opts.draftModel = o.draftModel;
     if (o.stopStrings?.length) opts.stopStrings = o.stopStrings;
+    // extra sampling knobs (SDK option names) — only set when provided, so
+    // omitting them keeps the model's / server's own defaults
+    if (o.topP != null) opts.topPSampling = o.topP;
+    if (o.topK != null) opts.topKSampling = o.topK;
+    if (o.minP != null) opts.minPSampling = o.minP;
+    if (o.repeatPenalty != null) opts.repeatPenalty = o.repeatPenalty;
     return opts;
   }
 }

@@ -11,7 +11,8 @@
 // which the browser injects through its normal stage-direction pipeline.
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Engine, EngineServer, z, timing } from '../lmstudio-engine/index.mjs';
+import { Engine, EngineServer, z, timing, retry } from '../lmstudio-engine/index.mjs';
+import { scfg } from './serverConfig.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 
@@ -37,12 +38,22 @@ const TAG_SCHEMA = z.object({
 let _engine = null;
 function engine() {
   if (_engine) return _engine;
+  const conn = scfg('llm.connection', {});
   _engine = new Engine({
-    apiKeyFile: join(ROOT, 'lmstudio-api-key.txt'),
-    baseUrl: process.env.LMS_BASE_URL || 'ws://127.0.0.1:1234',
-    models: { chat: process.env.LMS_CHAT_MODEL || '', function: 'google/functiongemma-270m' },
+    apiKeyFile: join(ROOT, conn.apiKeyFile || 'lmstudio-api-key.txt'),
+    baseUrl: process.env.LMS_BASE_URL || conn.baseUrl || 'ws://127.0.0.1:1234',
+    models: {
+      chat: process.env.LMS_CHAT_MODEL || '',
+      function: scfg('llm.models.function', 'google/functiongemma-270m'),
+      draft: scfg('llm.models.draft', ''),
+    },
+    sampling: scfg('llm.sampling', {}),
+    ttl: scfg('llm.ttlSeconds', 86400),
+    reasoning: { parsing: { enabled: true, startString: scfg('llm.reasoning.startTag', '<think>'), endString: scfg('llm.reasoning.endTag', '</think>') } },
   });
-  if (process.env.LMS_VERBOSE) _engine.use(timing((s) => console.log(s)));
+  if (process.env.LMS_VERBOSE || scfg('llm.interceptors.timing', false)) _engine.use(timing((s) => console.log(s)));
+  const retryN = scfg('llm.interceptors.retry', 0);
+  if (retryN > 0) _engine.use(retry(retryN));
   return _engine;
 }
 
@@ -79,17 +90,24 @@ function server() {
   s.route('POST', '/chat', async (body, { sse, signal }) => {
     if (!sse) return { error: 'chat requires SSE (Accept: text/event-stream)' };
     let prose = '';
+    const samp = scfg('llm.sampling', {});
     const res = await e.chat(
       { role: body.model || 'chat',      // per-character model override (a model key)
         system: body.system, input: body.input, temperature: body.temperature ?? 0.85,
-        maxTokens: body.maxTokens ?? 320, signal },
+        maxTokens: body.maxTokens ?? 320,
+        // extra sampling: per-request body wins, else the configured defaults
+        topP: body.topP ?? samp.topP, topK: body.topK ?? samp.topK, minP: body.minP ?? samp.minP,
+        repeatPenalty: body.repeatPenalty ?? samp.repeatPenalty,
+        stopStrings: body.stopStrings ?? scfg('llm.stopStrings', []),
+        signal },
       (frag, m) => { if (!m.reasoning) { prose += frag; sse.send('fragment', { text: frag }); } });
     const clean = (res.content || prose).trim();
     sse.send('reply', { text: clean, stats: res.stats });
     // structured directive extraction from the finished prose
     let tags = null;
     try {
-      tags = await e.extract({ input: extractPrompt(clean, body.extract), schema: TAG_SCHEMA, signal });
+      tags = await e.extract({ input: extractPrompt(clean, body.extract), schema: TAG_SCHEMA,
+        temperature: scfg('llm.structured.temperature', 0.2), maxTokens: scfg('llm.structured.maxTokens', 200), signal });
     } catch { /* tags optional */ }
     sse.send('tags', tags);
     sse.send('done', { ok: true });

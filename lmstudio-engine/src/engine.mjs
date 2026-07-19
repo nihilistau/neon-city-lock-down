@@ -60,7 +60,9 @@ export class Engine {
       input: req.input,
       opts: {
         temperature: req.temperature, maxTokens: req.maxTokens,
-        draftModel: req.draftModel, stopStrings: req.stopStrings, signal: req.signal,
+        draftModel: req.draftModel, stopStrings: req.stopStrings,
+        topP: req.topP, topK: req.topK, minP: req.minP, repeatPenalty: req.repeatPenalty,
+        reasoningParsing: req.reasoningParsing, signal: req.signal,
       },
       meta: req.meta || {},
       result: null,

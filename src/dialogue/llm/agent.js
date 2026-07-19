@@ -11,6 +11,7 @@ import { LMSClient } from './lmsClient.js';
 import { buildSystemPrompt, buildUserTurn } from './promptBuilder.js';
 import { cleanReply, sanitizeTags, scrubPuppeting, mapStructuredTags } from './tags.js';
 import { settings } from '../../core/settings.js';
+import { cfg } from '../../core/config.js';   // token budgets → config/llm.yaml (sampling knobs applied server-side)
 
 const ZONE_OF = {
   lounge: 'lounge', fireplace: 'fireplace nook', bar: 'bar', balcony: 'balcony',
@@ -69,7 +70,7 @@ export class CharacterAgent {
     const heated = char.stats.arousal >= 55 || char.gates?.intimate === 'granted' || ctx.combat?.active;
     // Budget must cover a THINKING model's reasoning + the reply (it stops at EOS
     // well before this if it's a plain instruct model, so the cap is safe for both).
-    const maxTokens = heated ? 2200 : 1600;
+    const maxTokens = heated ? cfg('llm.budgets.heated', 2200) : cfg('llm.budgets.normal', 1600);
 
     const modelKey = this._modelKey(char.id);
     const think = settings.llm?.thinking === true;
@@ -115,7 +116,7 @@ export class CharacterAgent {
       + (think ? '' : '\n/no_think');
     const res = await this.engine.chat(
       { system, input: `Line: "${cleanText}"`, model: this._modelKey(char.id),
-        temperature: settings.llm?.temperature ?? 0.85, maxTokens: think ? 1600 : 300 },
+        temperature: settings.llm?.temperature ?? 0.85, maxTokens: think ? cfg('llm.budgets.normal', 1600) : cfg('llm.budgets.rewrite', 300) },
       null);
     if (!res) return null;
     const others = (ctx.present || []).filter((c) => c.id !== char.id).map((c) => c.name);

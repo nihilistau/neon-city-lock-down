@@ -1,0 +1,43 @@
+# LLM engine config — advanced LM Studio knobs consumed by tools/gameEngine.mjs
+# (server) and src/dialogue/llm/agent.js (browser). Loaded over data/configDefaults.js.
+# Reference: docs/config/llm.md.
+#
+# NOTE: the chat model, temperature ("warmth"), thinking on/off, and per-character
+# interaction/model are in the in-game LLM panel (press L) → settings.llm. This file
+# is the deeper surface. Restart the server (tools/serve.mjs) after editing connection.
+# Saving through the panel's "Advanced Engine" section reformats this file and drops
+# these comments — docs/config/llm.md is the authoritative reference.
+
+connection:
+  baseUrl: ws://127.0.0.1:1234        # LM Studio WebSocket URL (env LMS_BASE_URL overrides)
+  apiKeyFile: lmstudio-api-key.txt    # project-root-relative; holds sk-lm-<id>:<passkey>
+
+models:
+  function: google/functiongemma-270m # tiny model that reads prose into scene tags
+  draft: ''                           # speculative-decoding draft model key ('' = off)
+
+sampling:                             # extra per-request sampling (temperature = panel warmth)
+  topP: 0.95
+  topK: 40
+  minP: 0
+  repeatPenalty: 1.1
+
+budgets:                              # max reply tokens by situation
+  normal: 1600
+  heated: 2200                        # arousal / intimate / combat scenes
+  rewrite: 300                        # restyle-authored-line mode
+
+reasoning:                            # <think> parsing markers (thinking toggle is in the panel)
+  startTag: '<think>'
+  endTag: '</think>'
+
+ttlSeconds: 86400                     # keep a JIT-loaded model resident this long (24h)
+stopStrings: []                       # hard stop sequences
+
+structured:                           # function-model tag extraction sampling
+  temperature: 0.2
+  maxTokens: 200
+
+interceptors:
+  timing: false                       # log per-request latency / tokens-per-second
+  retry: 0                            # auto-retry a failed generation N times

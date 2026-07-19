@@ -121,6 +121,17 @@ export const CONFIG_SCHEMA = {
       climaxTier: num(0, 7), climaxPleasure: num(0, 100), climaxArousal: num(0, 100), safewordGap: num(0, 100),
     },
   },
+  llm: {
+    connection: { baseUrl: { type: 'string' }, apiKeyFile: { type: 'string' } },
+    models: { function: { type: 'string' }, draft: { type: 'string' } },
+    sampling: { topP: num(0, 1), topK: num(0, 500), minP: num(0, 1), repeatPenalty: num(0, 3) },
+    budgets: { normal: num(1, 32000), heated: num(1, 32000), rewrite: num(1, 32000) },
+    reasoning: { startTag: { type: 'string' }, endTag: { type: 'string' } },
+    ttlSeconds: num(1, 604800),
+    stopStrings: { array: 'string' },
+    structured: { temperature: num(0, 2), maxTokens: num(1, 8192) },
+    interceptors: { timing: { type: 'boolean' }, retry: num(0, 10) },
+  },
 };
 
 function checkNode(node, val, path, errs) {

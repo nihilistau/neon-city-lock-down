@@ -67,7 +67,7 @@ export class LmsClient {
       // long TTL keeps the model resident through a play session; the predictor
       // reload-retry covers the case where it's evicted anyway.
       if (!key) return llm.model();
-      return llm.model(key, { verbose: this.cfg.verbose, ttl: 24 * 3600 });
+      return llm.model(key, { verbose: this.cfg.verbose, ttl: this.cfg.ttl ?? 24 * 3600 });
     })();
     this._handles.set(role, p);
     p.catch(() => this._handles.delete(role)); // don't cache a rejected handle

@@ -210,4 +210,36 @@ export const CONFIG_DEFAULTS = {
       safewordGap: 30,          // partner withdraws when tension > arousal + gap
     },
   },
+
+  // ── llm: LM Studio engine knobs. Chat model / temperature / thinking on-off /
+  //    per-character interaction live in the LLM panel (settings.llm); this group
+  //    is the ADVANCED surface consumed by tools/gameEngine.mjs + the agent. ──
+  llm: {
+    connection: {
+      baseUrl: 'ws://127.0.0.1:1234',   // LM Studio WebSocket URL (env LMS_BASE_URL overrides)
+      apiKeyFile: 'lmstudio-api-key.txt', // relative to project root; holds sk-lm-<id>:<passkey>
+    },
+    models: {
+      function: 'google/functiongemma-270m', // tiny model for structured tag extraction
+      draft: '',                // speculative-decoding draft model key ('' = off)
+    },
+    sampling: {                 // extra per-request sampling (temperature = panel "warmth")
+      topP: 0.95, topK: 40, minP: 0, repeatPenalty: 1.1,
+    },
+    budgets: {                  // max reply tokens by situation (agent.js)
+      normal: 1600, heated: 2200, rewrite: 300,
+    },
+    reasoning: {                // <think> parsing markers (thinking on/off = panel toggle)
+      startTag: '<think>', endTag: '</think>',
+    },
+    ttlSeconds: 86400,          // how long a JIT-loaded model stays resident (24h)
+    stopStrings: [],            // hard stop sequences ([] = none)
+    structured: {               // function-model extraction sampling
+      temperature: 0.2, maxTokens: 200,
+    },
+    interceptors: {             // engine middleware toggles
+      timing: false,            // log per-request latency/tps
+      retry: 0,                 // auto-retry a failed generation N times
+    },
+  },
 };
