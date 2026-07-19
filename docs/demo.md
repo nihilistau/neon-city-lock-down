@@ -72,3 +72,11 @@ events & dialogue. No rebuild. v0.2.0 out now."*
 
 **Editing notes:** lead with the live re-tint (the clearest "wow"); keep each cut ≤3s; captions
 carry it muted (most social autoplays silent); end on the title card + link for ~2s.
+
+---
+
+## GIF storyboards
+
+Frame-by-frame capture plans for the two hero loops — the live lighting re-tint and the Creation
+Kit event firing — with real anchor frames, capture specs, and `ffmpeg`/`gifski` assembly commands:
+**[GIF Storyboards →](storyboard/README.md)**.
