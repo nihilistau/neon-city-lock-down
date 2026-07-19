@@ -72,7 +72,7 @@ export class KitPanel {
     this.open = true;
     this.app.loop.pause('kit');
     await this._loadIndex();
-    this._render();
+    if (this.open) this._render();   // a fast re-toggle during the await may have closed us
   }
 
   async _loadIndex() {

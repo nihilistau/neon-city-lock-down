@@ -6,12 +6,13 @@
 import * as THREE from 'three';
 import { PALETTE } from './materials/palette.js';
 import { cfg } from '../core/config.js';
-import { LIGHTING_PRESETS } from '../../data/lightingPresets.js';
+import { LIGHTING_PRESETS, TOD_KEYS } from '../../data/lightingPresets.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
 const presets = () => cfg('lighting.presets', LIGHTING_PRESETS);
-const todKeys = () => cfg('lighting.tod', []);
+// need ≥2 keyframes to interpolate; a malformed/empty config tod falls back to the default
+const todKeys = () => { const t = cfg('lighting.tod', TOD_KEYS); return Array.isArray(t) && t.length >= 2 ? t : TOD_KEYS; };
 
 export class Lighting {
   /** @param {import('./stage.js').Stage} stage */

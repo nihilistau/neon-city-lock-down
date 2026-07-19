@@ -14,14 +14,13 @@ import { fileURLToPath } from 'node:url';
 import { load } from '../vendor/js-yaml.mjs';
 import { CONFIG_DEFAULTS } from '../data/configDefaults.js';
 import { validateConfig } from '../data/configSchema.js';
+import { originAllowed, readBodyCapped } from './httpGuard.mjs';
+import { reloadServerConfig } from './serverConfig.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const CONFIG_DIR = join(ROOT, 'config');
 const GROUPS = new Set(Object.keys(CONFIG_DEFAULTS));
 
-function readBody(req) {
-  return new Promise((resolve) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => resolve(b)); });
-}
 function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
@@ -55,19 +54,24 @@ export async function handleConfig(req, res, url) {
   }
 
   if (req.method === 'POST' || req.method === 'PUT') {
-    const body = await readBody(req);
+    if (!originAllowed(req)) { sendJson(res, 403, { ok: false, errors: ['cross-origin write blocked'] }); return true; }
+    let body;
+    try { body = await readBodyCapped(req, 1 << 20); } catch (err) { sendJson(res, 413, { ok: false, errors: [String(err.message || err)] }); return true; }
     let parsed;
     try { parsed = load(body) || {}; } catch (err) { sendJson(res, 400, { ok: false, errors: [`YAML parse: ${err}`] }); return true; }
     const errs = validateConfig(group, parsed);
     if (errs.length) { sendJson(res, 422, { ok: false, errors: errs }); return true; }
     await mkdir(CONFIG_DIR, { recursive: true });
     await writeFile(file, body, 'utf8');
+    reloadServerConfig();   // so server-side reads (LLM sampling, voice paths) go live
     sendJson(res, 200, { ok: true, errors: [] });
     return true;
   }
 
   if (req.method === 'DELETE') {
+    if (!originAllowed(req)) { sendJson(res, 403, { ok: false, errors: ['cross-origin write blocked'] }); return true; }
     await unlink(file).catch(() => {});
+    reloadServerConfig();
     sendJson(res, 200, { ok: true, reverted: group });
     return true;
   }

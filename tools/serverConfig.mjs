@@ -22,14 +22,24 @@ function merge(base, over) {
   return out;
 }
 
-const _store = structuredClone(CONFIG_DEFAULTS);
-for (const group of Object.keys(CONFIG_DEFAULTS)) {
-  try {
-    const parsed = load(readFileSync(join(CONFIG_DIR, `${group}.yaml`), 'utf8')) || {};
-    if (!validateConfig(group, parsed).length) _store[group] = merge(CONFIG_DEFAULTS[group], parsed);
-    else console.warn(`[serverConfig] ${group}.yaml invalid, using defaults`);
-  } catch { /* missing file → defaults */ }
+let _store = structuredClone(CONFIG_DEFAULTS);
+
+function loadAll() {
+  const next = structuredClone(CONFIG_DEFAULTS);
+  for (const group of Object.keys(CONFIG_DEFAULTS)) {
+    try {
+      const parsed = load(readFileSync(join(CONFIG_DIR, `${group}.yaml`), 'utf8')) || {};
+      if (!validateConfig(group, parsed).length) next[group] = merge(structuredClone(CONFIG_DEFAULTS[group]), parsed);
+      else console.warn(`[serverConfig] ${group}.yaml invalid, using defaults`);
+    } catch { /* missing file → defaults */ }
+  }
+  _store = next;
 }
+loadAll();
+
+/** Re-read config/*.yaml from disk (called after a config-API write so per-request
+ *  reads like sampling go live without a full server restart). */
+export function reloadServerConfig() { loadAll(); }
 
 /** Read a dotted config path from the disk-loaded server config. */
 export function scfg(path, fallback) {

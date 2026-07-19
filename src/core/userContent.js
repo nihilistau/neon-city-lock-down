@@ -13,7 +13,7 @@ import { emit } from './bus.js';
 import { SCENARIOS } from '../../data/scenarios.js';
 import { EVENTS } from '../../data/events.js';
 import { topic } from '../../data/schema.js';
-import { registerTopics } from '../dialogue/topics.js';
+import { registerTopics, unregisterTopic } from '../dialogue/topics.js';
 
 const CATS = ['scenarios', 'events', 'cutscenes', 'dialogue'];
 
@@ -46,7 +46,9 @@ export function registerUserItem(cat, name, data) {
     if (!userIndex.cutscenes.includes(name)) userIndex.cutscenes.push(name);
   } else if (cat === 'dialogue') {
     const topics = Array.isArray(data) ? data : (data.topics || [data]);
-    for (const t of topics) registerTopics([topic(t.id, t)]);  // topic() validates, may throw
+    // idempotent: drop any prior registration of the same id so an edited topic
+    // re-registers cleanly (registerTopics throws on a duplicate id).
+    for (const t of topics) { unregisterTopic(t.id); registerTopics([topic(t.id, t)]); }
     if (!userIndex.dialogue.includes(name)) userIndex.dialogue.push(name);
   } else {
     throw new Error(`unknown category ${cat}`);
@@ -68,7 +70,8 @@ export async function loadUserContent(fetchImpl = (typeof fetch !== 'undefined' 
   } catch { return userIndex; }
 
   for (const cat of CATS) {
-    for (const name of index[cat] || []) {
+    const names = Array.isArray(index?.[cat]) ? index[cat] : [];   // tolerate a malformed index
+    for (const name of names) {
       try {
         const res = await fetchImpl(`/api/user/${cat}/${name}.json`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`http ${res.status}`);

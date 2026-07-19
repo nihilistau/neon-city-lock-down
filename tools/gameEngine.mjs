@@ -99,6 +99,9 @@ function server() {
         topP: body.topP ?? samp.topP, topK: body.topK ?? samp.topK, minP: body.minP ?? samp.minP,
         repeatPenalty: body.repeatPenalty ?? samp.repeatPenalty,
         stopStrings: body.stopStrings ?? scfg('llm.stopStrings', []),
+        // per-request so config edits to the markers / draft model actually take effect
+        draftModel: scfg('llm.models.draft', '') || undefined,
+        reasoningParsing: { enabled: true, startString: scfg('llm.reasoning.startTag', '<think>'), endString: scfg('llm.reasoning.endTag', '</think>') },
         signal },
       (frag, m) => { if (!m.reasoning) { prose += frag; sse.send('fragment', { text: frag }); } });
     const clean = (res.content || prose).trim();

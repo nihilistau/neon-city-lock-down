@@ -11,12 +11,12 @@
 import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { originAllowed, readBodyCapped } from './httpGuard.mjs';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const USER_DIR = join(ROOT, 'user');
 const CATS = new Set(['scenarios', 'events', 'cutscenes', 'dialogue']);
 
-function readBody(req) { return new Promise((r) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => r(b)); }); }
 function sendJson(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
 const safe = (s) => /^[a-z0-9_-]+$/i.test(s);
 
@@ -46,7 +46,9 @@ export async function handleUser(req, res, url) {
     return true;
   }
   if (req.method === 'POST' || req.method === 'PUT') {
-    const body = await readBody(req);
+    if (!originAllowed(req)) { sendJson(res, 403, { ok: false, error: 'cross-origin write blocked' }); return true; }
+    let body;
+    try { body = await readBodyCapped(req, 2 << 20); } catch (err) { sendJson(res, 413, { ok: false, error: String(err.message || err) }); return true; }
     try { JSON.parse(body); } catch (err) { sendJson(res, 400, { ok: false, error: `invalid JSON: ${err}` }); return true; }
     await mkdir(join(USER_DIR, cat), { recursive: true });
     await writeFile(file, body, 'utf8');
@@ -54,6 +56,7 @@ export async function handleUser(req, res, url) {
     return true;
   }
   if (req.method === 'DELETE') {
+    if (!originAllowed(req)) { sendJson(res, 403, { ok: false, error: 'cross-origin write blocked' }); return true; }
     await unlink(file).catch(() => {});
     sendJson(res, 200, { ok: true, deleted: `${cat}/${name}.json` });
     return true;

@@ -7,13 +7,12 @@
 // NEAR_M of the intersection) — standing in the open behind a distant couch
 // does nothing.
 
-// Cover tuning — defaults from data/configDefaults.js (combat.cover), shared with
-// config/combat.yaml. Sourced at module load (pure/Node-safe for the unit test).
+// Cover tuning — live from config/combat.yaml (combat.cover) via cfg(); falls back
+// to the baked defaults, so Node unit tests (which never load config) use defaults.
+// Read per-call so edits hot-reload like the rest of combat.
 import { CONFIG_DEFAULTS } from '../../../data/configDefaults.js';
-const C = CONFIG_DEFAULTS.combat.cover;
-const MIN_TOP = C.minTop;   // too low to hide behind
-const MAX_TOP = C.maxTop;   // taller than this and it's a wall, not crouch-cover
-const NEAR_M = C.nearM;     // defender must be this close behind the obstacle
+import { cfg } from '../../core/config.js';
+const coverCfg = () => cfg('combat.cover', CONFIG_DEFAULTS.combat.cover);
 
 /** does the 2D segment (x0,z0)→(x1,z1) cross the box's XZ rectangle? slab test */
 function segmentHitsBoxXZ(x0, z0, x1, z1, box) {
@@ -41,16 +40,17 @@ function segmentHitsBoxXZ(x0, z0, x1, z1, box) {
  */
 export function coverBetween(pos, from, colliders) {
   let best = 0;
+  const C = coverCfg();
   const segLen = Math.hypot(from.x - pos.x, from.z - pos.z);
   if (segLen < 0.01) return 0;
   for (const box of colliders) {
     const top = box.max.y;
-    if (top < MIN_TOP || top > MAX_TOP) continue;
+    if (top < C.minTop || top > C.maxTop) continue;
     // segment defender → attacker; entry param measured FROM the defender side
     const t = segmentHitsBoxXZ(pos.x, pos.z, from.x, from.z, box);
     if (t == null) continue;
     const distToObstacle = t * segLen;
-    if (distToObstacle > NEAR_M) continue;   // obstacle too far ahead to duck behind
+    if (distToObstacle > C.nearM) continue;   // obstacle too far ahead to duck behind
     const quality = top >= C.tallAt ? C.qualityTall : C.qualityLow;
     if (quality > best) best = quality;
   }
@@ -67,9 +67,10 @@ export function coverBetween(pos, from, colliders) {
  */
 export function findCoverSpot(colliders, threat, near, walkable) {
   let best = null, bestScore = -Infinity;
+  const C = coverCfg();
   for (const box of colliders) {
     const top = box.max.y;
-    if (top < MIN_TOP || top > MAX_TOP) continue;
+    if (top < C.minTop || top > C.maxTop) continue;
     const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
     const halfX = (box.max.x - box.min.x) / 2, halfZ = (box.max.z - box.min.z) / 2;
     let dx = cx - threat.x, dz = cz - threat.z;

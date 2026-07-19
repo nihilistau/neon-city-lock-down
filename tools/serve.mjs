@@ -2,7 +2,7 @@
 // Usage: node tools/serve.mjs [port]
 import { createServer } from 'node:http';
 import { stat, open } from 'node:fs/promises';
-import { join, normalize, extname } from 'node:path';
+import { join, normalize, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleLLM } from './llmProxy.mjs';
 import { handleEngine } from './gameEngine.mjs';
@@ -46,7 +46,7 @@ createServer(async (req, res) => {
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(ROOT, path));
-    if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
+    if (file !== ROOT && !file.startsWith(ROOT + sep)) { res.writeHead(403).end(); return; }
 
     const info = await stat(file).catch(() => null);
     if (!info || !info.isFile()) { res.writeHead(404).end('not found'); return; }

@@ -54,7 +54,9 @@ export function _setConfigStore(next) { _store = next; }
 export function applyConfig(group, obj) {
   const errs = validateConfig(group, obj);
   if (errs.length) return errs;
-  _store[group] = merge(CONFIG_DEFAULTS[group] || {}, obj);
+  // merge the edit over the CURRENT store so a PARTIAL edit keeps loaded-YAML +
+  // prior-edit values (not just baked defaults); clone-fallback if the group is new
+  _store[group] = merge(_store[group] ?? structuredClone(CONFIG_DEFAULTS[group] ?? {}), obj);
   emit('config.changed', { group });
   return [];
 }
@@ -78,7 +80,9 @@ export async function loadConfig(fetchImpl = (typeof fetch !== 'undefined' ? fet
       const parsed = YAML.load(text) || {};
       const errs = validateConfig(group, parsed);
       if (errs.length) { summary.errors.push({ group, errs }); console.warn(`[config] ${group}.yaml invalid, using defaults:`, errs); continue; }
-      _store[group] = merge(CONFIG_DEFAULTS[group], parsed);
+      // merge over a FRESH deep clone of the defaults so the store never aliases
+      // (and thus can't mutate) the shared CONFIG_DEFAULTS objects
+      _store[group] = merge(structuredClone(CONFIG_DEFAULTS[group]), parsed);
       summary.loaded.push(group);
     } catch (err) {
       summary.errors.push({ group, errs: [String(err)] });

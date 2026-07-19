@@ -95,7 +95,7 @@ export const CONFIG_SCHEMA = {
     // presets/tod are deep free-form structures (colors, intensities, pulse variants);
     // validated as present objects — the game tolerates missing fields (falls back).
     presets: { map: { any: true } },
-    tod: { array: 'object' },
+    tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
   },
   humanoid: {
     gait: {
@@ -124,7 +124,7 @@ export const CONFIG_SCHEMA = {
   llm: {
     connection: { baseUrl: { type: 'string' }, apiKeyFile: { type: 'string' } },
     models: { function: { type: 'string' }, draft: { type: 'string' } },
-    sampling: { topP: num(0, 1), topK: num(0, 500), minP: num(0, 1), repeatPenalty: num(0, 3) },
+    sampling: { topP: num(0.01, 1), topK: num(0, 500), minP: num(0, 1), repeatPenalty: num(0, 3) },
     budgets: { normal: num(1, 32000), heated: num(1, 32000), rewrite: num(1, 32000) },
     reasoning: { startTag: { type: 'string' }, endTag: { type: 'string' } },
     ttlSeconds: num(1, 604800),
@@ -158,6 +158,7 @@ function checkNode(node, val, path, errs) {
   if (node.array) {
     if (!Array.isArray(val)) return errs.push(`${path}: expected array`);
     if (node.len !== undefined && val.length !== node.len) errs.push(`${path}: expected length ${node.len}, got ${val.length}`);
+    if (node.minLen !== undefined && val.length < node.minLen) errs.push(`${path}: needs ≥${node.minLen} items, got ${val.length}`);
     val.forEach((v, i) => checkNode({ type: node.array }, v, `${path}[${i}]`, errs));
     return;
   }

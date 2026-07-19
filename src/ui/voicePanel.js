@@ -33,7 +33,7 @@ export class VoicePanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this._audio.pause(); this.el?.remove(); this.el = null; this.app.loop.resume('voice'); }
+  close() { this.open = false; this._audio.pause(); if (this._playUrl) { URL.revokeObjectURL(this._playUrl); this._playUrl = null; } this.el?.remove(); this.el = null; this.app.loop.resume('voice'); }
 
   async show() {
     this.open = true;
@@ -50,9 +50,9 @@ export class VoicePanel {
   // ── audio helpers ──────────────────────────────────────────────────────────
   _play(arrayBuffer) {
     if (!arrayBuffer) return;
-    const url = URL.createObjectURL(new Blob([arrayBuffer], { type: 'audio/wav' }));
-    this._audio.src = url; this._audio.play().catch(() => {});
-    this._audio.onended = () => URL.revokeObjectURL(url);
+    if (this._playUrl) URL.revokeObjectURL(this._playUrl);   // don't leak the previous clip's blob
+    this._playUrl = URL.createObjectURL(new Blob([arrayBuffer], { type: 'audio/wav' }));
+    this._audio.src = this._playUrl; this._audio.play().catch(() => {});
   }
   _b64(buf) { let s = ''; const b = new Uint8Array(buf); const CH = 0x8000; for (let i = 0; i < b.length; i += CH) s += String.fromCharCode.apply(null, b.subarray(i, i + CH)); return btoa(s); }
   async _busy(btn, label, fn) {

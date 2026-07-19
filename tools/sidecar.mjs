@@ -20,6 +20,7 @@ import { join, isAbsolute, resolve, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { scfg, ROOT_DIR } from './serverConfig.mjs';
+import { originAllowed, readBodyCapped } from './httpGuard.mjs';
 
 const V = (k, d) => scfg('voice.' + k, d);
 const PORT = Number(process.argv[2] || V('port', 8425));
@@ -110,7 +111,6 @@ function chunkText(text, cap = 320) {
 
 // ── request plumbing ─────────────────────────────────────────────────────────
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
-function body(req) { return new Promise((r) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => r(b)); }); }
 function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', ...CORS }); res.end(JSON.stringify(obj)); }
 function wav(res, buf) { res.writeHead(200, { 'Content-Type': 'audio/wav', ...CORS }); res.end(buf); }
 
@@ -136,7 +136,11 @@ createServer(async (req, res) => {
     }
 
     if (req.method === 'POST') {
-      const data = JSON.parse((await body(req)) || '{}');
+      // these endpoints write files / spawn the TTS engine — block cross-site CSRF
+      if (!originAllowed(req)) return json(res, 403, { error: 'cross-origin request blocked' });
+      let data;
+      try { data = JSON.parse((await readBodyCapped(req)) || '{}'); }
+      catch (err) { return json(res, 413, { error: String(err.message || err) }); }
 
       if (p === '/speak') {
         if (!data.text) return json(res, 400, { error: 'missing text' });
@@ -145,7 +149,7 @@ createServer(async (req, res) => {
 
       if (p === '/synthLong') {
         if (!data.text) return json(res, 400, { error: 'missing text' });
-        const chunks = chunkText(data.text);
+        const chunks = chunkText(String(data.text).slice(0, 20000)).slice(0, 80);  // cap work
         const wavs = chunks.map((c) => speak(c, data.voice, data.euler));
         const out = wavs.length > 1 ? concatWavs(wavs) : wavs[0];
         if (data.save && data.name) {
@@ -160,13 +164,16 @@ createServer(async (req, res) => {
         const buf = Buffer.from(data.wavBase64 || '', 'base64');
         if (!buf.length) return json(res, 400, { error: 'missing wavBase64' });
         if (data.char && data.lineId) {           // bake as a character dialogue line
-          const dir = join(ASSETS_VOICE, data.char); mkdirSync(dir, { recursive: true });
-          const hash = createHash('sha1').update(`${data.char}|${data.voice || ''}|${data.text || data.lineId}`).digest('hex').slice(0, 16);
-          const rel = `${data.char}/${hash}.wav`;
-          writeFileSync(join(ASSETS_VOICE, rel), buf);
+          // sanitize BOTH path components so the write can't escape assets/voice/
+          const char = safeName(data.char), lineId = safeName(data.lineId);
+          // validate it's a real WAV BEFORE touching disk (throws → 500, nothing written)
           const { sampleRate, pcm } = readWav(buf);
-          const manifest = updateManifest(data.lineId, { file: rel, duration: +(pcm.length / 2 / sampleRate).toFixed(2), voice: data.voice || '', textHash: hash });
-          return json(res, 200, { ok: true, baked: rel, lineId: data.lineId, manifestSize: manifest });
+          mkdirSync(join(ASSETS_VOICE, char), { recursive: true });
+          const hash = createHash('sha1').update(`${char}|${data.voice || ''}|${data.text || lineId}`).digest('hex').slice(0, 16);
+          const rel = `${char}/${hash}.wav`;
+          writeFileSync(join(ASSETS_VOICE, rel), buf);
+          const manifest = updateManifest(lineId, { file: rel, duration: +(pcm.length / 2 / sampleRate).toFixed(2), voice: data.voice || '', textHash: hash });
+          return json(res, 200, { ok: true, baked: rel, lineId, manifestSize: manifest });
         }
         const file = join(USER_VOICES, `${safeName(data.name || 'clip')}.wav`);
         writeFileSync(file, buf);

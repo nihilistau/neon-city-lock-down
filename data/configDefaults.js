@@ -50,7 +50,7 @@ export const CONFIG_DEFAULTS = {
       event: { eyeY: 3.1 },
     },
     rig: {
-      orbit: { damping: 0.08, maxPolar: 1.6336, minDist: 1.2, maxDist: 18 }, // maxPolar = PI*0.52
+      orbit: { damping: 0.08, maxPolar: Math.PI * 0.52, minDist: 1.2, maxDist: 18 }, // just past horizontal
       target: [-3.5, 1.1, 0],
       initialPos: [2.5, 3.2, 5.5],
     },

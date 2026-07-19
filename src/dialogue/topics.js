@@ -28,6 +28,20 @@ export function registerTopics(defs) {
   }
 }
 
+/**
+ * Remove a registered topic by id (from both indexes), so it can be re-registered.
+ * Used by the creation kit when a user edits + re-saves a topic in-session.
+ * @param {string} id
+ */
+export function unregisterTopic(id) {
+  const t = topicRegistry.get(id);
+  if (!t) return false;
+  topicRegistry.delete(id);
+  const list = byChar.get(t.char);
+  if (list) byChar.set(t.char, list.filter((x) => x.id !== id));
+  return true;
+}
+
 /** @param {string} charId */
 export function topicsFor(charId) { return byChar.get(charId) || []; }
 
