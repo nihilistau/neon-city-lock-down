@@ -2,9 +2,7 @@
 // Event scheduler: pops due queued events and rolls weighted-random events on a
 // cadence, respecting window/cooldown/max-per-run.
 import { EVENTS } from '../../data/events.js';
-
-const ROLL_EVERY_MIN = 45;    // roll for a random event ~every 45 game-min
-const MIN_GAP_MIN = 150;      // hard floor between the END of one event and the next (~2.5 real min)
+import { cfg } from '../core/config.js';   // pacing knobs → config/sim.yaml (scheduler)
 
 export class Scheduler {
   /** @param {import('../core/rng.js').RngStream} rng */
@@ -32,10 +30,10 @@ export class Scheduler {
     // global minimum gap after the previous event ended — the single biggest
     // fix for "events too quick". Queued/scheduled beats above bypass this.
     const lastEnd = run.lastEventEndMinute ?? -Infinity;
-    if (clock.totalMinutes - lastEnd < MIN_GAP_MIN) return null;
+    if (clock.totalMinutes - lastEnd < cfg('sim.scheduler.minGapMin', 150)) return null;
 
     this._sinceRoll++;
-    if (this._sinceRoll < ROLL_EVERY_MIN) return null;
+    if (this._sinceRoll < cfg('sim.scheduler.rollEveryMin', 45)) return null;
     this._sinceRoll = 0;
 
     // build eligible pool
@@ -54,7 +52,8 @@ export class Scheduler {
 
     // per-roll fire probability, mildly threat-scaled and capped so late game
     // doesn't turn into a firehose (the MIN_GAP above is the real spacing floor).
-    const fireChance = Math.min(0.4, 0.18 + run.threat * 0.0015);
+    const fireChance = Math.min(cfg('sim.scheduler.fireChanceMax', 0.4),
+      cfg('sim.scheduler.fireChanceBase', 0.18) + run.threat * cfg('sim.scheduler.fireChanceThreatScale', 0.0015));
     if (!this.rng.chance(fireChance)) return null;
 
     const pick = this.rng.weighted(pool, (p) => p.w);

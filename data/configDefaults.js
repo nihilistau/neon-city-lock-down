@@ -5,8 +5,10 @@
 // these defaults, so the game runs IDENTICALLY when no config/ dir exists.
 // Read values at runtime via cfg('group.path.to.key'). Documented in docs/config/.
 //
-// This module is PURE DATA (no imports) so Node tooling (tools/lint-config.mjs,
-// unit tests) and the browser can both import it. Phases add groups here.
+// This module is PURE DATA so Node tooling (tools/lint-config.mjs, unit tests)
+// and the browser can both import it. Larger data sets (e.g. lighting presets)
+// live in their own pure module and are referenced here. Phases add groups.
+import { LIGHTING_PRESETS, TOD_KEYS } from './lightingPresets.js';
 
 export const CONFIG_DEFAULTS = {
   // ── camera: first/third person controller, situational director, orbit rig ──
@@ -81,5 +83,55 @@ export const CONFIG_DEFAULTS = {
       maxRange: 14,            // max search range for a cover spot
       offset: 0.55,            // stand-off distance behind cover
     },
+  },
+
+  // ── sim: event pacing, threat pressure, survival economy, day-plan actions ──
+  sim: {
+    scheduler: {
+      rollEveryMin: 45,        // roll for a random event ~every N game-min
+      minGapMin: 150,          // hard floor between the END of one event and the next
+      fireChanceBase: 0.18,    // base per-roll fire probability
+      fireChanceThreatScale: 0.0015, // added per point of threat
+      fireChanceMax: 0.4,      // cap on per-roll fire probability
+    },
+    threat: {
+      dayBaseStart: 12,        // baseline threat contribution on day 1
+      dayBasePerDay: 7,        // added per day
+      dayBaseCap: 60,          // cap on the day baseline
+      nightBoost: 8, duskBoost: 5,
+      waveAmp: 6,              // amplitude of the diurnal threat wave
+      ease: 0.004,             // ease rate toward the target each minute
+      spikeDecay: 0.9985,      // per-minute decay of an event spike
+      flareChance: 0.002,      // per-minute chance of a random flare
+      flareMin: 1, flareMax: 4,
+    },
+    survival: {
+      mealsPerDay: 3, waterPerDay: 1,   // per head
+      hungerRate: 1.4, hungerRelief: 1.6, thirstRate: 2.0, thirstRelief: 2.4,
+      hungerHealthAt: 80, hungerHealthLoss: 1, thirstHealthAt: 75, thirstHealthLoss: 2,
+      moraleFoodDrain: 1.2, moraleWaterDrain: 1.5, moraleRecover: 0.25,
+      castFoodShortAt: 0.3, castWaterShortAt: 0.3,
+      warnFoodAt: 6, warnWaterAt: 8,
+    },
+    systems: {
+      degrade: { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 }, // per-day HP loss
+      offlineHp: 12,           // a system goes offline at/below this HP
+      cellDrainPer30: 0.5,     // reserve cell drain per 30 min while the grid is down
+    },
+    dayPlan: {
+      apPerDay: 4,             // action points per day
+      repair: { ap: 1, cost: 1, amount: 35 },
+      fortify: { ap: 1, cost: 1, defence: 20, threatDrop: 8 },
+      forage: { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35 },
+      train: { ap: 1, gain: 7, cap: 92 },
+      rest: { ap: 1, health: 16, morale: 12 },
+      deal: { ap: 2, cost: 3, threatDrop: 20 },
+    },
+  },
+
+  // ── lighting: named presets + time-of-day keyframes (see data/lightingPresets.js) ──
+  lighting: {
+    presets: LIGHTING_PRESETS,   // 10 presets: neon_night, blackout_emergency, golden_hour, …
+    tod: TOD_KEYS,               // time-of-day key/hemi/exposure keyframes (neon_night is ToD-aware)
   },
 };

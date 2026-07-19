@@ -1,0 +1,55 @@
+# Sim config — event pacing, threat pressure, survival economy, day-plan actions.
+# Loaded over data/configDefaults.js. Reference: docs/config/sim.md.
+
+scheduler:                    # random world-event pacing (src/sim/scheduler.js)
+  rollEveryMin: 45            # roll for a random event ~every N game-minutes
+  minGapMin: 150             # hard floor between the END of one event and the next
+  fireChanceBase: 0.18       # base per-roll fire probability
+  fireChanceThreatScale: 0.0015  # added per point of threat
+  fireChanceMax: 0.4         # cap on per-roll fire probability
+
+threat:                       # external pressure 0..100 (src/sim/threat.js)
+  dayBaseStart: 12           # baseline on day 1
+  dayBasePerDay: 7           # added per day
+  dayBaseCap: 60             # baseline cap
+  nightBoost: 8
+  duskBoost: 5
+  waveAmp: 6                 # diurnal wave amplitude
+  ease: 0.004                # ease toward target per minute
+  spikeDecay: 0.9985         # per-minute spike decay
+  flareChance: 0.002         # per-minute random flare chance
+  flareMin: 1
+  flareMax: 4
+
+survival:                     # consumption + hunger/thirst/morale (src/sim/survival.js)
+  mealsPerDay: 3             # per head
+  waterPerDay: 1             # per head
+  hungerRate: 1.4
+  hungerRelief: 1.6
+  thirstRate: 2.0
+  thirstRelief: 2.4
+  hungerHealthAt: 80         # hunger above this costs health
+  hungerHealthLoss: 1
+  thirstHealthAt: 75
+  thirstHealthLoss: 2
+  moraleFoodDrain: 1.2
+  moraleWaterDrain: 1.5
+  moraleRecover: 0.25
+  castFoodShortAt: 0.3       # cast morale/tension cascade thresholds
+  castWaterShortAt: 0.3
+  warnFoodAt: 6              # low-reserve warning levels
+  warnWaterAt: 8
+
+systems:                      # tower system degradation (src/sim/tick.js)
+  degrade: { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 }  # per-day HP loss
+  offlineHp: 12              # a system goes offline at/below this HP
+  cellDrainPer30: 0.5        # reserve cell drain per 30 min while grid is down
+
+dayPlan:                      # action-point day actions (src/sim/dayPlan.js)
+  apPerDay: 4
+  repair:  { ap: 1, cost: 1, amount: 35 }
+  fortify: { ap: 1, cost: 1, defence: 20, threatDrop: 8 }
+  forage:  { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35 }
+  train:   { ap: 1, gain: 7, cap: 92 }
+  rest:    { ap: 1, health: 16, morale: 12 }
+  deal:    { ap: 2, cost: 3, threatDrop: 20 }

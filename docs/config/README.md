@@ -71,6 +71,8 @@ verifies the defaults themselves satisfy the schema, catching default/schema dri
 |-------|------|-----------|
 | camera | `config/camera.yaml` | [camera.md](camera.md) |
 | combat | `config/combat.yaml` | [combat.md](combat.md) |
+| sim | `config/sim.yaml` | [sim.md](sim.md) |
+| lighting | `config/lighting.yaml` | [lighting.md](lighting.md) |
 
-_(More groups — sim, chars, humanoid, lighting, world, audio, gameplay, llm, voice — are
-added as each system is migrated.)_
+_(More groups — chars, humanoid, world, audio, gameplay, llm, voice — are added as each
+system is migrated.)_

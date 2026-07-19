@@ -43,10 +43,47 @@ export const CONFIG_SCHEMA = {
       qualityTall: num(0, 1), qualityLow: num(0, 1), maxRange: num(1, 100), offset: num(0, 5),
     },
   },
+  sim: {
+    scheduler: {
+      rollEveryMin: num(1, 1440), minGapMin: num(0, 1440), fireChanceBase: num(0, 1),
+      fireChanceThreatScale: num(0, 0.1), fireChanceMax: num(0, 1),
+    },
+    threat: {
+      dayBaseStart: num(0, 100), dayBasePerDay: num(0, 50), dayBaseCap: num(0, 100),
+      nightBoost: num(0, 50), duskBoost: num(0, 50), waveAmp: num(0, 50), ease: num(0, 1),
+      spikeDecay: num(0, 1), flareChance: num(0, 1), flareMin: num(0, 50), flareMax: num(0, 50),
+    },
+    survival: {
+      mealsPerDay: num(0, 24), waterPerDay: num(0, 24),
+      hungerRate: num(0, 20), hungerRelief: num(0, 20), thirstRate: num(0, 20), thirstRelief: num(0, 20),
+      hungerHealthAt: num(0, 100), hungerHealthLoss: num(0, 50), thirstHealthAt: num(0, 100), thirstHealthLoss: num(0, 50),
+      moraleFoodDrain: num(0, 20), moraleWaterDrain: num(0, 20), moraleRecover: num(0, 20),
+      castFoodShortAt: num(0, 1), castWaterShortAt: num(0, 1), warnFoodAt: num(0, 100), warnWaterAt: num(0, 100),
+    },
+    systems: {
+      degrade: { map: num(0, 100) }, offlineHp: num(0, 100), cellDrainPer30: num(0, 100),
+    },
+    dayPlan: {
+      apPerDay: num(1, 24),
+      repair: { ap: num(0, 24), cost: num(0, 99), amount: num(0, 100) },
+      fortify: { ap: num(0, 24), cost: num(0, 99), defence: num(0, 100), threatDrop: num(0, 100) },
+      forage: { ap: num(0, 24), foodBase: num(0, 99), foodRand: num(0, 99), waterRand: num(0, 99), partsChance: num(0, 1) },
+      train: { ap: num(0, 24), gain: num(0, 100), cap: num(0, 100) },
+      rest: { ap: num(0, 24), health: num(0, 100), morale: num(0, 100) },
+      deal: { ap: num(0, 24), cost: num(0, 99), threatDrop: num(0, 100) },
+    },
+  },
+  lighting: {
+    // presets/tod are deep free-form structures (colors, intensities, pulse variants);
+    // validated as present objects — the game tolerates missing fields (falls back).
+    presets: { map: { any: true } },
+    tod: { array: 'object' },
+  },
 };
 
 function checkNode(node, val, path, errs) {
   if (val === undefined) return;
+  if (node.any) return;   // permissive escape for complex free-form data (e.g. lighting presets)
   // scalar leaf
   if (node.type) {
     if (node.type === 'number' && typeof val !== 'number') return errs.push(`${path}: expected number, got ${typeof val}`);

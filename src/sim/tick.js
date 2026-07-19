@@ -7,9 +7,7 @@ import { resetDayPlan } from './dayPlan.js';
 import { updateObjectives } from './objectives.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
-
-// per-day passive drift of tower systems (the parts/repair economy's pressure)
-const DEGRADE = { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 };
+import { cfg } from '../core/config.js';   // systems degradation → config/sim.yaml (systems)
 
 export class WorldTick {
   /**
@@ -43,7 +41,7 @@ export class WorldTick {
 
     // reserve cells drain while grid is down; total dark when they run out
     if (!run.systems.power.online && clock.minuteOfDay % 30 === 0) {
-      if (run.resources.cells > 0) run.resources.cells = Math.max(0, run.resources.cells - 0.5);
+      if (run.resources.cells > 0) run.resources.cells = Math.max(0, run.resources.cells - cfg('sim.systems.cellDrainPer30', 0.5));
     }
 
     const eventId = this.deps.scheduler.tick(run, clock);
@@ -70,10 +68,12 @@ export class WorldTick {
       feed(`— Day ${clock.day} begins —`, 'system');
       if (run.systemsDay !== clock.day) {
         run.systemsDay = clock.day;
-        for (const [k, amt] of Object.entries(DEGRADE)) {
+        const offlineHp = cfg('sim.systems.offlineHp', 12);
+        for (const [k, amt] of Object.entries(cfg('sim.systems.degrade', {}))) {
           const s = run.systems[k];
+          if (!s) continue;
           s.hp = Math.max(0, s.hp - amt);
-          if (s.hp <= 12 && s.online) { s.online = false; feed(`The ${k} grid has failed — repair it.`, 'system'); }
+          if (s.hp <= offlineHp && s.online) { s.online = false; feed(`The ${k} grid has failed — repair it.`, 'system'); }
         }
         emit('systems.changed', run.systems);
         resetDayPlan(run);
