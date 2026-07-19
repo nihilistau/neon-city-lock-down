@@ -60,9 +60,10 @@ saved through the actual `saveConfigFile()` → `POST /api/config/lighting.yaml`
 file *and* updates the live store), then the game's own `Lighting.apply('neon_night')` re-tints from
 the edited config — no hand-lerp. The fade is deterministically stepped (`Lighting.update()` under a
 stopped loop) for smooth frames, on a locked camera, assembled as a seamless ping-pong loop with
-`ffmpeg` (1024×478, 12 fps, 2.9 MB). The core beat is genuine: **edit the YAML → the engine re-tints
-the whole scene, no rebuild.** (The hero camera still favours the foreground figure; the distant
-character stays shadowed at the warm end — a final pass would re-frame to keep both lit.)
+`ffmpeg` (1024×478, 12 fps, 2.2 MB). The core beat is genuine: **edit the YAML → the engine re-tints
+the whole scene, no rebuild.** It's framed as a wide establishing shot so several characters (two by
+the glass, one on the couch) stay lit through the whole transition, with the cool city + cyan ceiling
+strip holding as a contrast against the warming room.
 
 **Loop length:** ~6 s. **Structure:** split-screen (YAML left ~40%, game right ~60%) *or* hard cut
 from editor to game. Split-screen reads faster in a feed.
