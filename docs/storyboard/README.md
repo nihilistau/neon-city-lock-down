@@ -55,11 +55,14 @@ the whole engine is data-driven with no rebuild.
 
 ![GIF #1 — live lighting re-tint (rough draft)](gif1_lighting_retint.gif)
 
-Captured from the running build — a deterministic light lerp (`neon_night` → warm) across all six
-lights + fog + exposure on a frozen camera, assembled as a seamless ping-pong loop with `ffmpeg`
-(1024×478, 12 fps, 4.7 MB). This is a **draft**: the hero camera favours the foreground figure and
-the distant character stays shadowed at the warm end — a final pass would re-frame to keep both lit
-and slow the transition. It nails the core beat: cold blue → warm, whole scene, no rebuild.
+Captured from the running build, driven by the **real config path**: a warmed `neon_night` preset is
+saved through the actual `saveConfigFile()` → `POST /api/config/lighting.yaml` (which writes the YAML
+file *and* updates the live store), then the game's own `Lighting.apply('neon_night')` re-tints from
+the edited config — no hand-lerp. The fade is deterministically stepped (`Lighting.update()` under a
+stopped loop) for smooth frames, on a locked camera, assembled as a seamless ping-pong loop with
+`ffmpeg` (1024×478, 12 fps, 2.9 MB). The core beat is genuine: **edit the YAML → the engine re-tints
+the whole scene, no rebuild.** (The hero camera still favours the foreground figure; the distant
+character stays shadowed at the warm end — a final pass would re-frame to keep both lit.)
 
 **Loop length:** ~6 s. **Structure:** split-screen (YAML left ~40%, game right ~60%) *or* hard cut
 from editor to game. Split-screen reads faster in a feed.
