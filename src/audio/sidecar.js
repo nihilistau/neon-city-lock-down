@@ -56,6 +56,54 @@ export class Sidecar {
     }
   }
 
+  // ── Voice Controls panel API (src/ui/voicePanel.js) ──────────────────────
+  _url(path) { return settings.tts.sidecarUrl.replace(/\/$/, '') + path; }
+
+  /** all voices (preset + user) as [{name, kind}]. (Named listVoices to avoid
+   *  clashing with the `this.voices` array set by probe().) */
+  async listVoices() {
+    try { const r = await fetch(this._url('/voices')); return r.ok ? (await r.json()).voices : []; }
+    catch { return []; }
+  }
+
+  /** saved clips + available voices: { clips:[file], voices:[{name,kind}] }. */
+  async library() {
+    try { const r = await fetch(this._url('/library')); return r.ok ? await r.json() : { clips: [], voices: [] }; }
+    catch { return { clips: [], voices: [] }; }
+  }
+
+  /** synth one line at a chosen euler → ArrayBuffer (bypasses the char-line cache). */
+  async speakRaw(text, voice, euler) {
+    try {
+      const r = await fetch(this._url('/speak'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice, euler }) });
+      return r.ok ? await r.arrayBuffer() : null;
+    } catch { return null; }
+  }
+
+  /** synth long text (chunked + concatenated) → { audio:ArrayBuffer, saved:string|null }. */
+  async synthLong(text, voice, euler, { save = false, name = '' } = {}) {
+    try {
+      const r = await fetch(this._url('/synthLong'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice, euler, save, name }) });
+      if (!r.ok) return null;
+      return { audio: await r.arrayBuffer(), saved: r.headers.get('X-Saved') };
+    } catch { return null; }
+  }
+
+  /** save a clip (base64) to the library, or bake a character line. */
+  async save(payload) {
+    try { const r = await fetch(this._url('/save'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return r.ok ? await r.json() : { ok: false, error: `http ${r.status}` }; }
+    catch (e) { return { ok: false, error: String(e) }; }
+  }
+
+  /** clone a voice from a reference clip (base64) → { status, ... }. */
+  async clone(payload) {
+    try { const r = await fetch(this._url('/clone'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return { status: r.status, ...(await r.json().catch(() => ({}))) }; }
+    catch (e) { return { status: 0, error: String(e) }; }
+  }
+
+  /** URL of a saved clip for an <audio> element. */
+  clipUrl(file) { return this._url('/clip?file=' + encodeURIComponent(file)); }
+
   async _openDb() {
     if (this._db) return this._db;
     return new Promise((resolve) => {

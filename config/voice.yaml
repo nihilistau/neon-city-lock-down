@@ -5,6 +5,8 @@
 # The vendored fork source is in third_party/voxtral/. Its binary + 2.7GB models
 # are gitignored — run scripts/voice/setup-voxtral.(ps1|sh) to build + download,
 # or set the VOXTRAL_DIR env var to an existing build for testing.
+# Saving through the Voice panel (character assignment) reformats this file and
+# drops these comments — docs/systems/voice.md is the authoritative reference.
 
 voxtralDir: third_party/voxtral         # project-root-relative or absolute (env VOXTRAL_DIR overrides)
 binary: target/release/voxtral.exe      # relative to voxtralDir

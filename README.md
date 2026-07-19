@@ -165,7 +165,7 @@ charge; the model only restyles the surface prose.
 | **F** | Cycle camera focus between the cast (orbit mode) |
 | **E** / click | Interact with props (bar synth, telescope, fireplace, curtains, VOX terminal, loot…) |
 | **P** | Day plan — spend action points (repair, fortify, forage, drill, rest, deal) + objectives |
-| **`** (backtick) | Director panel (8 tabs) · **L** — LLM engine panel |
+| **`** (backtick) | Director panel (8 tabs) · **L** — LLM engine panel · **V** — Voice controls (realtime TTS, library, cloning) |
 | **I** | Inventory · **K** — codex · **Esc** — save/load menu |
 | **Space** | Skip the current cutscene line |
 

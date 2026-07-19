@@ -85,6 +85,7 @@ import { CombatHud } from '../ui/combatHud.js';
 import { CharacterAgent } from '../dialogue/llm/agent.js';
 import { Conversation } from '../dialogue/llm/conversation.js';
 import { LLMPanel } from '../ui/llmPanel.js';
+import { VoicePanel } from '../ui/voicePanel.js';
 import { LOADOUTS } from '../../data/items.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
@@ -348,6 +349,7 @@ export class App {
     this.inventory = new Inventory(this);
     this.inventoryUI = new InventoryUI(this);
     this.llmPanel = new LLMPanel(this);
+    this.voicePanel = new VoicePanel(this);
     this.reticle = new Reticle();
     this.planPanel = new PlanPanel(this);
 
