@@ -16,6 +16,7 @@ then dive into a subsystem.
   gameplay, lighting, llm, voice), with live edit/save.
 - **[Creation Kit](creation-kit/README.md)** — the player-facing guide to authoring scenarios,
   events, cutscenes, dialogue, and voices in-game.
+- **[Demo Script](demo.md)** — a ~3-minute presenter walkthrough of the v0.2.0 features.
 
 ### Systems (`systems/`)
 - [Core](systems/core.md) — bus, loop, clock, rng, settings, save, script.
