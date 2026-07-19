@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { getClip } from './clips.js';
 import { Gait } from './gait.js';
+import { cfg } from '../core/config.js';
 
 const D2R = THREE.MathUtils.degToRad;
 const _q = new THREE.Quaternion();
@@ -30,7 +31,7 @@ export class Animator {
     this.clipTime = 0;
     this.prevTime = 0;
     this.fade = 1;            // 0→1 progress of crossfade
-    this.fadeDuration = 0.3;
+    this.fadeDuration = cfg('humanoid.animator.crossfade', 0.3);
 
     this.gait = new Gait();
     this.speed = 0;           // set by mover each frame

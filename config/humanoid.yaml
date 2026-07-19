@@ -1,0 +1,20 @@
+# Humanoid config — procedural walk cycle + animation blending.
+# Loaded over data/configDefaults.js. Reference: docs/config/humanoid.md.
+# Note: skeleton PROPORTION ratios are code-defined (rig stability); only armAngle
+# is exposed here and is read when a new avatar is built.
+
+gait:                     # src/humanoid/gait.js (degrees, metres)
+  strideLen: 0.62         # metres per step at full walk
+  walkSpeed: 1.25         # m/s considered "full walk" (amplitude scale)
+  thighAmp: 26            # thigh swing amplitude, degrees
+  shinFlex: 38            # knee flex amplitude, degrees
+  armAmp: 13             # arm swing amplitude, degrees
+  hipBob: 0.028           # vertical hip bob, metres
+  hipDrop: 0.012          # baseline hip drop, metres
+  hipShift: 0.014         # lateral hip shift, metres
+
+animator:
+  crossfade: 0.3          # default clip crossfade duration, seconds
+
+skeleton:
+  armAngle: 42            # A-pose arm angle from vertical, degrees (applied at avatar build)

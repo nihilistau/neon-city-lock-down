@@ -1,0 +1,10 @@
+# World config — game clock pace + phase boundaries.
+# Loaded over data/configDefaults.js. Reference: docs/config/world.md.
+
+clock:
+  startHour: 18           # Day 1 start hour (lockdown declared at dusk)
+  speed: 1                # game minutes per real second (higher = faster days)
+  dawnStart: 5            # phase band boundaries, hours (dawn = dawnStart..dayStart)
+  dayStart: 8             # day = dayStart..duskStart
+  duskStart: 17           # dusk = duskStart..nightStart
+  nightStart: 20          # night = nightStart..dawnStart

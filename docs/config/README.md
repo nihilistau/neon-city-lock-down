@@ -72,7 +72,11 @@ verifies the defaults themselves satisfy the schema, catching default/schema dri
 | camera | `config/camera.yaml` | [camera.md](camera.md) |
 | combat | `config/combat.yaml` | [combat.md](combat.md) |
 | sim | `config/sim.yaml` | [sim.md](sim.md) |
+| chars | `config/chars.yaml` | [chars.md](chars.md) |
+| humanoid | `config/humanoid.yaml` | [humanoid.md](humanoid.md) |
+| world | `config/world.yaml` | [world.md](world.md) |
+| gameplay | `config/gameplay.yaml` | [gameplay.md](gameplay.md) |
 | lighting | `config/lighting.yaml` | [lighting.md](lighting.md) |
 
-_(More groups — chars, humanoid, world, audio, gameplay, llm, voice — are added as each
-system is migrated.)_
+_(LLM and voice config groups — llm, voice — are added in Phases 3–4. Audio bus volumes are
+player preferences in `settings.js`, not engine config.)_

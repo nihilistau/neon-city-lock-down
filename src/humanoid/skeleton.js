@@ -3,6 +3,7 @@
 // so every bone's local axes are world-aligned at bind — pose data stays intuitive
 // (rotation.x tips forward, .y twists, .z tilts sideways for every bone).
 import * as THREE from 'three';
+import { cfg } from '../core/config.js';
 
 /** Bone name → index. Order matters: parents precede children. */
 export const BONES = [
@@ -37,7 +38,8 @@ const PARENTS = {
  * @property {number} build     limb girth scale
  */
 
-/** A-pose arm angle from vertical. */
+/** A-pose arm angle from vertical (default; config/humanoid.yaml → skeleton.armAngle
+ *  is read at build time in computeJoints so new avatars pick it up). */
 export const ARM_ANGLE = THREE.MathUtils.degToRad(42);
 
 /**
@@ -49,7 +51,8 @@ export function computeJoints(b) {
   const sx = b.shoulderW / 2;
   const hx = b.hipW / 2;
   const upperArmLen = 0.162 * h, forearmLen = 0.148 * h, handLen = 0.10 * h;
-  const armDir = new THREE.Vector3(Math.sin(ARM_ANGLE), -Math.cos(ARM_ANGLE), 0);
+  const armAngle = THREE.MathUtils.degToRad(cfg('humanoid.skeleton.armAngle', 42));
+  const armDir = new THREE.Vector3(Math.sin(armAngle), -Math.cos(armAngle), 0);
 
   const shoulderL = new THREE.Vector3(sx, 0.833 * h, 0);
   const elbowL = shoulderL.clone().addScaledVector(armDir, upperArmLen);

@@ -1,6 +1,8 @@
 // @ts-check
 // Game time. Default pace: 1 real second = 1 game minute (speed 1).
-// Day 1 starts at 18:00 — lockdown is declared at dusk.
+// Day 1 starts at 18:00 — lockdown is declared at dusk. Pace + phase bands are
+// config-tunable (config/world.yaml → clock). MINUTES_PER_DAY is structural.
+import { cfg } from './config.js';
 
 export const MINUTES_PER_DAY = 1440;
 
@@ -9,17 +11,18 @@ export const MINUTES_PER_DAY = 1440;
 export class GameClock {
   constructor() {
     this.day = 1;
-    this.minuteOfDay = 18 * 60;
-    this.speed = 1;          // game minutes per real second
+    this.minuteOfDay = cfg('world.clock.startHour', 18) * 60;
+    this.speed = cfg('world.clock.speed', 1);   // game minutes per real second
     this._acc = 0;           // real ms accumulator
   }
 
   /** @returns {DayPhase} */
   get phase() {
     const h = this.minuteOfDay / 60;
-    if (h >= 5 && h < 8) return 'dawn';
-    if (h >= 8 && h < 17) return 'day';
-    if (h >= 17 && h < 20) return 'dusk';
+    const c = cfg('world.clock', {});
+    if (h >= (c.dawnStart ?? 5) && h < (c.dayStart ?? 8)) return 'dawn';
+    if (h >= (c.dayStart ?? 8) && h < (c.duskStart ?? 17)) return 'day';
+    if (h >= (c.duskStart ?? 17) && h < (c.nightStart ?? 20)) return 'dusk';
     return 'night';
   }
 

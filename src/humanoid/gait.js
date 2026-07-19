@@ -1,15 +1,17 @@
 // @ts-check
 // Procedural walk cycle. Phase is driven by actual root velocity, so feet
 // approximately match ground speed; blended over the clip layer by speed.
+// Amplitudes are config-tunable (config/humanoid.yaml → gait).
 import * as THREE from 'three';
+import { cfg } from '../core/config.js';
 
 const D2R = THREE.MathUtils.degToRad;
 
 export class Gait {
   constructor() {
     this.phase = 0;          // radians; one full cycle = 2 steps
-    this.strideLen = 0.62;   // meters per step at full walk
-    this.walkSpeed = 1.25;   // m/s considered "full walk"
+    this.strideLen = cfg('humanoid.gait.strideLen', 0.62);   // meters per step at full walk
+    this.walkSpeed = cfg('humanoid.gait.walkSpeed', 1.25);   // m/s considered "full walk"
   }
 
   /**
@@ -39,9 +41,10 @@ export class Gait {
     const lift = Math.max(0, Math.sin(p + Math.PI / 2)); // L foot lift window
     const liftR = Math.max(0, Math.sin(p + Math.PI * 1.5));
 
-    const thighAmp = D2R(26) * k;
-    const shinFlex = D2R(38) * k;
-    const armAmp = D2R(13) * k;
+    const g = cfg('humanoid.gait', {});
+    const thighAmp = D2R(g.thighAmp ?? 26) * k;
+    const shinFlex = D2R(g.shinFlex ?? 38) * k;
+    const armAmp = D2R(g.armAmp ?? 13) * k;
 
     /** @type {Record<string, [number,number,number]>} */
     const eulers = {
@@ -63,8 +66,8 @@ export class Gait {
     };
     return {
       eulers,
-      hipBobY: Math.abs(Math.sin(p)) * 0.028 * k - 0.012 * k,
-      hipShiftX: Math.cos(p) * 0.014 * k,
+      hipBobY: Math.abs(Math.sin(p)) * (g.hipBob ?? 0.028) * k - (g.hipDrop ?? 0.012) * k,
+      hipShiftX: Math.cos(p) * (g.hipShift ?? 0.014) * k,
     };
   }
 }

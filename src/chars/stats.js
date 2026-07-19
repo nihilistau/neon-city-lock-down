@@ -2,6 +2,11 @@
 // PURE 12-stat model. No imports from three.js/DOM. Fully unit-tested.
 // All stats are clamped 0..100. Deltas are scaled by personality receptivity
 // and modulated by cross-stat coupling (e.g. high tension suppresses arousal gain).
+// Coupling/decay/compliance/start values are config-tunable (config/chars.yaml);
+// cfg() falls back to CONFIG_DEFAULTS.chars (so Node unit tests use defaults).
+import { cfg } from '../core/config.js';
+import { CONFIG_DEFAULTS } from '../../data/configDefaults.js';
+const CH = CONFIG_DEFAULTS.chars;
 
 /** @typedef {import('../core/types.js').StatKey} StatKey */
 
@@ -12,11 +17,7 @@ export const STAT_KEYS = /** @type {StatKey[]} */ ([
 
 /** @returns {Record<StatKey, number>} */
 export function defaultStats() {
-  return {
-    arousal: 5, pleasure: 15, happiness: 50, horniness: 10, openness: 30,
-    dominance: 50, trust: 20, tension: 25, energy: 75, sobriety: 100,
-    loyalty: 10, fear: 5,
-  };
+  return { ...cfg('chars.startStats', CH.startStats) };
 }
 
 /** clamp helper */
@@ -32,28 +33,29 @@ export function clamp(v, lo = 0, hi = 100) { return v < lo ? lo : v > hi ? hi : 
 export function couplingFactor(s, key, delta) {
   let f = 1;
   const gaining = delta > 0;
+  const c = cfg('chars.coupling', CH.coupling);
   switch (key) {
     case 'arousal':
     case 'horniness':
       // high tension / fear suppresses arousal & horniness gains
-      if (gaining) f *= 1 - (s.tension / 100) * 0.55 - (s.fear / 100) * 0.5;
+      if (gaining) f *= 1 - (s.tension / 100) * c.tensionSuppress - (s.fear / 100) * c.fearSuppress;
       // intoxication (low sobriety) amplifies arousal gains
-      if (gaining) f *= 1 + (1 - s.sobriety / 100) * 0.4;
+      if (gaining) f *= 1 + (1 - s.sobriety / 100) * c.intoxArousal;
       break;
     case 'openness':
       // intoxication opens people up; fear closes them
-      if (gaining) f *= 1 + (1 - s.sobriety / 100) * 0.5 - (s.fear / 100) * 0.4;
+      if (gaining) f *= 1 + (1 - s.sobriety / 100) * c.intoxOpen - (s.fear / 100) * c.fearClose;
       break;
     case 'trust':
       // trust is hard to gain while tense, easy to lose
-      if (gaining) f *= 1 - (s.tension / 100) * 0.4;
+      if (gaining) f *= 1 - (s.tension / 100) * c.tensionTrust;
       break;
     case 'pleasure':
-      if (gaining) f *= 0.3 + (s.arousal / 100) * 0.9; // pleasure tracks arousal
+      if (gaining) f *= c.pleasureBase + (s.arousal / 100) * c.pleasureArousal; // pleasure tracks arousal
       break;
     case 'tension':
       // tension climbs faster when fearful
-      if (gaining) f *= 1 + (s.fear / 100) * 0.35;
+      if (gaining) f *= 1 + (s.fear / 100) * c.fearTension;
       break;
   }
   return Math.max(0, f);
@@ -91,16 +93,16 @@ export function applyDelta(stats, deltas, personality = {}) {
  * @param {number} minutes
  */
 export function decayTick(stats, minutes) {
-  const rest = { arousal: 5, horniness: 8, tension: 22, pleasure: 12, fear: 4 };
-  const rate = { arousal: 0.5, horniness: 0.35, tension: 0.25, pleasure: 0.6, fear: 0.4 };
+  const d = cfg('chars.decay', CH.decay);
+  const rest = d.rest, rate = d.rate;
   for (const key of /** @type {StatKey[]} */ (Object.keys(rest))) {
     const target = rest[key];
     const step = rate[key] * minutes;
     if (stats[key] > target) stats[key] = Math.max(target, stats[key] - step);
-    else stats[key] = Math.min(target, stats[key] + step * 0.3);
+    else stats[key] = Math.min(target, stats[key] + step * d.approachFactor);
   }
   // sobriety climbs back toward 100 (metabolizing)
-  stats.sobriety = clamp(stats.sobriety + 0.35 * minutes);
+  stats.sobriety = clamp(stats.sobriety + d.sobrietyRegain * minutes);
 }
 
 /**
@@ -110,14 +112,15 @@ export function decayTick(stats, minutes) {
  * @param {number} [playerDominance] 0..100 — a dominant player lowers a dominant NPC's compliance
  */
 export function compliance(stats, playerDominance = 50) {
+  const w = cfg('chars.compliance', CH.compliance);
   const base =
-    stats.trust * 0.30 +
-    stats.openness * 0.22 +
-    stats.happiness * 0.14 +
-    stats.loyalty * 0.14 +
-    (100 - stats.tension) * 0.12 +
-    (100 - stats.fear) * 0.08;
+    stats.trust * w.trust +
+    stats.openness * w.openness +
+    stats.happiness * w.happiness +
+    stats.loyalty * w.loyalty +
+    (100 - stats.tension) * w.calm +
+    (100 - stats.fear) * w.brave;
   // dominance clash: if NPC is more dominant than the player, compliance drops
-  const clash = clamp((stats.dominance - playerDominance) * 0.35, -20, 35);
+  const clash = clamp((stats.dominance - playerDominance) * w.clashScale, w.clashMin, w.clashMax);
   return clamp(base - clash);
 }

@@ -1,7 +1,11 @@
 // @ts-check
 // PURE intimacy-gate ladder. The SOLE authority on what escalations are allowed.
 // Every intimacy-tagged action MUST route through gateCheck(). No other module
-// may flip a gate state. No three.js/DOM imports.
+// may flip a gate state. Ladder ORDER is structural; per-tier thresholds and the
+// explicitness caps are config-tunable (config/chars.yaml → gates). cfg() falls
+// back to CONFIG_DEFAULTS.chars.gates (so Node unit tests use defaults).
+import { cfg } from '../core/config.js';
+import { CONFIG_DEFAULTS } from '../../data/configDefaults.js';
 
 /** @typedef {import('../core/types.js').GateTier} GateTier */
 /** @typedef {import('../core/types.js').GateState} GateState */
@@ -25,22 +29,14 @@ export function tierIndex(tier) { return GATE_LADDER.indexOf(tier); }
 // (bedGame._willing) is the primary willingness check on top. Trust minima are
 // kept modest so foreplay/pleasure can actually reach them — a dominant, guarded
 // character shouldn't be permanently locked out of intimacy she clearly wants.
-export const TIER_THRESHOLDS = {
-  light_touch: { trust: 15, openness: 18 },
-  kiss: { trust: 26, arousal: 22, openness: 30 },
-  touch: { trust: 34, arousal: 38, horniness: 28 },
-  undress: { trust: 42, arousal: 52, horniness: 42, openness: 46 },
-  intimate: { trust: 48, arousal: 62, horniness: 56 },
-  explicit: { trust: 54, arousal: 72, horniness: 66, openness: 56 },
-  depraved: { trust: 60, arousal: 82, horniness: 78, openness: 66, loyalty: 28 },
-};
+export const TIER_THRESHOLDS = CONFIG_DEFAULTS.chars.gates.thresholds;
 
 /** Explicitness caps: the highest tier the global setting permits. */
-export const EXPLICITNESS_CAP = /** @type {Record<Explicitness, GateTier>} */ ({
-  suggestive: 'kiss',
-  mature: 'intimate',
-  full: 'depraved',
-});
+export const EXPLICITNESS_CAP = /** @type {Record<Explicitness, GateTier>} */ (CONFIG_DEFAULTS.chars.gates.explicitnessCap);
+
+/** live (config-backed) thresholds + caps */
+const thresholds = () => cfg('chars.gates.thresholds', TIER_THRESHOLDS);
+const caps = () => cfg('chars.gates.explicitnessCap', EXPLICITNESS_CAP);
 
 /** @returns {Record<GateTier, GateState>} */
 export function defaultGates() {
@@ -82,7 +78,7 @@ export function gateCheck(char, tier, settings = {}) {
   const idx = tierIndex(tier);
   if (idx < 0) return { allowed: false, reason: 'unknown_tier' };
 
-  const cap = EXPLICITNESS_CAP[settings.explicitness || 'mature'];
+  const cap = caps()[settings.explicitness || 'mature'];
   if (idx > tierIndex(cap)) return { allowed: false, reason: 'explicitness_cap' };
 
   if (char.consent.safeword) return { allowed: false, reason: 'safeword' };
@@ -95,7 +91,7 @@ export function gateCheck(char, tier, settings = {}) {
     }
   }
 
-  const thr = meetsThresholds(TIER_THRESHOLDS[tier], char.stats);
+  const thr = meetsThresholds(thresholds()[tier], char.stats);
   if (!thr.ok) return { allowed: false, reason: 'stats', need: thr.missing };
 
   if (!char.consent.ladder[tier].given) return { allowed: false, reason: 'no_consent' };
@@ -109,11 +105,11 @@ export function gateCheck(char, tier, settings = {}) {
  */
 export function canOffer(char, tier, settings = {}) {
   const idx = tierIndex(tier);
-  const cap = EXPLICITNESS_CAP[settings.explicitness || 'mature'];
+  const cap = caps()[settings.explicitness || 'mature'];
   if (idx > tierIndex(cap)) return false;
   if (char.consent.withdrawn || char.consent.safeword) return false;
   for (let i = 0; i < idx; i++) if (char.gates[GATE_LADDER[i]] !== 'granted') return false;
-  return meetsThresholds(TIER_THRESHOLDS[tier], char.stats).ok;
+  return meetsThresholds(thresholds()[tier], char.stats).ok;
 }
 
 /**

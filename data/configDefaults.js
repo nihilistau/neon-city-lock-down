@@ -129,9 +129,85 @@ export const CONFIG_DEFAULTS = {
     },
   },
 
+  // ── chars: stat model coupling/decay/compliance + intimacy-gate thresholds ──
+  chars: {
+    startStats: {   // defaultStats() baseline before persona overrides
+      arousal: 5, pleasure: 15, happiness: 50, horniness: 10, openness: 30, dominance: 50,
+      trust: 20, tension: 25, energy: 75, sobriety: 100, loyalty: 10, fear: 5,
+    },
+    coupling: {     // cross-stat gain modifiers (src/chars/stats.js couplingFactor)
+      tensionSuppress: 0.55,  // arousal/horniness gain suppressed per unit tension
+      fearSuppress: 0.5,      // …per unit fear
+      intoxArousal: 0.4,      // intoxication amplifies arousal gain
+      intoxOpen: 0.5,         // intoxication amplifies openness gain
+      fearClose: 0.4,         // fear suppresses openness gain
+      tensionTrust: 0.4,      // tension suppresses trust gain
+      pleasureBase: 0.3,      // pleasure gain floor
+      pleasureArousal: 0.9,   // …plus this × arousal
+      fearTension: 0.35,      // fear amplifies tension gain
+    },
+    decay: {        // passive homeostatic regression (decayTick)
+      rest: { arousal: 5, horniness: 8, tension: 22, pleasure: 12, fear: 4 },
+      rate: { arousal: 0.5, horniness: 0.35, tension: 0.25, pleasure: 0.6, fear: 0.4 },
+      approachFactor: 0.3,    // rise-toward-rest is this fraction of the fall rate
+      sobrietyRegain: 0.35,   // sobriety per minute
+    },
+    compliance: {   // compliance() weights (0..1) + dominance clash
+      trust: 0.30, openness: 0.22, happiness: 0.14, loyalty: 0.14, calm: 0.12, brave: 0.08,
+      clashScale: 0.35, clashMin: -20, clashMax: 35,
+    },
+    gates: {        // intimacy ladder (src/chars/gates.js)
+      thresholds: {   // minimum stats to OFFER each tier
+        light_touch: { trust: 15, openness: 18 },
+        kiss: { trust: 26, arousal: 22, openness: 30 },
+        touch: { trust: 34, arousal: 38, horniness: 28 },
+        undress: { trust: 42, arousal: 52, horniness: 42, openness: 46 },
+        intimate: { trust: 48, arousal: 62, horniness: 56 },
+        explicit: { trust: 54, arousal: 72, horniness: 66, openness: 56 },
+        depraved: { trust: 60, arousal: 82, horniness: 78, openness: 66, loyalty: 28 },
+      },
+      explicitnessCap: { suggestive: 'kiss', mature: 'intimate', full: 'depraved' },
+    },
+  },
+
   // ── lighting: named presets + time-of-day keyframes (see data/lightingPresets.js) ──
   lighting: {
     presets: LIGHTING_PRESETS,   // 10 presets: neon_night, blackout_emergency, golden_hour, …
     tod: TOD_KEYS,               // time-of-day key/hemi/exposure keyframes (neon_night is ToD-aware)
+  },
+
+  // ── humanoid: procedural walk cycle + animation blending ──
+  humanoid: {
+    gait: {                      // src/humanoid/gait.js pose amplitudes (degrees, metres)
+      strideLen: 0.62,           // metres per step at full walk
+      walkSpeed: 1.25,           // m/s considered "full walk" (amplitude scale)
+      thighAmp: 26, shinFlex: 38, armAmp: 13,   // swing amplitudes, degrees
+      hipBob: 0.028, hipDrop: 0.012, hipShift: 0.014,  // hip bob/shift, metres
+    },
+    animator: { crossfade: 0.3 },  // clip crossfade duration, seconds
+    skeleton: { armAngle: 42 },    // A-pose arm angle from vertical (deg); proportions are code-defined
+  },
+
+  // ── world: clock pace + phase boundaries ──
+  world: {
+    clock: {
+      startHour: 18,             // Day 1 start hour (lockdown declared at dusk)
+      speed: 1,                  // game minutes per real second
+      dawnStart: 5, dayStart: 8, duskStart: 17, nightStart: 20,  // phase band hours
+    },
+  },
+
+  // ── gameplay: bed-game desire / climax / safeword tuning ──
+  gameplay: {
+    bed: {
+      startTrust: 15, startArousal: 20,   // start gate: needs trust ≥ startTrust OR arousal ≥ startArousal
+      willing: {   // desire-based willingness (bedGame._willing)
+        arousal: 0.42, horniness: 0.30, trust: 0.16, openness: 0.12,   // desire weights
+        tension: 0.22, fear: 0.45,                                     // resistance weights
+        base: 18, perTier: 5,                                          // need = base + tierIndex·perTier
+      },
+      climaxTier: 4, climaxPleasure: 82, climaxArousal: 70,   // climax requires tier ≥ / pleasure ≥ / arousal ≥
+      safewordGap: 30,          // partner withdraws when tension > arousal + gap
+    },
   },
 };

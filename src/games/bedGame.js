@@ -10,6 +10,7 @@ import { animTempo } from '../chars/mood.js';
 import { startPairedPose, endPairedPose } from '../humanoid/pairedPoses.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { cfg } from '../core/config.js';   // desire/climax/safeword tuning → config/gameplay.yaml (bed)
 
 const TIER_GATE = { 1: 'light_touch', 2: 'kiss', 3: 'touch', 4: 'intimate', 5: 'explicit' };
 // tier → intimate bed pose (data/poses/intimate.js)
@@ -37,7 +38,7 @@ export class BedGame {
     if (!partner || partner.id === 'vox') return { ok: false, reason: 'no_partner' };
     // must be at least a little warmed to you — reachable through rapport
     partner.gate('light_touch', 'offer', this.d.nowMinute());
-    if (partner.stats.trust < 15 && partner.stats.arousal < 20) {
+    if (partner.stats.trust < cfg('gameplay.bed.startTrust', 15) && partner.stats.arousal < cfg('gameplay.bed.startArousal', 20)) {
       return { ok: false, reason: 'not_ready', line: this._decline(partner) };
     }
     partner.gate('light_touch', 'grant', this.d.nowMinute());
@@ -62,10 +63,11 @@ export class BedGame {
   _willing(p, tier) {
     const s = p.stats;
     if (p.consent.withdrawn || p.consent.safeword) return { willing: false, score: 0, need: 999 };
-    const desire = s.arousal * 0.42 + s.horniness * 0.30 + s.trust * 0.16 + s.openness * 0.12;
-    const resist = s.tension * 0.22 + s.fear * 0.45;
+    const w = cfg('gameplay.bed.willing', {});
+    const desire = s.arousal * (w.arousal ?? 0.42) + s.horniness * (w.horniness ?? 0.30) + s.trust * (w.trust ?? 0.16) + s.openness * (w.openness ?? 0.12);
+    const resist = s.tension * (w.tension ?? 0.22) + s.fear * (w.fear ?? 0.45);
     const score = Math.max(0, desire - resist);
-    const need = 18 + tierIndex(tier) * 5; // kiss 23 · touch 28 · undress 33 · intimate 38 · explicit 43 · depraved 48
+    const need = (w.base ?? 18) + tierIndex(tier) * (w.perTier ?? 5); // kiss 23 · touch 28 · undress 33 · intimate 38 · explicit 43 · depraved 48
     return { willing: score >= need, score: Math.round(score), need };
   }
 
@@ -168,14 +170,15 @@ export class BedGame {
     // pleasure builds toward a climax; giving pleasure is the point and the payoff
     this.peakPleasure = Math.max(this.peakPleasure || 0, this.partner.stats.pleasure);
     let climaxed = false;
-    if (!this.climaxed && a.tier >= 4 && this.partner.stats.pleasure >= 82
-        && this.partner.stats.arousal >= 70) {
+    if (!this.climaxed && a.tier >= cfg('gameplay.bed.climaxTier', 4)
+        && this.partner.stats.pleasure >= cfg('gameplay.bed.climaxPleasure', 82)
+        && this.partner.stats.arousal >= cfg('gameplay.bed.climaxArousal', 70)) {
       this._climax();
       climaxed = true;
     }
     emit('bedgame.state', this.state());
     // safeword check: if the partner's tension spikes past arousal, they pull back
-    if (this.partner.stats.tension > this.partner.stats.arousal + 30) {
+    if (this.partner.stats.tension > this.partner.stats.arousal + cfg('gameplay.bed.safewordGap', 30)) {
       this._withdraw();
       return { ok: true, line, withdrawn: true };
     }

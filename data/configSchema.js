@@ -73,11 +73,53 @@ export const CONFIG_SCHEMA = {
       deal: { ap: num(0, 24), cost: num(0, 99), threatDrop: num(0, 100) },
     },
   },
+  chars: {
+    startStats: { map: num(0, 100) },
+    coupling: {
+      tensionSuppress: num(0, 2), fearSuppress: num(0, 2), intoxArousal: num(0, 2), intoxOpen: num(0, 2),
+      fearClose: num(0, 2), tensionTrust: num(0, 2), pleasureBase: num(0, 2), pleasureArousal: num(0, 2), fearTension: num(0, 2),
+    },
+    decay: {
+      rest: { map: num(0, 100) }, rate: { map: num(0, 20) }, approachFactor: num(0, 2), sobrietyRegain: num(0, 10),
+    },
+    compliance: {
+      trust: num(0, 1), openness: num(0, 1), happiness: num(0, 1), loyalty: num(0, 1), calm: num(0, 1), brave: num(0, 1),
+      clashScale: num(0, 2), clashMin: num(-100, 0), clashMax: num(0, 100),
+    },
+    gates: {
+      thresholds: { map: { map: num(0, 100) } },
+      explicitnessCap: { suggestive: { type: 'string' }, mature: { type: 'string' }, full: { type: 'string' } },
+    },
+  },
   lighting: {
     // presets/tod are deep free-form structures (colors, intensities, pulse variants);
     // validated as present objects — the game tolerates missing fields (falls back).
     presets: { map: { any: true } },
     tod: { array: 'object' },
+  },
+  humanoid: {
+    gait: {
+      strideLen: num(0.1, 3), walkSpeed: num(0.1, 10), thighAmp: num(0, 90), shinFlex: num(0, 120),
+      armAmp: num(0, 90), hipBob: num(0, 0.5), hipDrop: num(0, 0.5), hipShift: num(0, 0.5),
+    },
+    animator: { crossfade: num(0, 3) },
+    skeleton: { armAngle: num(0, 90) },
+  },
+  world: {
+    clock: {
+      startHour: num(0, 23), speed: num(0.01, 240),
+      dawnStart: num(0, 24), dayStart: num(0, 24), duskStart: num(0, 24), nightStart: num(0, 24),
+    },
+  },
+  gameplay: {
+    bed: {
+      startTrust: num(0, 100), startArousal: num(0, 100),
+      willing: {
+        arousal: num(0, 2), horniness: num(0, 2), trust: num(0, 2), openness: num(0, 2),
+        tension: num(0, 2), fear: num(0, 2), base: num(0, 100), perTier: num(0, 50),
+      },
+      climaxTier: num(0, 7), climaxPleasure: num(0, 100), climaxArousal: num(0, 100), safewordGap: num(0, 100),
+    },
   },
 };
 
