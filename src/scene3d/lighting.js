@@ -68,6 +68,21 @@ export class Lighting {
   }
 
   /**
+   * Scale a preset's authored hemisphere intensity.
+   *
+   * The 10 presets were authored with NO environment map, so their hemisphere
+   * light was standing in for all ambient bounce. Now that IBL supplies real
+   * ambient, applying both double-counts it — the penthouse went flat and beige
+   * and lost its noir contrast. Rather than re-author every preset (which would
+   * throw away their hand-tuned relative balance), scale only the pure-ambient
+   * term and leave the authored key/fill/accent alone.
+   * @param {number} v
+   */
+  _hemi(v) {
+    return v * cfg('lighting.hemiScale', 0.45);
+  }
+
+  /**
    * Swap in the prefiltered environment for a preset. Not cross-faded — PMREM
    * textures can't blend, and the reflection change reads as a natural cut.
    * @param {string} id
@@ -84,7 +99,8 @@ export class Lighting {
         intensity: THREE.MathUtils.clamp(p.hemi?.intensity ?? 1, 0.12, 2),
       });
       // reflections should not overpower the authored key/fill balance
-      this.stage.scene.environmentIntensity = cfg('lighting.envIntensity', 0.55);
+      this.stage.scene.environmentIntensity = cfg('lighting.envIntensity', 0.4);
+      this.hemi.intensity = this._hemi(p.hemi?.intensity ?? this.hemi.intensity);
     } catch (err) {
       // IBL is an enhancement, never a boot blocker
       console.warn('[lighting] env map build failed', err);
@@ -138,7 +154,7 @@ export class Lighting {
       const lerpColor = (light, prop, from, to) => light[prop].setHex(from).lerp(new THREE.Color(to), k);
       lerpColor(this.hemi, 'color', a.hemi.sky, b.hemi.sky);
       lerpColor(this.hemi, 'groundColor', a.hemi.ground, b.hemi.ground);
-      this.hemi.intensity = THREE.MathUtils.lerp(a.hemi.intensity, b.hemi.intensity, k);
+      this.hemi.intensity = this._hemi(THREE.MathUtils.lerp(a.hemi.intensity, b.hemi.intensity, k));
       lerpColor(this.key, 'color', a.key.color, b.key.color);
       this.key.intensity = THREE.MathUtils.lerp(a.key.intensity, b.key.intensity, k);
       for (const name of ['warm', 'cool', 'accent']) {
@@ -161,7 +177,7 @@ export class Lighting {
       this.key.color.setHex(a.key.color).lerp(new THREE.Color(b.key.color), k);
       this.key.intensity = THREE.MathUtils.lerp(a.key.i, b.key.i, k);
       const neon = presets().neon_night;
-      this.hemi.intensity = neon.hemi.intensity * THREE.MathUtils.lerp(a.hemi, b.hemi, k);
+      this.hemi.intensity = this._hemi(neon.hemi.intensity * THREE.MathUtils.lerp(a.hemi, b.hemi, k));
       this.stage.renderer.toneMappingExposure = neon.exposure * THREE.MathUtils.lerp(a.exp, b.exp, k);
     }
 

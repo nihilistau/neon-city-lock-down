@@ -27,11 +27,20 @@ Each preset:
 Colors are `0xRRGGBB` integers (YAML parses `0x…` as an int). Values not present fall back
 to the baked default, so partial preset edits are safe.
 
-## `envIntensity` — image-based lighting strength
+## `envIntensity` / `hemiScale` — image-based lighting
 
 | Key | Default | Range | Meaning |
 |-----|---------|-------|---------|
-| `envIntensity` | `0.55` | 0–3 | Strength of the procedural environment map (`scene.environmentIntensity`). |
+| `envIntensity` | `0.4` | 0–3 | Strength of the procedural environment map (`scene.environmentIntensity`). |
+| `hemiScale` | `0.45` | 0–2 | Multiplier applied to every preset's authored `hemi.intensity`. |
+
+**Why `hemiScale` exists.** All 10 presets were authored *before* there was an environment
+map, so their hemisphere light was standing in for all ambient bounce. Now that IBL supplies
+real ambient, applying both double-counts it — the penthouse goes flat and beige and loses its
+noir contrast. Rather than re-author every preset and throw away their hand-tuned relative
+balance, only the pure-ambient term is scaled; `key`, `warm`, `cool` and `accent` are left
+exactly as authored. Set `hemiScale: 1` to disable the compensation (and expect a brighter,
+flatter room), or lower it further for harder contrast.
 
 `src/scene3d/env.js` builds a small neon-noir environment — gradient sky, horizon city
 glow, neon sign cards, warm floor bounce — and PMREM-prefilters it into a reflection probe.

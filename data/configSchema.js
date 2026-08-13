@@ -97,6 +97,7 @@ export const CONFIG_SCHEMA = {
     presets: { map: { any: true } },
     tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
     envIntensity: num(0, 3),
+    hemiScale: num(0, 2),
   },
   humanoid: {
     gait: {

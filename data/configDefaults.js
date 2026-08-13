@@ -174,8 +174,11 @@ export const CONFIG_DEFAULTS = {
   lighting: {
     presets: LIGHTING_PRESETS,   // 10 presets: neon_night, blackout_emergency, golden_hour, …
     tod: TOD_KEYS,               // time-of-day key/hemi/exposure keyframes (neon_night is ToD-aware)
-    envIntensity: 0.55,          // image-based lighting strength (src/scene3d/env.js).
+    envIntensity: 0.4,           // image-based lighting strength (src/scene3d/env.js).
                                  // 0 disables reflections entirely; >1 overpowers the key/fill balance.
+    hemiScale: 0.45,             // presets were authored with no env map, so their hemisphere light
+                                 // stood in for all ambient bounce. Scale it back now that IBL is real,
+                                 // or the two double-count and the scene goes flat. 1 = no compensation.
   },
 
   // ── humanoid: procedural walk cycle + animation blending ──
