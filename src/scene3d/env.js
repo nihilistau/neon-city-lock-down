@@ -12,6 +12,13 @@
 // No binary assets, in keeping with the project's zero-asset rule.
 import * as THREE from 'three';
 
+/**
+ * Brightness of the horizon neon cards, relative to their pure hue.
+ * Deliberately low — see the comment at the card build below. Raising this back
+ * toward 1 reintroduces blown, flashing specular highlights on eyes and hair.
+ */
+const SIGN_GAIN = 0.3;
+
 /** Vertical gradient sky: ground bounce -> horizon city glow -> night sky. */
 const SkyShader = {
   vertexShader: /* glsl */ `
@@ -88,12 +95,21 @@ export class EnvBuilder {
     scene.add(new THREE.Mesh(skyGeo, skyMat));
     disposables.push(skyGeo, skyMat);
 
-    // Neon sign cards ringing the horizon. These are what actually show up as
-    // moving highlights in eyes, hair, glassware and gun metal.
-    const cardGeo = new THREE.PlaneGeometry(14, 5);
+    // Neon sign cards ringing the horizon. These are what show up as moving
+    // highlights in eyes, hair, glassware and gun metal.
+    //
+    // They must stay DIM. At full saturation over this solid angle they stop
+    // being highlights and become key lights: glossy surfaces (the eyeballs are
+    // roughness ~0.15, hair carries clearcoat + anisotropy) reflected them as
+    // blazing spots that swept across every head as it turned, and the bloom
+    // pass — threshold 0.86 — amplified them into flashing lamps. A neon sign
+    // seen from 45 floors up is a coloured smudge, not a studio strobe.
+    const cardGeo = new THREE.PlaneGeometry(9, 3.2);
     disposables.push(cardGeo);
+    const signTint = new THREE.Color();
     signs.forEach((color, i) => {
-      const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+      signTint.set(color).multiplyScalar(SIGN_GAIN);
+      const mat = new THREE.MeshBasicMaterial({ color: signTint.clone(), side: THREE.DoubleSide });
       disposables.push(mat);
       const card = new THREE.Mesh(cardGeo, mat);
       const a = (i / signs.length) * Math.PI * 2 + 0.6;

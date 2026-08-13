@@ -11,6 +11,13 @@ import { EnvBuilder } from './env.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
+
+// Scratch colour for every lerp target below. `Color.lerp` only READS its
+// argument, so one reused instance is safe and correct. This used to be a fresh
+// `new THREE.Color(to)` per call: 7 allocations per frame for the whole duration
+// of any fade, plus one per frame FOREVER via the time-of-day path — which runs
+// unconditionally while presetId === 'neon_night', i.e. essentially always.
+const _lerpTo = new THREE.Color();
 const presets = () => cfg('lighting.presets', LIGHTING_PRESETS);
 // need ≥2 keyframes to interpolate; a malformed/empty config tod falls back to the default
 const todKeys = () => { const t = cfg('lighting.tod', TOD_KEYS); return Array.isArray(t) && t.length >= 2 ? t : TOD_KEYS; };
@@ -151,7 +158,8 @@ export class Lighting {
       this._fadeT = Math.min(1, this._fadeT + dt / this._fadeDur);
       const k = this._fadeT * this._fadeT * (3 - 2 * this._fadeT);
       const a = this._from, b = this._target;
-      const lerpColor = (light, prop, from, to) => light[prop].setHex(from).lerp(new THREE.Color(to), k);
+      // `light[prop]` is never `_lerpTo`, so setHex-then-lerp cannot self-alias
+      const lerpColor = (light, prop, from, to) => light[prop].setHex(from).lerp(_lerpTo.setHex(to), k);
       lerpColor(this.hemi, 'color', a.hemi.sky, b.hemi.sky);
       lerpColor(this.hemi, 'groundColor', a.hemi.ground, b.hemi.ground);
       this.hemi.intensity = this._hemi(THREE.MathUtils.lerp(a.hemi.intensity, b.hemi.intensity, k));
@@ -161,7 +169,7 @@ export class Lighting {
         lerpColor(this[name], 'color', a[name].color, b[name].color);
         this[name].intensity = THREE.MathUtils.lerp(a[name].intensity, b[name].intensity, k);
       }
-      this.stage.scene.fog.color.setHex(a.fog.color).lerp(new THREE.Color(b.fog.color), k);
+      this.stage.scene.fog.color.setHex(a.fog.color).lerp(_lerpTo.setHex(b.fog.color), k);
       this.stage.scene.fog.density = THREE.MathUtils.lerp(a.fog.density, b.fog.density, k);
       this.stage.renderer.toneMappingExposure = THREE.MathUtils.lerp(a.exposure, b.exposure, k);
     }
@@ -174,7 +182,7 @@ export class Lighting {
         if (f >= TOD[i].t && f <= TOD[i + 1].t) { a = TOD[i]; b = TOD[i + 1]; break; }
       }
       const k = b.t > a.t ? (f - a.t) / (b.t - a.t) : 0;
-      this.key.color.setHex(a.key.color).lerp(new THREE.Color(b.key.color), k);
+      this.key.color.setHex(a.key.color).lerp(_lerpTo.setHex(b.key.color), k);
       this.key.intensity = THREE.MathUtils.lerp(a.key.i, b.key.i, k);
       const neon = presets().neon_night;
       this.hemi.intensity = this._hemi(neon.hemi.intensity * THREE.MathUtils.lerp(a.hemi, b.hemi, k));
