@@ -496,6 +496,9 @@ export class App {
 
     this.loop.resume('boot');
     emit('resources.changed', this.run.resources);
+    // seed the HUD: threat.changed only fires on the world tick, so the meter
+    // would read 0 until the first game-minute (and through the intro cutscene)
+    emit('threat.changed', { threat: this.run.threat });
     feed(`${settings.playerName} entered the tower. Lockdown continues.`, 'system');
 
     // scenario + loadout (fresh runs only); resume restores everything from autosave
