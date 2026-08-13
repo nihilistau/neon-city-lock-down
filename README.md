@@ -165,6 +165,15 @@ baking, per-character voice assignment, and cloning. See [docs/systems/voice.md]
 Point LM Studio (or any OpenAI-compatible endpoint) in the **LLM Engine panel (L)**; every knob is
 tunable there and in `config/llm.yaml`. The authored stat/gate/consent machinery stays in charge.
 
+If your LM Studio instance requires auth, supply the credential one of two ways — **never commit
+it** (`lmstudio-api-key*.txt` is gitignored):
+```bash
+cp lmstudio-api-key.example.txt lmstudio-api-key.txt   # then paste sk-lm-<id>:<passkey>
+# ── or ──
+export LMS_API_TOKEN=sk-lm-<id>:<passkey>
+```
+Both paths fail soft: with no credential the game still boots and simply runs LLM-off.
+
 ### Make it yours — the Creation Kit
 Almost everything is editable. Tune the engine in documented `config/*.yaml`
 ([docs/config](docs/config/README.md)); author your own **scenarios, events, cutscenes, and
