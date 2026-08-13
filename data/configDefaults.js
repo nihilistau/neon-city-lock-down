@@ -216,7 +216,12 @@ export const CONFIG_DEFAULTS = {
       maxDeg: 26,                // per-bone clamp
     },
     eye: {                       // eyeballs — the glossiest surface on a character
-      roughness: 0.20, envMapIntensity: 0.55,
+      // A wet sclera, not chrome. At roughness 0.20 the lounge lamp (95 candela)
+      // put a specular here hot enough to clear the bloom threshold, and because
+      // the blink scheduler covers/uncovers the eyes it winked on and off — it
+      // read as blinking lights on every head. Lower roughness at your own risk.
+      sclera: 0xdedad2,          // off-white; pure white is what blew out
+      roughness: 0.38, envMapIntensity: 0.22,
       catchlight: 0.55,          // painted iris highlight; the iris is UNLIT, so 1.0 blooms
     },
     face: {

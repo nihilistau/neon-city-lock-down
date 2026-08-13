@@ -216,9 +216,15 @@ export class FaceRig {
         // eyes into flashing lamps that swept as the head turned. Keep the
         // reflection a small crisp catchlight: nothing on a body should bloom.
         new THREE.MeshStandardMaterial({
-          color: 0xf6f4f0,
-          roughness: cfg('humanoid.eye.roughness', 0.20),
-          envMapIntensity: cfg('humanoid.eye.envMapIntensity', 0.55),
+          // A sclera is wet, not chrome. At roughness 0.20 a near-white sphere put
+          // a specular under the lounge lamp (95 candela, ~1m) hot enough to clear
+          // the bloom threshold — and since the blink scheduler covers and uncovers
+          // the eyes, that hot spot WINKED ON AND OFF. It read as literal blinking
+          // lights on every head. Keep the catchlight soft, dim and off-white.
+          color: cfg('humanoid.eye.sclera', 0xdedad2),
+          roughness: cfg('humanoid.eye.roughness', 0.38),
+          metalness: 0,
+          envMapIntensity: cfg('humanoid.eye.envMapIntensity', 0.22),
         })
       );
       const irisC = document.createElement('canvas');

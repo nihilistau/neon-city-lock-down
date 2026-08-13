@@ -119,7 +119,10 @@ export const CONFIG_SCHEMA = {
       envMapIntensity: num(0, 3), stiffness: num(1, 400), damping: num(0.1, 60),
       sway: num(0, 0.5), idleSway: num(0, 0.5), maxDeg: num(0, 80),
     },
-    eye: { roughness: num(0.02, 1), envMapIntensity: num(0, 3), catchlight: num(0, 1) },
+    eye: {
+      sclera: num(0, 0xffffff), roughness: num(0.02, 1),
+      envMapIntensity: num(0, 3), catchlight: num(0, 1),
+    },
     face: {
       redrawHz: num(1, 60), jawOpenDeg: num(0, 45), relief: num(0, 3), borderTuck: num(0, 0.05),
     },
