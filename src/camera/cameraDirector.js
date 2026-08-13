@@ -47,6 +47,22 @@ export class CameraDirector {
     on('bedgame.ended', () => { this._suspended = false; });
   }
 
+  /** Shot types with a `_compose_<type>` implementation — the valid `[[cam:x]]` set. */
+  static SHOT_TYPES = ['dialogue', 'action', 'event', 'establishing'];
+
+  /**
+   * Request a shot from a dialogue stage-direction (`[[cam:establishing]]`).
+   * Ignores unknown types rather than composing a missing frame.
+   * @param {string} type
+   * @param {Object} [data]
+   */
+  requestShot(type, data = {}) {
+    if (!CameraDirector.SHOT_TYPES.includes(type)) return;
+    const priority = cfg(`camera.director.shots.${type}.priority`, 5);
+    const ttl = cfg(`camera.director.shots.${type}.ttl`, 4.5);
+    this._push(type, priority, ttl, data);
+  }
+
   /** Push (or refresh) a shot with a time-to-live in seconds. */
   _push(type, priority, ttl, data) {
     const existing = this.shots.find((s) => s.type === type);

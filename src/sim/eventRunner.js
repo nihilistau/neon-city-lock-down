@@ -108,6 +108,10 @@ export class EventRunner {
       light: (s) => d.lighting.apply(s.preset, s.fade ?? 1.2),
       combat: (s) => new Promise((resolve) => {
         if (!d.combat) { resolve(); return; }
+        // Combat.start() early-returns when a fight is already running, dropping
+        // onResolve on the floor — the script then hung forever, latching
+        // run.activeEventId so no event could fire again all run.
+        if (d.combat().active) { resolve(); return; }
         d.combat().start({
           count: s.count, archetype: s.archetype, spawnAt: s.spawnAt, waves: s.waves,
           onResolve: (win) => resolve({ steps: win ? (s.onWin || []) : (s.onLoss || []) }),

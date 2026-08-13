@@ -57,11 +57,16 @@ export class Gambits {
   /**
    * @param {Object} deps
    * @param {import('../core/rng.js').RngStream} deps.rng
-   * @param {number} [deps.playerSkill] 0..100
+   * @param {number|(() => number)} [deps.playerSkill] 0..100, value or live accessor
    */
   constructor(deps) {
     this.d = deps;
-    this.playerSkill = deps.playerSkill ?? 60;
+    this._skill = deps.playerSkill ?? 60;
+  }
+
+  /** Read live so training actually improves social play. */
+  get playerSkill() {
+    return (typeof this._skill === 'function' ? this._skill() : this._skill) ?? 60;
   }
 
   /**

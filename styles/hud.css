@@ -12,10 +12,15 @@
 #hud-hint { bottom: 12px; left: 14px; }
 #hud-resources { top: 14px; right: 14px; font-family: var(--mono); font-size: 13px; display: flex; gap: 10px; }
 #hud-resources .res.low { color: var(--red); text-shadow: 0 0 6px rgba(255,71,87,0.6); }
-#hud-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+/* Above .screen (z-index 50): a blocking event choice must never render behind
+   an open panel, or its promise is unreachable and the run soft-locks. */
+#hud-choice {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 60;
+}
 .choice-box {
   background: var(--panel); border: 1px solid var(--amber);
-  padding: 22px 28px; max-width: 460px; z-index: 45;
+  padding: 22px 28px; max-width: 460px;
   box-shadow: 0 0 40px rgba(0,0,0,0.7);
 }
 .choice-prompt { font-size: 15px; line-height: 1.5; margin-bottom: 16px; color: var(--text); }

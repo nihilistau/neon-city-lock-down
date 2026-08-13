@@ -22,7 +22,9 @@ export function newRunState(seed) {
       elevator: { hp: 100, online: true, locked: false },
       cameras: { hp: 90, online: true },
     },
-    player: { health: 100, hunger: 15, thirst: 10, morale: 70, skill: 60 },
+    // skill = combat aim; dominance = how hard you push socially, and feeds every
+    // NPC's compliance clash term. Both live here so they are saved and can move.
+    player: { health: 100, hunger: 15, thirst: 10, morale: 70, skill: 60, dominance: 55 },
     threat: 18,
     dayPlan: { ap: 4, apMax: 4 },      // action points for the day-plan layer
     objectives: { done: [] },          // completed mid-run objectives

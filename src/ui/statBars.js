@@ -36,7 +36,10 @@ function addCard(character) {
   const card = document.createElement('div');
   card.className = 'sb-card';
   card.dataset.id = character.id;
-  card.style.setProperty('--accent', `#${character.persona.accent.toString(16).padStart(6, '0')}`);
+  // personas store accent as a CSS string ('#ff3fa4'), not a number. The old
+  // `.toString(16).padStart(6,'0')` produced '##ff3fa4' — legal enough that
+  // var(--accent, …) did NOT fall back, so every card silently lost its colour.
+  card.style.setProperty('--accent', character.persona.accent);
   const bars = STAT_KEYS.map((k) =>
     `<div class="sb-row" data-stat="${k}">
        <span class="sb-label">${k.slice(0, 4)}</span>

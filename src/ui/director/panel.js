@@ -61,7 +61,15 @@ export class DirectorPanel {
   }
 
   toggle() {
-    this.open = !this.open;
+    this.setOpen(!this.open);
+  }
+
+  /** Close the drawer. Callers used `close?.()`, which silently no-opped. */
+  close() { this.setOpen(false); }
+
+  /** @param {boolean} open */
+  setOpen(open) {
+    this.open = open;
     this.drawer.classList.toggle('hidden', !this.open);
     if (this.open) this.showTab(this.activeTab);
   }

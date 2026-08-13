@@ -14,6 +14,10 @@ export const vox = {
   hairStyle: 'none',
   body: { height: 1.7, shoulderW: 0.4, hipW: 0.34, bust: 0, waist: 1, hips: 1, build: 1 },
 
+  // VOX has no body: it is not a mouth to feed and cannot go hungry or thirsty.
+  // Survival counts only corporeal heads. It still ages/decays like everyone else.
+  corporeal: false,
+
   personality: {
     breathBase: 0, fidget: 0,
     receptivity: {

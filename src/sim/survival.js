@@ -13,7 +13,10 @@ import { cfg } from '../core/config.js';
 export function hourlyTick(run, cast) {
   const notes = [];
   const s = cfg('sim.survival', {});
-  const heads = cast.length + 1 + run.refugees; // NPCs + player + refugees
+  // Only corporeal characters eat and drink. VOX is the tower itself and used to
+  // be counted as a fifth mouth, over-consuming food and water by ~25% all run.
+  const eaters = cast.filter((c) => c.persona?.corporeal !== false);
+  const heads = eaters.length + 1 + run.refugees; // corporeal NPCs + player + refugees
   const p = run.player;
 
   // eat/drink on 6-hour cadence equivalents: spread as fractional hourly draw
@@ -37,11 +40,14 @@ export function hourlyTick(run, cast) {
 
   // cast morale/tension cascade when rations run short
   for (const c of cast) {
-    const deltas = {};
-    if (foodShort > (s.castFoodShortAt ?? 0.3)) { deltas.happiness = -1.5 * foodShort; deltas.tension = 2 * foodShort; }
-    if (waterShort > (s.castWaterShortAt ?? 0.3)) { deltas.tension = (deltas.tension || 0) + 2.5 * waterShort; }
-    if (run.rationPolicy.food === 'half') deltas.tension = (deltas.tension || 0) + 0.4;
-    if (Object.keys(deltas).length) c.applyStats(deltas, 'rations');
+    // rations only bite characters that eat; everyone still decays hourly
+    if (c.persona?.corporeal !== false) {
+      const deltas = {};
+      if (foodShort > (s.castFoodShortAt ?? 0.3)) { deltas.happiness = -1.5 * foodShort; deltas.tension = 2 * foodShort; }
+      if (waterShort > (s.castWaterShortAt ?? 0.3)) { deltas.tension = (deltas.tension || 0) + 2.5 * waterShort; }
+      if (run.rationPolicy.food === 'half') deltas.tension = (deltas.tension || 0) + 0.4;
+      if (Object.keys(deltas).length) c.applyStats(deltas, 'rations');
+    }
     c.tickMinutes(60);
   }
 

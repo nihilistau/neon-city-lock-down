@@ -1,8 +1,12 @@
 // @ts-check
 // Raycast interaction: hover highlight + E-prompt for registered props.
-// FP mode casts from screen center; director mode from the mouse position.
+// Pointer-locked modes (FP/TPS) cast from screen center; director mode from the
+// mouse position.
 import * as THREE from 'three';
 import { emit } from '../core/bus.js';
+
+/** screen-centre ray origin — constant, was allocated fresh every frame */
+const _center = new THREE.Vector2(0, 0);
 
 export class Picker {
   /**
@@ -35,8 +39,11 @@ export class Picker {
   }
 
   update() {
-    const origin = this.rig.mode === 'firstPerson' ? new THREE.Vector2(0, 0) : this.mouse;
-    this.raycaster.setFromCamera(origin, this.stage.camera);
+    // Third person also engages pointer lock, so `mousemove` stops firing and
+    // `this.mouse` goes stale — it must raycast from screen centre like first
+    // person does, which is where its crosshair actually sits.
+    const locked = this.rig.mode === 'firstPerson' || this.rig.mode === 'thirdPerson';
+    this.raycaster.setFromCamera(locked ? _center : this.mouse, this.stage.camera);
     this.raycaster.far = this.rig.mode === 'firstPerson' ? 3.2 : 30;
 
     let best = null, bestDist = Infinity;

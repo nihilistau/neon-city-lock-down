@@ -151,6 +151,7 @@ export class Combat {
     const threat = { x: this._spawnAt[0], z: this._spawnAt[1] };
     for (const c of Object.values(this.d.cast())) {
       if (!c.alive || c.present === false || c.id === 'vox') continue;
+      if (!this._onCombatFloor(c)) continue;   // cover is computed per-floor
       const p = c.actor.root.position;
       const spot = findCoverSpot(this._colliders(), threat, { x: p.x, z: p.z }, this.d.walkable);
       c.queue.clear();
@@ -221,7 +222,10 @@ export class Combat {
     const cover = coverBetween(
       { x: h.actor.root.position.x, z: h.actor.root.position.z },
       { x: p.x, z: p.z }, this._colliders());
-    return hitChance({ weapon, skill: 70, distance: dist, cover });
+    // must match playerShoot()'s skill source exactly, or the HUD lies: this was
+    // hard-coded to 70 while resolution used the live 60→92 value.
+    const skill = this.d.playerSkill ? this.d.playerSkill() : 70;
+    return hitChance({ weapon, skill, distance: dist, cover });
   }
 
   /**
@@ -340,6 +344,19 @@ export class Combat {
     }
   }
 
+  /**
+   * Is this character on the floor the fight is actually happening on?
+   * Floors are laid out 200 world-units apart on X, so an off-floor cast member
+   * used to burn a reserve round every 3s shooting at ~1200m for a 3% floored
+   * hit chance — and to walk to "cover" computed against the wrong floor.
+   * @param {import('../../chars/character.js').Character} c
+   */
+  _onCombatFloor(c) {
+    const ref = this.d.playerMarker?.position;
+    if (!ref) return true;
+    return Math.abs(c.actor.root.position.x - ref.x) < 100;
+  }
+
   /** cast members return fire from cover */
   _castFire(dt) {
     this._castFireT += dt;
@@ -349,6 +366,7 @@ export class Combat {
     const run = this.d.run();
     for (const c of Object.values(this.d.cast())) {
       if (!c.alive || c.present === false || c.id === 'vox' || run.resources.ammo < 1) continue;
+      if (!this._onCombatFloor(c)) continue;
       // re-filter per shooter: an earlier cast member may have dropped the target
       const alive = this.hostiles.filter((h) => h.hp > 0);
       if (!alive.length) break;

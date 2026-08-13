@@ -3,6 +3,7 @@
 // alerts, event-choice modal.
 import { on } from '../core/bus.js';
 import { settings } from '../core/settings.js';
+import { escapeHtml } from './widgets.js';
 
 let root = null;
 
@@ -34,20 +35,34 @@ export function initHud() {
   on('resources.changed', (resources) => { lastRes = resources; renderRes(resources); });
   on('player.health', ({ health }) => { playerHealth = health; renderRes(lastRes); });
 
+  // Choice modals QUEUE rather than clobber. Previously a second `event.choice`
+  // — the elevator floor picker is one — overwrote a pending event's buttons, so
+  // its `pick` was never called and the event-script promise never settled. That
+  // latches `run.activeEventId`, which silently blocks every future event *and*
+  // the hourly autosave for the rest of the run.
   const choiceEl = root.querySelector('#hud-choice');
-  on('event.choice', ({ prompt, options, pick }) => {
+  /** @type {{prompt:string, options:string[], pick:(i:number)=>void}[]} */
+  const choiceQueue = [];
+  const renderChoice = () => {
+    const c = choiceQueue[0];
+    if (!c) { choiceEl.innerHTML = ''; return; }
     choiceEl.innerHTML = `
       <div class="choice-box clickable">
-        <div class="choice-prompt">${prompt}</div>
-        <div class="choice-opts">${options.map((o, i) =>
-          `<button data-i="${i}">${o}</button>`).join('')}</div>
+        <div class="choice-prompt">${escapeHtml(c.prompt)}</div>
+        <div class="choice-opts">${c.options.map((o, i) =>
+          `<button data-i="${i}">${escapeHtml(o)}</button>`).join('')}</div>
       </div>`;
     choiceEl.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
-        choiceEl.innerHTML = '';
-        pick(Number(btn.dataset.i));
-      });
+        choiceQueue.shift();
+        renderChoice();          // surface the next pending choice, if any
+        c.pick(Number(btn.dataset.i));
+      }, { once: true });
     });
+  };
+  on('event.choice', (c) => {
+    choiceQueue.push(c);
+    if (choiceQueue.length === 1) renderChoice();
   });
 
   const prompt = root.querySelector('#hud-prompt');

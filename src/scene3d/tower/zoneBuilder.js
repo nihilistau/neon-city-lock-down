@@ -516,7 +516,10 @@ export class World3D {
     const group = this.floorGroups[this.activeFloor];
     if (!group) return;
     for (const o of this.animated) {
-      if (!o.parent?.visible && !group.visible) continue;
+      // `group` is by definition the ACTIVE floor, whose visible is always true,
+      // so the old `&& !group.visible` made this guard dead and animated all
+      // seven floors (including per-frame emissive writes) every frame.
+      if (!o.parent?.visible) continue;
       if (o.name.startsWith('fish_')) {
         const i = Number(o.name.slice(5));
         if (o.userData.dead) {

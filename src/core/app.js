@@ -90,6 +90,7 @@ import { KitPanel } from '../ui/kitPanel.js';
 import { LOADOUTS } from '../../data/items.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
+import { applyScenario } from '../sim/scenario.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
 function setTimeoutGameSafe(app, minutes, fn) {
@@ -414,9 +415,14 @@ export class App {
       tts: this.tts,
       stageCtx: {
         world: this.world, lighting: this.lighting, audio: this.audioFacade(),
-        cutscene: null, playerMarker: this.playerMarker,
-        playerName: settings.playerName, playerDominance: this.player.dominance,
-        // live accessors for the LLM agent's scene prompt
+        playerMarker: this.playerMarker,
+        cameraDirector: () => this.cameraRig.director,
+        playerName: settings.playerName,
+        // live accessors for the LLM agent's scene prompt.
+        // playerDominance was a *value* snapshotted at construction (and
+        // this.player.dominance was undefined), freezing every NPC's compliance
+        // clash term at the 55 fallback forever.
+        playerDominance: () => this.run.player.dominance ?? 55,
         lightingName: () => this.lighting.presetId,
         timeOfDay: () => this.clock.phase,
         threat: () => this.run.threat,
@@ -437,7 +443,11 @@ export class App {
       explicitness: () => settings.explicitness, nowMinute: () => this.clock.totalMinutes,
       playerName: settings.playerName, rng: this.rng.stream('tod'),
     });
-    this.gambits = new Gambits({ rng: this.rng.stream('gambits'), playerSkill: 65 });
+    // live accessor: a hard-coded 65 meant training never improved social play
+    this.gambits = new Gambits({
+      rng: this.rng.stream('gambits'),
+      playerSkill: () => this.run.player.skill ?? 60,
+    });
     this.mystery = new Mystery({ cast: () => this.cast });
     this.gamesPanel = new GamesPanel(this);
 
@@ -501,17 +511,12 @@ export class App {
         this.run.resources[k] = Math.max(0, (this.run.resources[k] || 0) + v);
       }
       emit('resources.changed', this.run.resources);
-      if (scenario.lighting) this.lighting.apply(scenario.lighting, 0.5);
-      for (const [id, deltas] of Object.entries(scenario.castMoodShifts || {})) {
-        this.cast[id]?.applyStats(deltas, 'scenario');
-      }
-      for (const [id, [zone, wp]] of Object.entries(scenario.placements || {})) {
-        const c = this.cast[id];
-        if (c && c.id !== 'vox') { c.queue.clear(); c.queue.goto(zone, wp); }
-      }
-      if (scenario.openingCutscene) {
-        setTimeout(() => this.cutscene.play(scenario.openingCutscene), 600);
-      }
+      // One shared applier with the Director + Creation Kit. The old inline copy
+      // here dropped `fireEvent` and `game`, so 7 of 16 scenarios were inert from
+      // the main menu (Truth or Dare, both mysteries, Blackout Confessions,
+      // The Refugee Question, Lola's Debt Collection Call…).
+      applyScenario(this, scenario, { lightingFade: 0.5, cutsceneDelayMs: 600 })
+        .catch((err) => console.error('[boot] scenario failed', scenario.id, err));
     }
     this._setWeaponModel();   // resume path emits inventory.changed, not .equipped
     dbg('run started', scenario.id);
@@ -657,11 +662,19 @@ export class App {
       }
       case prop.id === 'telescope': {
         const cam = this.stage.camera;
-        const prevFov = cam.fov;
+        // Re-entrancy guard: a second look inside the 4s window used to capture
+        // prevFov = 16, so the restore restored the zoom and the camera stayed
+        // locked at 16° for the rest of the run.
+        if (this._telescopeFov != null) break;
+        this._telescopeFov = cam.fov;
+        const prevFov = this._telescopeFov;
         cam.fov = 16; cam.updateProjectionMatrix();
         emit('hud.alert', { text: 'Through the lens: barricades, smoke, a city eating itself.', kind: 'warn' });
         addCodex('telescope_view', 'Through the Telescope', 'From the 45th floor you can watch the barricade lines move like a slow tide.');
-        setTimeout(() => { cam.fov = prevFov; cam.updateProjectionMatrix(); }, 4000);
+        setTimeout(() => {
+          cam.fov = prevFov; cam.updateProjectionMatrix();
+          this._telescopeFov = null;
+        }, 4000);
         break;
       }
       case prop.id === 'vox_terminal': {
@@ -730,8 +743,9 @@ export class App {
         break;
       }
       case prop.id === 'med_cabinet':
+        // gainRes owns the looted flag; setting it here first made gainRes
+        // early-return, so the first loot granted 0 meds and warned "Already emptied".
         if (looted[prop.id]) { emit('hud.alert', { text: 'Already emptied.', kind: 'warn' }); break; }
-        looted[prop.id] = true;
         gainRes('meds', 3, 'You find 3 med units and a field kit.');
         this.inventory.add('medkit', 1);
         break;

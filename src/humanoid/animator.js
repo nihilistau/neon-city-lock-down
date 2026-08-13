@@ -11,6 +11,8 @@ const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _e = new THREE.Euler();
 const _v = new THREE.Vector3();
+/** rest pose target — never mutated */
+const _QI = new THREE.Quaternion();
 
 /** bones the gait layer may write */
 const GAIT_BONES = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR',
@@ -93,6 +95,12 @@ export class Animator {
         const hasPrev = this.previous.sample(name, this.prevTime, _q2);
         if (hasPrev && hasCur) _q2.slerp(_q, this.fade);
         else if (!hasPrev) _q2.identity().slerp(_q, this.fade);
+        // hasPrev && !hasCur: the incoming clip doesn't touch this bone, so ease
+        // the outgoing pose back to rest. Without this the case matched neither
+        // branch, held the outgoing pose at FULL weight for the whole fade, and
+        // then popped when `previous` was nulled (e.g. sit_relaxed → idle_stand
+        // snapped the legs at the end of the blend).
+        else _q2.slerp(_QI, this.fade);
         bone.quaternion.copy(_q2);
       } else if (hasCur) {
         bone.quaternion.copy(_q);
