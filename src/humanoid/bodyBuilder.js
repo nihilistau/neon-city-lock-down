@@ -657,21 +657,29 @@ export function buildHair(persona, rig) {
   const hairCol = new THREE.Color(persona.colors.hair);
   const mat = new THREE.MeshPhysicalMaterial({
     color: hairCol,
-    // Verified in-engine against the lounge lamp (a 95-candela PointLight ~1m
-    // away): clearcoat 0.55 at clearcoatRoughness 0.30 stacked on anisotropy
-    // 0.85 concentrated that much energy into a streak, and the strands clipped
-    // to pure white BEFORE bloom ever touched them. These values keep the silk
-    // without clipping.
-    roughness: cfg('humanoid.hair.roughness', 0.58),
-    metalness: 0.05,
-    clearcoat: 0.18, clearcoatRoughness: 0.55,
-    sheen: 0.4, sheenColor: hairCol.clone().offsetHSL(0, 0.05, 0.32),
+    // Root cause of the "blinking lights on their heads", found by measuring peak
+    // luminance in the head region and toggling one contributor at a time: hiding
+    // the hair dropped blown-white pixels from ~17200 to ~80, while hiding the
+    // eyes/face changed nothing. The specular clips to pure white BEFORE bloom,
+    // and bloom then smears it across the whole head.
+    //
+    // The lobe sweep was unambiguous: ANY clearcoat or anisotropy on strand hair,
+    // even at 0.08/0.1, reintroduced the blowout (9938 hot px), because a tight
+    // reflection lobe on backlit thin strands concentrates a 95-candela point
+    // light past clipping. sheen (a retroreflective term) does the same on the
+    // grazing back-of-head view. A slightly rough dielectric with a whisper of
+    // sheen and NO clearcoat/anisotropy measured clean (~82 hot px) and still
+    // reads as hair. These are the measured values.
+    roughness: cfg('humanoid.hair.roughness', 0.80),
+    metalness: 0,
+    clearcoat: 0, clearcoatRoughness: 1,
+    sheen: cfg('humanoid.hair.sheen', 0.12), sheenColor: hairCol.clone().offsetHSL(0, 0.05, 0.32),
     side: THREE.DoubleSide,
-    // clearcoat + anisotropy are both reflection lobes; stacking them on a high
-    // env gain double-counts the neon cards and blooms the hair highlight
-    envMapIntensity: cfg('humanoid.hair.envMapIntensity', 0.65),
+    envMapIntensity: cfg('humanoid.hair.envMapIntensity', 0.12),
   });
-  if ('anisotropy' in mat) { mat.anisotropy = 0.30; mat.anisotropyRotation = Math.PI / 2; }
+  // anisotropy stays OFF: the sweep proved it is a primary blowout driver on
+  // strands. Kept as config so it can be re-enabled deliberately, default 0.
+  if ('anisotropy' in mat) { mat.anisotropy = cfg('humanoid.hair.anisotropy', 0); mat.anisotropyRotation = Math.PI / 2; }
 
   const mesh = new THREE.SkinnedMesh(geo, mat);
   mesh.castShadow = true;

@@ -208,8 +208,14 @@ export const CONFIG_DEFAULTS = {
     hair: {                      // generated strand cards + secondary sway
       strands: 0,                // 0 = use the per-style count (short 52 / bob 62 / long 72)
       fallScale: 1,              // multiplier on the free-fall length
-      roughness: 0.42,
-      envMapIntensity: 0.65,     // clearcoat + anisotropy already stack; higher blooms
+      // Measured against the head-region blowout: sheen and (especially) any
+      // clearcoat/anisotropy on backlit strands clip to white under the strong
+      // point lights and bloom smears it across the head. These are the values
+      // that measured clean (~82 blown px vs ~17200) while still reading as hair.
+      roughness: 0.80,
+      sheen: 0.12,               // whisper of retroreflection; higher re-blooms
+      anisotropy: 0,             // OFF — a primary blowout driver on strands
+      envMapIntensity: 0.12,
       stiffness: 55, damping: 9, // hair1..hair3 spring
       sway: 0.030,               // radians per m/s² of body-space acceleration
       idleSway: 0.035,           // ambient drift so hair is never dead still, radians

@@ -116,6 +116,7 @@ export const CONFIG_SCHEMA = {
     },
     hair: {
       strands: num(0, 400), fallScale: num(0, 4), roughness: num(0.02, 1),
+      sheen: num(0, 1), anisotropy: num(0, 1),
       envMapIntensity: num(0, 3), stiffness: num(1, 400), damping: num(0.1, 60),
       sway: num(0, 0.5), idleSway: num(0, 0.5), maxDeg: num(0, 80),
     },
