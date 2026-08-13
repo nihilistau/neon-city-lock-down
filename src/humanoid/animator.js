@@ -13,6 +13,7 @@ const _e = new THREE.Euler();
 const _v = new THREE.Vector3();
 /** rest pose target — never mutated */
 const _QI = new THREE.Quaternion();
+const UP = new THREE.Vector3(0, 1, 0);
 
 /** bones the gait layer may write */
 const GAIT_BONES = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR',
@@ -47,6 +48,17 @@ export class Animator {
     this.gazeWeight = 0;
     this._gazeYaw = 0;
     this._gazePitch = 0;
+
+    // ---- hair spring. skeleton.js has declared hair1/hair2/hair3 since day one
+    // and NOTHING animated them, so long hair was a rigid slab welded to the
+    // skull. Springing them from root motion is the whole difference between
+    // "hair" and "a helmet".
+    this._hairBones = ['hair1', 'hair2', 'hair3'].map((n) => this.bones[n]).filter(Boolean);
+    this._hair = this._hairBones.map(() => ({ x: 0, z: 0, vx: 0, vz: 0 }));
+    this._hairPrevPos = new THREE.Vector3();
+    this._hairPrevVel = new THREE.Vector3();
+    this._hairPrevYaw = 0;
+    this._hairInit = false;
   }
 
   /**
@@ -176,6 +188,66 @@ export class Animator {
       const yaw = this._gazeYaw * this.gazeWeight, pitch = this._gazePitch * this.gazeWeight;
       applyAdditive(this.bones.neck, -pitch * 0.4, yaw * 0.4, 0);
       applyAdditive(this.bones.head, -pitch * 0.6, yaw * 0.6, 0);
+    }
+
+    // ---- layer 5: hair secondary motion
+    this._updateHair(dt, characterRoot);
+  }
+
+  /**
+   * Spring the hair chain from ROOT motion, in body space so a turn swishes the
+   * hair sideways and a sprint trails it back. Written last, after the relax pass
+   * that eases un-clipped bones to identity, so this is the single writer.
+   * @param {number} dt @param {THREE.Object3D} root
+   */
+  _updateHair(dt, root) {
+    const n = this._hairBones.length;
+    if (!n || dt <= 0) return;
+    if (!this._hairInit) {
+      this._hairPrevPos.copy(root.position);
+      this._hairPrevYaw = root.rotation.y;
+      this._hairInit = true;
+      return;
+    }
+
+    // body-space velocity + acceleration. Both are clamped: a teleport
+    // (Actor3D.snapTo, save restore, the director) is a one-frame position jump
+    // and an unclamped spring would fling the hair off the head.
+    _v.copy(root.position).sub(this._hairPrevPos).divideScalar(dt);
+    this._hairPrevPos.copy(root.position);
+    _v.applyAxisAngle(UP, -root.rotation.y);
+    _v.clampLength(0, 8);
+    const ax = THREE.MathUtils.clamp((_v.x - this._hairPrevVel.x) / dt, -40, 40);
+    const az = THREE.MathUtils.clamp((_v.z - this._hairPrevVel.z) / dt, -40, 40);
+    this._hairPrevVel.copy(_v);
+
+    let dYaw = root.rotation.y - this._hairPrevYaw;
+    while (dYaw > Math.PI) dYaw -= Math.PI * 2;
+    while (dYaw < -Math.PI) dYaw += Math.PI * 2;
+    this._hairPrevYaw = root.rotation.y;
+    const yawRate = THREE.MathUtils.clamp(dYaw / dt, -12, 12);
+
+    const sway = cfg('humanoid.hair.sway', 0.030);
+    const stiff = cfg('humanoid.hair.stiffness', 55);
+    const damp = cfg('humanoid.hair.damping', 9);
+    const maxA = D2R(cfg('humanoid.hair.maxDeg', 26));
+    const idle = cfg('humanoid.hair.idleSway', 0.035);
+
+    // hair lags motion: forward accel throws it back (+x), lateral accel and body
+    // yaw throw it to the opposite side (-z)
+    const tX = sway * (az + _v.z * 2.2) + idle * Math.sin(this._t * 0.9);
+    const tZ = -sway * (ax + yawRate * 1.6) + idle * 0.6 * Math.sin(this._t * 0.7 + 1.3);
+
+    for (let i = 0; i < n; i++) {
+      const s = this._hair[i];
+      const lag = 1 - i * 0.22;                // tips move more, later
+      const k = stiff * (1 - i * 0.14);
+      s.vx += ((tX * lag - s.x) * k - s.vx * damp) * dt;
+      s.vz += ((tZ * lag - s.z) * k - s.vz * damp) * dt;
+      s.x = THREE.MathUtils.clamp(s.x + s.vx * dt, -maxA, maxA);
+      s.z = THREE.MathUtils.clamp(s.z + s.vz * dt, -maxA, maxA);
+      _e.set(s.x, 0, s.z, 'XYZ');
+      this._hairBones[i].quaternion.setFromEuler(_e);
     }
   }
 }

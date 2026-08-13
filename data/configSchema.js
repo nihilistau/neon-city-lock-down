@@ -106,6 +106,27 @@ export const CONFIG_SCHEMA = {
     },
     animator: { crossfade: num(0, 3) },
     skeleton: { armAngle: num(0, 90) },
+    body: {
+      radialTrunk: num(6, 64), radialLimb: num(4, 48), skinBand: num(0.002, 0.2),
+      deltoidBlend: num(0, 1), gluteBlend: num(0, 1), jawBlend: num(0, 1),
+    },
+    skin: {
+      roughness: num(0.02, 1), sheen: num(0, 1), sheenRoughness: num(0, 1),
+      envMapIntensity: num(0, 3), subsurface: num(0, 2), subsurfaceWrap: num(0, 1),
+    },
+    hair: {
+      strands: num(0, 400), fallScale: num(0, 4), roughness: num(0.02, 1),
+      envMapIntensity: num(0, 3), stiffness: num(1, 400), damping: num(0.1, 60),
+      sway: num(0, 0.5), idleSway: num(0, 0.5), maxDeg: num(0, 80),
+    },
+    eye: { roughness: num(0.02, 1), envMapIntensity: num(0, 3), catchlight: num(0, 1) },
+    face: {
+      redrawHz: num(1, 60), jawOpenDeg: num(0, 45), relief: num(0, 3), borderTuck: num(0, 0.05),
+    },
+    outfit: {
+      clearance: num(0.0005, 0.05), thickness: num(0.0002, 0.03),
+      radial: num(6, 64), envMapIntensity: num(0, 3),
+    },
   },
   world: {
     clock: {

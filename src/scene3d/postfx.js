@@ -76,11 +76,17 @@ export class PostFX {
     });
     this.composer = new EffectComposer(renderer, target);
     this.renderPass = new RenderPass(scene, camera);
+    // Threshold is in LINEAR HDR (bloom runs before OutputPass tone-maps), so
+    // 0.86 is a LOW bar — an ordinary lit surface clears it easily. Once the
+    // materials became physically better (IBL, real speculars, strand hair), the
+    // cast's own highlights crossed it and bloomed into blazing blobs on every
+    // head. 1.55 sits above lit skin/hair and below the neon core (2.4), so only
+    // things that are actually emissive glow.
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55,   // strength
-      0.42,   // radius
-      0.86    // threshold — only emissives > 1 and hot lights bloom
+      0.42,   // strength
+      0.40,   // radius
+      1.55    // threshold — above lit surfaces, below the neon core
     );
     this.grain = new ShaderPass(GrainVignetteShader);
     this.output = new OutputPass();

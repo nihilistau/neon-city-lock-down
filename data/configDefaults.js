@@ -191,6 +191,46 @@ export const CONFIG_DEFAULTS = {
     },
     animator: { crossfade: 0.3 },  // clip crossfade duration, seconds
     skeleton: { armAngle: 42 },    // A-pose arm angle from vertical (deg); proportions are code-defined
+    body: {                      // swept-limb mesh density + skin weighting (src/humanoid/bodyBuilder.js)
+      radialTrunk: 20,           // ring segments around the torso/neck/head stack
+      radialLimb: 12,            // ring segments around arms (legs use +2)
+      skinBand: 0.030,           // chain blend half-width, FRACTION OF HEIGHT
+      deltoidBlend: 0.80,        // share of the shoulder shelf driven by the arm bone
+      gluteBlend: 0.55,          // share of the seat driven by the thigh bone
+      jawBlend: 0.85,            // share of the chin mass driven by the jaw bone
+    },
+    skin: {                      // skin material (retuned for the procedural IBL)
+      roughness: 0.62, sheen: 0.65, sheenRoughness: 0.72,
+      envMapIntensity: 0.7,      // keep low: bloom threshold is 0.86, bodies must not glow
+      subsurface: 0.55,          // wrap-lighting subsurface strength (0 = off, stock lighting)
+      subsurfaceWrap: 0.55,      // how far light wraps past the terminator
+    },
+    hair: {                      // generated strand cards + secondary sway
+      strands: 0,                // 0 = use the per-style count (short 52 / bob 62 / long 72)
+      fallScale: 1,              // multiplier on the free-fall length
+      roughness: 0.42,
+      envMapIntensity: 0.65,     // clearcoat + anisotropy already stack; higher blooms
+      stiffness: 55, damping: 9, // hair1..hair3 spring
+      sway: 0.030,               // radians per m/s² of body-space acceleration
+      idleSway: 0.035,           // ambient drift so hair is never dead still, radians
+      maxDeg: 26,                // per-bone clamp
+    },
+    eye: {                       // eyeballs — the glossiest surface on a character
+      roughness: 0.20, envMapIntensity: 0.55,
+      catchlight: 0.55,          // painted iris highlight; the iris is UNLIT, so 1.0 blooms
+    },
+    face: {
+      redrawHz: 15,              // canvas repaint cap (skipped entirely when hidden)
+      jawOpenDeg: 14,            // jaw bone rotation at full mouth open
+      relief: 1,                 // nose/brow/lip/chin displacement scale (0 = flat patch)
+      borderTuck: 0.014,         // how far the patch rim sinks into the skull, fraction of height
+    },
+    outfit: {                    // garment shells (src/humanoid/outfitBuilder.js)
+      clearance: 0.0055,         // gap over the skin, FRACTION OF HEIGHT
+      thickness: 0.0032,         // fabric thickness (drives the visible hem), fraction of height
+      radial: 18,                // ring segments around a garment
+      envMapIntensity: 0.7,
+    },
   },
 
   // ── world: clock pace + phase boundaries ──

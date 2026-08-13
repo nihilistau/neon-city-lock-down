@@ -36,9 +36,15 @@ export class Actor3D {
     this.facingTarget = null; // yaw radians the body eases toward
     this._yawVel = 0;
 
-    // rim light that travels with the character for the neon look
+    // Rim light that travels with the character for the neon look.
+    //
+    // It MUST stay clear of the body: with decay 2, a point 0.1m away receives
+    // ~100x the intensity, so any geometry that reaches the light blows to pure
+    // white. It used to sit 0.55m behind the head, which was empty space when
+    // hair was a small skull cap — the strand hair now falls back through that
+    // point, which put a blazing blob on the back of every head.
     this.rim = new THREE.PointLight(new THREE.Color(persona.accent), 0, 2.6, 2);
-    this.rim.position.set(0, persona.body.height * 1.05, -0.55);
+    this.rim.position.set(0, persona.body.height * 0.92, -0.95);
     this.root.add(this.rim);
   }
 
@@ -107,7 +113,10 @@ export class Actor3D {
     }
 
     this.animator.update(dt, this.root);
-    this.face.update(dt);
+    // Pass visibility down: the first-person player body is hidden but still
+    // ticked, and the face rig would otherwise repaint + re-upload a 256² canvas
+    // (and two iris canvases) at 15Hz for a mesh nobody can see.
+    this.face.update(dt, this.root.visible);
   }
 
   dispose() {
@@ -116,9 +125,16 @@ export class Actor3D {
       if (m.geometry) m.geometry.dispose();
       const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
       // every texture slot, not just .map — the 128px roughness CanvasTexture is
-      // built per actor, so one leaked per hostile per combat wave
+      // built per actor, so one leaked per hostile per combat wave.
+      // EXCEPT textures flagged shared: bodyBuilder now caches the skin albedo +
+      // roughness canvases per tone (they were bit-identical per actor and cost a
+      // multi-hundred-ms hitch per breach wave to regenerate). Disposing one here
+      // would black out every later actor with the same skin tone.
       for (const mat of mats) {
-        for (const slot of TEXTURE_SLOTS) mat[slot]?.dispose?.();
+        for (const slot of TEXTURE_SLOTS) {
+          const tex = mat[slot];
+          if (tex && !tex.userData?.shared) tex.dispose?.();
+        }
         mat.dispose();
       }
     });

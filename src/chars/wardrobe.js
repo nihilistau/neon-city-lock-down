@@ -3,7 +3,7 @@
 // emits change events. The `none` state (and explicitness rendering caps) land
 // with the Phase 4 intimacy pass — for now every character keeps a base layer.
 import { buildOutfit } from '../humanoid/outfitBuilder.js';
-import { OUTFITS } from '../../data/outfits.js';
+import { OUTFITS, DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { EXPLICITNESS_CAP } from './gates.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
@@ -24,19 +24,27 @@ function renderState(outfitId, explicitness) {
 export class Wardrobe {
   /**
    * @param {import('./character.js').Character} character
-   * @param {string} initial outfit id
+   * @param {string} [initial] outfit id; defaults to data/outfits.js DEFAULT_OUTFIT
    */
   constructor(character, initial) {
     this.c = character;
     /** @type {Record<string, import('three').SkinnedMesh[]>} built layer cache */
     this.layers = {};
     this.current = null;
-    this.change(initial, true);
+    // `initial` is optional so every character in OUTFITS can be given a wardrobe
+    // with one uniform line. Kai has had all ten outfit states in data/outfits.js
+    // from the start but no Wardrobe was ever constructed for him, so every
+    // [[outfit:X]] the LLM emitted for Kai was a silent no-op (the call sites are
+    // all `wardrobe?.change(...)`, so nothing even warned).
+    this.change(initial || DEFAULT_OUTFIT[character.id] || this.available()[0], true);
   }
 
   available() {
     return Object.keys(OUTFITS[this.c.id] || {});
   }
+
+  /** true when this character has any outfit recipes at all */
+  static supports(id) { return !!OUTFITS[id]; }
 
   /**
    * @param {string} outfitId  the LOGICAL wardrobe state (may be capped in render)

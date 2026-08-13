@@ -291,6 +291,10 @@ export class App {
     // wardrobes (outfit layers over the base body)
     this.cast.lola.wardrobe = new Wardrobe(this.cast.lola, 'evening_wear');
     this.cast.aria.wardrobe = new Wardrobe(this.cast.aria, 'casual_lounge');
+    // Kai had 10 outfit states authored in data/outfits.js and no Wardrobe, and
+    // every call site is `wardrobe?.change(...)` — so each [[outfit:X]] on him
+    // was a silent no-op rather than an error.
+    this.cast.kai.wardrobe = new Wardrobe(this.cast.kai, 'casual_lounge');
 
     // autonomous brains (bodied cast only — VOX is omnipresent, no wandering)
     /** @type {Record<string, Brain>} */

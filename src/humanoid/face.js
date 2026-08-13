@@ -1,18 +1,80 @@
 // @ts-check
 // Procedural face: a curved decal patch over the skull carrying a 256² canvas
 // (skin, brows, lids, mouth, blush) with alpha-cut eye holes, plus 3D eyeballs
-// parented to the eye bones. Redraws are dirty-flagged and capped at ~15Hz.
+// on the eye bones. Redraws are dirty-flagged and capped at ~15Hz.
+//
+// v0.3 pass — the canvas rig stays (256px + alpha-cut holes + real eyeballs is a
+// genuinely good trick), but the four things that made it read as a painted mask
+// are fixed here:
+//   1. the patch is RELIEVED — a nose bridge and tip, brow ridge, cheeks, lips and
+//      chin are displaced out of the sphere, so the face has silhouette;
+//   2. its border tucks INTO the skull and fades to alpha 0, so there is no
+//      rectangular plate rim floating off the cheek;
+//   3. the eyeballs hang off the declared eyeL/eyeR bones (they were parented to
+//      `head` and rotated as loose Groups — the bones were dead weight);
+//   4. `jaw` — declared in skeleton.js since day one, driven by nothing — now
+//      opens with the mouth (bodyBuilder tri-chains the chin mass onto it).
+// Mouth shape comes from viseme targets rather than raw voice amplitude.
 import * as THREE from 'three';
+import { cfg } from '../core/config.js';
 
-// canvas-space layout (fractions of the 256² face patch)
-const LAYOUT = {
-  eyeL: { x: 0.34, y: 0.48 },    // canvas-left = character's right; symmetric anyway
+const _e = new THREE.Euler();
+
+/**
+ * Face patch geometry, in FRACTIONS OF BODY HEIGHT. Exported because
+ * skeleton.js places the eyeL/eyeR bones at the eyeball centres derived from it
+ * — the bone has to sit at the centre of rotation or gaze orbits the eyeball
+ * around the skull instead of spinning it in its socket.
+ */
+export const FACE_PATCH = {
+  r: 0.066,
+  phiStart: Math.PI / 2 - 1.62 / 2, phiLen: 1.62,
+  thetaStart: 0.62, thetaLen: 1.42,
+  sx: 0.94, sy: 1.06, sz: 0.98,
+  cx: 0, cy: 0.951, cz: 0.010,
+  // Eyeball centre pushed in from the patch surface. Must exceed the eyeball
+  // RADIUS (below) or the sphere intersects the decal and bulges out past the
+  // painted lid line all around the hole — which it did at the old 0.010, giving
+  // every character a slightly pop-eyed stare.
+  eyeInset: 0.0165,
+  eyeRadius: 0.0130,
+};
+
+// canvas-space layout (fractions of the 256² face patch). Canvas-left is the
+// character's RIGHT (we look at the face from +Z), so LAYOUT.eyeL drives bone eyeR.
+export const LAYOUT = {
+  eyeL: { x: 0.34, y: 0.48 },
   eyeR: { x: 0.66, y: 0.48 },
   eyeRx: 0.072, eyeRy: 0.05,     // hole radii
   browY: 0.385,
   mouth: { x: 0.5, y: 0.725 },
   noseY: 0.615,
 };
+
+/** canvas (u,v) → patch surface point, in height fractions, relative to body origin */
+export function patchSurface(u, v, out = new THREE.Vector3()) {
+  const g = FACE_PATCH;
+  const phi = g.phiStart + u * g.phiLen;
+  const theta = g.thetaStart + v * g.thetaLen;
+  return out.set(
+    -g.r * Math.cos(phi) * Math.sin(theta) * g.sx,
+    g.r * Math.cos(theta) * g.sy,
+    g.r * Math.sin(phi) * Math.sin(theta) * g.sz
+  ).add(new THREE.Vector3(g.cx, g.cy, g.cz));
+}
+
+/**
+ * Eyeball centre for a bone side, in height fractions (bind/world space).
+ * @param {'L'|'R'} side  bone side — L is the character's left (+x)
+ */
+export function eyeBallCentre(side, out = new THREE.Vector3()) {
+  const key = side === 'L' ? 'eyeR' : 'eyeL';   // canvas-mirrored, see LAYOUT
+  const g = FACE_PATCH;
+  const centre = new THREE.Vector3(g.cx, g.cy, g.cz);
+  patchSurface(LAYOUT[key].x, LAYOUT[key].y, out);
+  const outward = out.clone().sub(centre).normalize();
+  return out.addScaledVector(outward, -g.eyeInset);
+}
 
 const MOUTHS = {
   neutral: { w: 0.085, curve: 0.06, open: 0, pout: 0 },
@@ -25,6 +87,41 @@ const MOUTHS = {
   grit: { w: 0.11, curve: -0.15, open: 0.25, pout: 0, teeth: 1 },
 };
 
+/**
+ * Viseme targets: `open` = jaw drop, `wide` = lip spread (negative = pursed),
+ * `round` = lip rounding, `teeth` = show the upper teeth.
+ * A small set is enough — the eye reads mouth OPENNESS and CLOSURE, and gets the
+ * rest from the audio. What it will not forgive is a mouth that never closes,
+ * which is exactly what mapping raw RMS to a single "open" value produces.
+ */
+const VISEMES = {
+  rest: { open: 0.00, wide: 0.00, round: 0.00, teeth: 0 },
+  AA: { open: 1.00, wide: 0.25, round: 0.00, teeth: 0 },   // father
+  EE: { open: 0.42, wide: 1.00, round: 0.00, teeth: 0.35 }, // see
+  IH: { open: 0.34, wide: 0.50, round: 0.00, teeth: 0 },   // sit
+  OH: { open: 0.68, wide: -0.30, round: 0.75, teeth: 0 },   // go
+  OO: { open: 0.26, wide: -0.65, round: 1.00, teeth: 0 },   // boot / w
+  MM: { open: 0.00, wide: 0.10, round: 0.15, teeth: 0 },   // m / b / p closure
+  FF: { open: 0.12, wide: 0.35, round: 0.00, teeth: 0.6 },  // f / v
+  TH: { open: 0.22, wide: 0.40, round: 0.00, teeth: 0.5 },  // th / s / z
+  LL: { open: 0.38, wide: 0.28, round: 0.00, teeth: 0.25 }, // l / n / d / t
+};
+
+/** letter → viseme, for `speak()` when a caller has the spoken text */
+const LETTER_VISEME = {
+  a: 'AA', e: 'EE', i: 'IH', o: 'OH', u: 'OO', y: 'IH',
+  m: 'MM', b: 'MM', p: 'MM',
+  f: 'FF', v: 'FF',
+  s: 'TH', z: 'TH', c: 'TH', x: 'TH', j: 'TH',
+  l: 'LL', n: 'LL', d: 'LL', t: 'LL', r: 'OH',
+  w: 'OO', q: 'OO',
+  g: 'IH', h: 'IH', k: 'IH',
+};
+
+/** amplitude-driven fallback sequences — a closure is forced every 5th step */
+const LOUD_SEQ = ['AA', 'OH', 'EE', 'AA', 'MM', 'IH', 'AA', 'OO', 'EE', 'MM'];
+const SOFT_SEQ = ['IH', 'LL', 'TH', 'EE', 'MM', 'FF', 'IH', 'LL', 'TH', 'MM'];
+
 export class FaceRig {
   /**
    * @param {{ colors: {skin:string, hair:string, eyes:string, lips:string, brows?:string},
@@ -34,6 +131,7 @@ export class FaceRig {
   constructor(persona, rig) {
     this.persona = persona;
     const h = persona.body.height;
+    this._h = h;
 
     // expression state (written by animator/dialogue, read by draw)
     this.state = {
@@ -53,51 +151,75 @@ export class FaceRig {
     this._blinkPhase = -1; // <0 idle, 0..1 during blink
     this._dirty = true;
     this._sinceDraw = 0;
+    this._redrawHz = cfg('humanoid.face.redrawHz', 15);
 
-    // --- canvas + decal patch. The patch is a partial sphere; a canvas (u,v)
-    // maps to a surface point via `surfacePoint()` so the 3D eyeballs can be
-    // placed EXACTLY behind their canvas eye-holes (guaranteed alignment).
+    // viseme state
+    this._vis = { ...VISEMES.rest };
+    this._visTarget = VISEMES.rest;
+    this._visHold = 0;
+    this._visStep = 0;
+    /** @type {{v:string, t:number}[]|null} scripted timeline from speak() */
+    this._timeline = null;
+    this._timelineT = 0;
+
+    this._jaw = rig.byName.jaw || null;
+    this._jawMax = THREE.MathUtils.degToRad(cfg('humanoid.face.jawOpenDeg', 14));
+    this._eyeYaw = 0;
+    this._eyePitch = 0;
+
+    // --- canvas + decal patch. A canvas (u,v) maps to a surface point via
+    // patchSurface(), so the eyeball bones sit EXACTLY behind their canvas holes.
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.canvas.height = 256;
     this.tex = new THREE.CanvasTexture(this.canvas);
     this.tex.colorSpace = THREE.SRGBColorSpace;
 
-    const geom = {
-      r: 0.066 * h,
-      phiStart: Math.PI / 2 - 1.62 / 2, phiLen: 1.62,
-      thetaStart: 0.62, thetaLen: 1.42,
-      scale: new THREE.Vector3(0.94, 1.06, 0.98),
-    };
-    this._geom = geom;
+    const g = FACE_PATCH;
     const headWorld = rig.joints.head;
-    // sphere center in head-local space
-    this._center = new THREE.Vector3(0, 0.951 * h, 0.010 * h).sub(headWorld);
+    this._centre = new THREE.Vector3(g.cx * h, g.cy * h, g.cz * h).sub(headWorld);
 
-    const patch = new THREE.SphereGeometry(geom.r, 28, 24,
-      geom.phiStart, geom.phiLen, geom.thetaStart, geom.thetaLen);
+    const patch = new THREE.SphereGeometry(g.r * h, 30, 26,
+      g.phiStart, g.phiLen, g.thetaStart, g.thetaLen);
+    relieveFace(patch, h);
     const mat = new THREE.MeshStandardMaterial({
-      map: this.tex, roughness: 0.55, alphaTest: 0.5,
+      map: this.tex,
+      roughness: cfg('humanoid.skin.roughness', 0.62),
+      // the border fades to alpha 0 (drawn in draw()) so the patch dissolves into
+      // the skull instead of showing a plate edge — hence transparent + a low
+      // alphaTest that still hard-cuts the eye holes.
+      transparent: true, alphaTest: 0.04,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     this.decal = new THREE.Mesh(patch, mat);
-    this.decal.scale.copy(geom.scale);
-    this.decal.position.copy(this._center);
+    this.decal.scale.set(g.sx, g.sy, g.sz);
+    this.decal.position.copy(this._centre);
+    this.decal.castShadow = false;
     rig.byName.head.add(this.decal);
 
-    // --- eyeballs, placed at the canvas eye-hole surface points
+    // --- eyeballs, parented to the EYE BONES (which sit at the eyeball centres)
     this.eyes = {};
-    for (const [side, layoutKey] of [['L', 'eyeL'], ['R', 'eyeR']]) {
-      const p = this._surfacePoint(LAYOUT[layoutKey].x, LAYOUT[layoutKey].y);
-      const group = new THREE.Group();
-      group.position.copy(p);
-      // sit the eyeball slightly inside the surface so lids overlap its rim
-      const inward = p.clone().sub(this._center).normalize();
-      group.position.addScaledVector(inward, -0.010 * h);
-      this._eyeFwd = inward; // shared forward for both (approx)
+    this.eyeBones = {};
+    for (const side of /** @type {('L'|'R')[]} */ (['L', 'R'])) {
+      const bone = rig.byName['eye' + side];
+      const centre = eyeBallCentre(side).multiplyScalar(h);
+      const outward = centre.clone().sub(new THREE.Vector3(g.cx * h, g.cy * h, g.cz * h)).normalize();
 
+      const group = new THREE.Group();
+      // the bone IS the eyeball centre, so the visual group sits at its origin;
+      // gaze rotates the bone, which spins the eye in place.
+      group.position.set(0, 0, 0);
       const ball = new THREE.Mesh(
-        new THREE.SphereGeometry(0.0135 * h, 14, 12),
-        new THREE.MeshStandardMaterial({ color: 0xf6f4f0, roughness: 0.18 })
+        new THREE.SphereGeometry(FACE_PATCH.eyeRadius * h, 14, 12),
+        // A cornea is the glossiest thing on a character, so it is the FIRST
+        // surface to blow past the bloom threshold (0.86) once scene.environment
+        // carries neon sign cards — roughness 0.14 × 1.4 env gain turned both
+        // eyes into flashing lamps that swept as the head turned. Keep the
+        // reflection a small crisp catchlight: nothing on a body should bloom.
+        new THREE.MeshStandardMaterial({
+          color: 0xf6f4f0,
+          roughness: cfg('humanoid.eye.roughness', 0.20),
+          envMapIntensity: cfg('humanoid.eye.envMapIntensity', 0.55),
+        })
       );
       const irisC = document.createElement('canvas');
       irisC.width = irisC.height = 64;
@@ -108,35 +230,21 @@ export class FaceRig {
         new THREE.CircleGeometry(0.0088 * h, 20),
         new THREE.MeshBasicMaterial({ map: irisTex, transparent: true })
       );
-      iris.position.z = 0.0132 * h;
+      iris.position.z = (FACE_PATCH.eyeRadius - 0.0004) * h;
       group.add(ball, iris);
-      // orient group so +Z faces outward along the surface normal
-      group.lookAt(group.position.clone().add(inward));
-      group.userData.rest = group.rotation.clone();
+      // orient +Z along the outward surface normal. setFromUnitVectors, not
+      // lookAt: lookAt() works in WORLD space and would aim the eye at the point
+      // one metre from the origin along `outward` instead of along the normal.
+      // Bone axes are world-aligned at bind, so this rest tilt lives inside the bone.
+      group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), outward);
       group.userData.irisCanvas = irisC;
       group.userData.irisTex = irisTex;
-      rig.byName.head.add(group);
+      bone.add(group);
       this.eyes[side] = group;
+      this.eyeBones[side] = bone;
     }
+    this._irisPupil = this.state.pupil;
     this.draw();
-  }
-
-  /**
-   * Map a canvas (u,v) in [0,1] to a point on the decal surface, in head-local space.
-   * Mirrors three.js SphereGeometry parameterization.
-   * @param {number} u @param {number} v
-   */
-  _surfacePoint(u, v) {
-    const g = this._geom;
-    const phi = g.phiStart + u * g.phiLen;
-    const theta = g.thetaStart + v * g.thetaLen;
-    const p = new THREE.Vector3(
-      -g.r * Math.cos(phi) * Math.sin(theta),
-      g.r * Math.cos(theta),
-      g.r * Math.sin(phi) * Math.sin(theta)
-    );
-    p.multiply(g.scale).add(this._center);
-    return p;
   }
 
   /** @param {Partial<typeof this.state>} partial */
@@ -145,14 +253,42 @@ export class FaceRig {
     this._dirty = true;
   }
 
-  /** Voice amplitude 0..1 → mouth motion while speaking. */
+  /** Voice amplitude 0..1 → mouth ENERGY while speaking (shape comes from visemes). */
   setTalk(amp) {
     if (Math.abs(amp - this._talkAmp) > 0.06) this._dirty = true;
     this._talkAmp = amp;
+    if (amp <= 0.01) { this._timeline = null; this._timelineT = 0; }
   }
 
-  /** @param {number} dt seconds */
-  update(dt) {
+  /**
+   * Drive the mouth from actual text. Optional — nothing in the pipeline hands
+   * the face its line yet, so setTalk()'s amplitude-driven sequencer is what
+   * normally runs; wire `speak(text, seconds)` in beside a TTS start for real
+   * phoneme timing.
+   * @param {string} text @param {number} durationSec
+   */
+  speak(text, durationSec) {
+    const seq = [];
+    let prev = '';
+    for (const ch of String(text).toLowerCase()) {
+      const v = LETTER_VISEME[ch];
+      if (!v) { if (seq.length && seq[seq.length - 1] !== 'rest') seq.push('rest'); prev = ''; continue; }
+      if (v === prev) continue;   // collapse doubled letters
+      seq.push(v);
+      prev = v;
+    }
+    if (!seq.length || !(durationSec > 0)) { this._timeline = null; return; }
+    const step = durationSec / seq.length;
+    this._timeline = seq.map((v, i) => ({ v, t: i * step }));
+    this._timelineT = 0;
+  }
+
+  /**
+   * @param {number} dt seconds
+   * @param {boolean} [visible] false when the body is hidden (first-person player);
+   *        skips every canvas redraw and re-upload for a body nobody can see.
+   */
+  update(dt, visible = true) {
     // blink scheduler
     this._blinkT += dt;
     if (this._blinkPhase < 0 && this._blinkT > this._nextBlink) {
@@ -167,28 +303,79 @@ export class FaceRig {
         this._nextBlink = 2 + Math.random() * 4;
       }
     }
-    // eye gaze (offset from rest orientation)
+
+    // eye gaze — rotate the EYE BONES (world-aligned at bind, so x = pitch,
+    // y = yaw). Written after the animator's relax pass each frame, so its
+    // ease-to-identity on unclipped bones can't fight this.
+    const k = Math.min(1, dt * 14);
+    this._eyeYaw += (this.state.gaze.x * 0.5 - this._eyeYaw) * k;
+    this._eyePitch += (-this.state.gaze.y * 0.32 - this._eyePitch) * k;
     for (const side of ['L', 'R']) {
-      const g = this.eyes[side];
-      const rest = g.userData.rest;
-      const ty = rest.y + this.state.gaze.x * 0.5;
-      const tx = rest.x - this.state.gaze.y * 0.32;
-      g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, ty, Math.min(1, dt * 14));
-      g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, tx, Math.min(1, dt * 14));
+      const bone = this.eyeBones[side];
+      if (bone) bone.quaternion.setFromEuler(_e.set(this._eyePitch, this._eyeYaw, 0, 'XYZ'));
     }
+
     // mouth shape easing
     const target = MOUTHS[this.state.mouth] || MOUTHS.neutral;
     const cur = this._mouthCur;
-    const k = Math.min(1, dt * 10);
+    const mk = Math.min(1, dt * 10);
     for (const key of ['w', 'curve', 'open', 'pout']) {
       const t = target[key] ?? 0;
-      if (Math.abs(cur[key] - t) > 0.003) { cur[key] += (t - cur[key]) * k; this._dirty = true; }
+      if (Math.abs(cur[key] - t) > 0.003) { cur[key] += (t - cur[key]) * mk; this._dirty = true; }
     }
     cur.skew = target.skew ?? 0;
     cur.teeth = target.teeth ?? 0;
 
+    this._advanceVisemes(dt);
+
+    // jaw bone: the chin mass is tri-chained onto it in bodyBuilder, so this is
+    // real 3D mouth opening on top of the painted one.
+    if (this._jaw) {
+      const openness = Math.min(1, cur.open + this.state.mouthOpen + this._vis.open * this._talkGain());
+      this._jaw.quaternion.setFromEuler(_e.set(openness * this._jawMax, 0, 0, 'XYZ'));
+    }
+
+    if (!visible) { this._sinceDraw = 0; return; }
     this._sinceDraw += dt;
-    if (this._dirty && this._sinceDraw > 1 / 15) this.draw();
+    if (this._dirty && this._sinceDraw > 1 / this._redrawHz) this.draw();
+  }
+
+  /** how strongly the viseme shape rides on top of the expression mouth */
+  _talkGain() { return Math.min(1, 0.35 + this._talkAmp * 0.9); }
+
+  /**
+   * Advance the viseme target. A scripted timeline (speak()) wins; otherwise the
+   * amplitude sequencer walks a fixed pattern that includes lip CLOSURES, which
+   * is what separates "talking" from "jaw flapping to an envelope".
+   * @param {number} dt
+   */
+  _advanceVisemes(dt) {
+    let next = VISEMES.rest;
+    if (this._timeline) {
+      this._timelineT += dt;
+      const tl = this._timeline;
+      let i = 0;
+      while (i + 1 < tl.length && tl[i + 1].t <= this._timelineT) i++;
+      if (this._timelineT > tl[tl.length - 1].t + 0.2) this._timeline = null;
+      else next = VISEMES[tl[i].v] || VISEMES.rest;
+    } else if (this._talkAmp > 0.04) {
+      this._visHold -= dt;
+      if (this._visHold <= 0) {
+        this._visStep++;
+        const seq = this._talkAmp > 0.45 ? LOUD_SEQ : SOFT_SEQ;
+        this._visTarget = VISEMES[seq[this._visStep % seq.length]];
+        // shorter holds when loud — louder speech is faster speech
+        this._visHold = 0.055 + 0.085 * (1 - Math.min(1, this._talkAmp));
+      }
+      next = this._visTarget;
+    } else {
+      this._visTarget = VISEMES.rest;
+    }
+    const kk = Math.min(1, dt * 22);
+    for (const key of ['open', 'wide', 'round', 'teeth']) {
+      const d = (next[key] ?? 0) - this._vis[key];
+      if (Math.abs(d) > 0.004) { this._vis[key] += d * kk; this._dirty = true; }
+    }
   }
 
   _lidAmount() {
@@ -229,17 +416,18 @@ export class FaceRig {
       }
     }
 
-    // nose hint
-    ctx.strokeStyle = 'rgba(60,30,35,0.22)';
+    // nose: the patch is now displaced into a real bridge + tip, so the painted
+    // pass is only the shading that sells it
+    ctx.strokeStyle = 'rgba(60,30,35,0.20)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(W / 2 - 3, LAYOUT.noseY * W - 14);
-    ctx.quadraticCurveTo(W / 2 - 5, LAYOUT.noseY * W, W / 2 - 1, LAYOUT.noseY * W + 2);
+    ctx.moveTo(W / 2 - 4, LAYOUT.noseY * W - 20);
+    ctx.quadraticCurveTo(W / 2 - 6, LAYOUT.noseY * W, W / 2 - 1, LAYOUT.noseY * W + 2);
     ctx.stroke();
     for (const dx of [-5, 5]) {
       ctx.beginPath();
       ctx.ellipse(W / 2 + dx, LAYOUT.noseY * W + 4, 2.2, 1.6, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(60,30,35,0.28)';
+      ctx.fillStyle = 'rgba(60,30,35,0.30)';
       ctx.fill();
     }
 
@@ -280,19 +468,21 @@ export class FaceRig {
       ctx.stroke();
     }
 
-    // mouth
-    const mc = this._mouthCur;
-    const open = Math.min(1, mc.open + s.mouthOpen + this._talkAmp * 0.85);
+    // mouth: expression shape × viseme
+    const mc = this._mouthCur, vis = this._vis, gain = this._talkGain();
+    const open = Math.min(1, mc.open + s.mouthOpen + vis.open * gain);
     const mx = LAYOUT.mouth.x * W + mc.skew * 6;
     const my = LAYOUT.mouth.y * W;
-    const w = mc.w * W * (1 - 0.25 * mc.pout);
+    const round = vis.round * gain;
+    const w = mc.w * W * (1 - 0.25 * mc.pout) * (1 + 0.26 * vis.wide * gain - 0.34 * round);
     const curve = mc.curve * 14;
-    const openPx = open * 15 + mc.pout * 3;
+    const openPx = open * 15 + (mc.pout + round * 0.6) * 3;
+    const teeth = Math.max(mc.teeth, vis.teeth * gain);
 
     ctx.fillStyle = colors.lips;
     ctx.beginPath();
     ctx.moveTo(mx - w, my - curve * 0.4 + mc.skew * 3);
-    ctx.quadraticCurveTo(mx, my - 4 - curve, mx + w, my - curve * 0.4 - mc.skew * 3);
+    ctx.quadraticCurveTo(mx, my - 4 - curve - round * 3, mx + w, my - curve * 0.4 - mc.skew * 3);
     ctx.quadraticCurveTo(mx, my + 6 + openPx + curve * 0.3, mx - w, my - curve * 0.4 + mc.skew * 3);
     ctx.fill();
     if (open > 0.12) {
@@ -300,8 +490,8 @@ export class FaceRig {
       ctx.beginPath();
       ctx.ellipse(mx, my + 2 + openPx * 0.35, w * 0.62, openPx * 0.5, 0, 0, Math.PI * 2);
       ctx.fill();
-      if (mc.teeth > 0) {
-        ctx.fillStyle = 'rgba(245,240,235,0.95)';
+      if (teeth > 0.05) {
+        ctx.fillStyle = `rgba(245,240,235,${0.5 + 0.45 * teeth})`;
         ctx.fillRect(mx - w * 0.5, my - 1 + curve * -0.2, w, 3.5);
       }
     }
@@ -313,13 +503,38 @@ export class FaceRig {
     ctx.quadraticCurveTo(mx, my + 6 + openPx, mx + w * 0.5, my + 3 + openPx);
     ctx.stroke();
 
+    // border fade: erase alpha toward the edges so the patch dissolves into the
+    // skull instead of ending in a hard plate rim (relieveFace() also tucks the
+    // border geometry inward so the fade happens BELOW the skull surface).
+    ctx.globalCompositeOperation = 'destination-out';
+    const feather = 0.13 * W;
+    const edges = [
+      [0, 0, feather, 0], [W, 0, W - feather, 0],
+      [0, 0, 0, feather], [0, W, 0, W - feather],
+    ];
+    for (const [x0, y0, x1, y1] of edges) {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, W);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
     this.tex.needsUpdate = true;
 
-    // pupil dilation redraw (cheap, only when state changed)
-    for (const side of ['L', 'R']) {
-      const g = this.eyes[side];
-      this._drawIris(g.userData.irisCanvas, this.persona.colors.eyes, s.pupil);
-      g.userData.irisTex.needsUpdate = true;
+    // Iris redraw + GPU re-upload ONLY on a pupil change. This used to run for
+    // both eyes on every draw (up to 15Hz × every actor, including the invisible
+    // first-person player body) despite a comment claiming otherwise — two 64²
+    // canvas repaints and two texture uploads per actor per redraw, for pixels
+    // that were almost always identical.
+    if (Math.abs(s.pupil - this._irisPupil) > 0.01) {
+      this._irisPupil = s.pupil;
+      for (const side of ['L', 'R']) {
+        const g = this.eyes[side];
+        this._drawIris(g.userData.irisCanvas, this.persona.colors.eyes, s.pupil);
+        g.userData.irisTex.needsUpdate = true;
+      }
     }
   }
 
@@ -336,8 +551,65 @@ export class FaceRig {
     // pupil
     ctx.fillStyle = '#0a0710';
     ctx.beginPath(); ctx.arc(cx, cx, W * (0.13 + 0.14 * pupil), 0, Math.PI * 2); ctx.fill();
-    // catchlight
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.beginPath(); ctx.arc(cx + W * 0.12, cx - W * 0.14, W * 0.07, 0, Math.PI * 2); ctx.fill();
+    // Catchlight. The iris is a MeshBasicMaterial, i.e. UNLIT — whatever is
+    // painted here renders at full value regardless of the room, so a pure-white
+    // dot sails past the 0.86 bloom threshold and flares as the eye tracks.
+    const cl = cfg('humanoid.eye.catchlight', 0.55);
+    ctx.fillStyle = `rgba(255,255,255,${cl})`;
+    ctx.beginPath(); ctx.arc(cx + W * 0.12, cx - W * 0.14, W * 0.06, 0, Math.PI * 2); ctx.fill();
   }
+}
+
+/** unit gaussian bump */
+function bump(x, mu, sigma) {
+  const d = (x - mu) / sigma;
+  return Math.exp(-0.5 * d * d);
+}
+
+/**
+ * Displace the face patch out of its sphere into an actual face: nose bridge and
+ * tip, brow ridge, cheekbones, lips, chin, recessed eye sockets — and tuck the
+ * BORDER inward so the (alpha-faded) patch edge sinks under the skull.
+ *
+ * The patch's uv IS its canvas coordinate — SphereGeometry writes uv.y = 1 - v,
+ * so canvas-y = 1 - uv.y — which is why every feature here can be positioned in
+ * the same LAYOUT space the 2D pass paints in.
+ * @param {THREE.BufferGeometry} geo @param {number} h body height
+ */
+export function relieveFace(geo, h) {
+  const pos = geo.getAttribute('position');
+  const nrm = geo.getAttribute('normal');
+  const uv = geo.getAttribute('uv');
+  const scale = cfg('humanoid.face.relief', 1);
+  const tuck = cfg('humanoid.face.borderTuck', 0.014);
+  for (let i = 0; i < pos.count; i++) {
+    const cu = uv.getX(i), cv = 1 - uv.getY(i);
+    const dx = cu - 0.5, adx = Math.abs(dx);
+    let d = 0;
+    // nose: a ridge down the midline that swells into the tip
+    d += 0.0062 * bump(dx, 0, 0.048) * bump(cv, 0.545, 0.105);
+    d += 0.0048 * bump(dx, 0, 0.055) * bump(cv, 0.618, 0.030);
+    // brow ridge over each eye
+    d += 0.0034 * bump(cv, 0.395, 0.032) * bump(adx, 0.145, 0.080);
+    // cheekbones
+    d += 0.0032 * bump(cv, 0.585, 0.085) * bump(adx, 0.235, 0.085);
+    // lips
+    d += 0.0034 * bump(cv, LAYOUT.mouth.y, 0.040) * bump(dx, 0, 0.078);
+    // chin
+    d += 0.0030 * bump(cv, 0.885, 0.055) * bump(dx, 0, 0.085);
+    // eye sockets sit back under the brow
+    d -= 0.0030 * bump(cv, 0.470, 0.045) * (bump(adx, 0.160, 0.060));
+    d *= scale;
+    // border tuck — pull the rim under the skull surface
+    const edge = Math.min(cu, 1 - cu, cv, 1 - cv);
+    d -= tuck * (1 - Math.min(1, edge / 0.11));
+
+    pos.setXYZ(i,
+      pos.getX(i) + nrm.getX(i) * d * h,
+      pos.getY(i) + nrm.getY(i) * d * h,
+      pos.getZ(i) + nrm.getZ(i) * d * h);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
 }
