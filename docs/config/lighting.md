@@ -27,6 +27,25 @@ Each preset:
 Colors are `0xRRGGBB` integers (YAML parses `0x…` as an int). Values not present fall back
 to the baked default, so partial preset edits are safe.
 
+## `envIntensity` — image-based lighting strength
+
+| Key | Default | Range | Meaning |
+|-----|---------|-------|---------|
+| `envIntensity` | `0.55` | 0–3 | Strength of the procedural environment map (`scene.environmentIntensity`). |
+
+`src/scene3d/env.js` builds a small neon-noir environment — gradient sky, horizon city
+glow, neon sign cards, warm floor bounce — and PMREM-prefilters it into a reflection probe.
+Its palette is derived from **the active preset's own colors**, so retinting a preset also
+retints what the room's chrome, glass, skin sheen and hair reflect. One map is built and
+cached per preset on first use.
+
+This is what makes `MeshPhysicalMaterial`'s sheen (skin), clearcoat + anisotropy (hair) and
+every `metalness > 0` surface read as material rather than plastic — those are reflection
+lobes and need something to reflect.
+
+Set `0` to disable reflections entirely (cheapest, flattest). Above `1` the reflections start
+to overpower the authored key/fill balance.
+
 ## `tod` — time-of-day keyframes
 
 An array of keyframes (ascending `t` over `dayFraction`, 0 = midnight … 1 = midnight) that

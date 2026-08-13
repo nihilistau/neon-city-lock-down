@@ -174,6 +174,8 @@ export const CONFIG_DEFAULTS = {
   lighting: {
     presets: LIGHTING_PRESETS,   // 10 presets: neon_night, blackout_emergency, golden_hour, …
     tod: TOD_KEYS,               // time-of-day key/hemi/exposure keyframes (neon_night is ToD-aware)
+    envIntensity: 0.55,          // image-based lighting strength (src/scene3d/env.js).
+                                 // 0 disables reflections entirely; >1 overpowers the key/fill balance.
   },
 
   // ── humanoid: procedural walk cycle + animation blending ──

@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { PALETTE } from './materials/palette.js';
 import { cfg } from '../core/config.js';
 import { LIGHTING_PRESETS, TOD_KEYS } from '../../data/lightingPresets.js';
+import { EnvBuilder } from './env.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
@@ -22,9 +23,16 @@ export class Lighting {
     this.key = new THREE.DirectionalLight(0xbfd8ff, 1.1);
     this.key.position.set(6, 10, 10);
     this.key.castShadow = true;
-    this.key.shadow.mapSize.set(1024, 1024);
-    this.key.shadow.camera.left = -12; this.key.shadow.camera.right = 12;
-    this.key.shadow.camera.top = 12; this.key.shadow.camera.bottom = -12;
+    this.key.shadow.mapSize.set(2048, 2048);
+    // The penthouse spans x -13.75..7.75; the old +/-12 frustum did not reach the
+    // west-wing bed alcove, so nothing there cast or received a shadow at all.
+    this.key.shadow.camera.left = -18; this.key.shadow.camera.right = 14;
+    this.key.shadow.camera.top = 14; this.key.shadow.camera.bottom = -14;
+    this.key.shadow.camera.near = 0.5;
+    this.key.shadow.camera.far = 44;
+    // no bias was set at all, which is what produced the acne + peter-panning
+    this.key.shadow.bias = -0.0006;
+    this.key.shadow.normalBias = 0.022;
 
     this.warm = new THREE.PointLight(0xffb347, 95, 11, 1.8);
     this.warm.position.set(-6.2, 2.0, -2.4);            // over the lounge lamp
@@ -52,6 +60,35 @@ export class Lighting {
     };
     /** @type {import('../core/clock.js').GameClock|null} set by the app for ToD */
     this.clock = null;
+
+    // Image-based lighting, derived from each preset's own palette so a retint
+    // also changes what the room's chrome, glass, skin and hair reflect.
+    this.env = new EnvBuilder(stage.renderer);
+    this._applyEnv('neon_night');
+  }
+
+  /**
+   * Swap in the prefiltered environment for a preset. Not cross-faded — PMREM
+   * textures can't blend, and the reflection change reads as a natural cut.
+   * @param {string} id
+   */
+  _applyEnv(id) {
+    const p = presets()[id];
+    if (!p) return;
+    try {
+      this.stage.scene.environment = this.env.get(id, {
+        sky: p.fog?.color ?? 0x05070f,
+        horizon: p.hemi?.sky ?? 0x1b2a55,
+        ground: p.hemi?.ground ?? 0x07060a,
+        signs: [p.cool?.color ?? 0x39e6ff, p.accent?.color ?? 0xff3fa4, p.warm?.color ?? 0xffb347],
+        intensity: THREE.MathUtils.clamp(p.hemi?.intensity ?? 1, 0.12, 2),
+      });
+      // reflections should not overpower the authored key/fill balance
+      this.stage.scene.environmentIntensity = cfg('lighting.envIntensity', 0.55);
+    } catch (err) {
+      // IBL is an enhancement, never a boot blocker
+      console.warn('[lighting] env map build failed', err);
+    }
   }
 
   /** shift the light kit to another floor's world offset */
@@ -76,6 +113,7 @@ export class Lighting {
     this.presetId = id;
     this._fadeT = 0;
     this._fadeDur = Math.max(0.01, fadeSec);
+    this._applyEnv(id);
   }
 
   _snapshot() {

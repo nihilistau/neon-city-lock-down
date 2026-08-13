@@ -96,6 +96,7 @@ export const CONFIG_SCHEMA = {
     // validated as present objects — the game tolerates missing fields (falls back).
     presets: { map: { any: true } },
     tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
+    envIntensity: num(0, 3),
   },
   humanoid: {
     gait: {
