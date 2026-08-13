@@ -12,10 +12,14 @@ import { feed } from '../core/log.js';
 export function endRun(app, endedBy) {
   const run = app.run;
   const bonds = {};
+  /** cast who didn't make it — NPCs can die now (Character.die), so record them */
+  const lost = [];
   for (const c of Object.values(app.cast)) {
     bonds[c.id] = Math.round(c.stats.trust);
+    if (!c.alive) lost.push(c.id);
   }
   const summary = {
+    lost,
     days: app.clock.day,
     minutes: app.clock.totalMinutes,
     kills: run.history.kills || 0,

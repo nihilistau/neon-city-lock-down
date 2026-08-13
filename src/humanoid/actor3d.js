@@ -8,6 +8,12 @@ import { buildBody } from './bodyBuilder.js';
 import { FaceRig } from './face.js';
 import { Animator } from './animator.js';
 
+/** Material texture slots an actor can own; all must be disposed with the body. */
+const TEXTURE_SLOTS = [
+  'map', 'roughnessMap', 'metalnessMap', 'normalMap', 'bumpMap',
+  'emissiveMap', 'alphaMap', 'aoMap',
+];
+
 export class Actor3D {
   /** @param {import('../../data/cast/lola.js').lola} persona */
   constructor(persona) {
@@ -50,7 +56,30 @@ export class Actor3D {
   lookAt(obj) { this.animator.lookAt(obj); }
 
   /** @param {string} clipId @param {number} [fade] */
-  playClip(clipId, fade) { this.animator.play(clipId, fade); }
+  playClip(clipId, fade) {
+    if (this.downed) return;   // a corpse stays down whoever asks
+    this.animator.play(clipId, fade);
+  }
+
+  /**
+   * Collapse (or un-collapse) this body. Latched, because plenty of callers
+   * replay an idle clip afterwards — the combat resolver, save restore, the
+   * director — and none of them know the character just died.
+   * @param {boolean} v
+   */
+  setDowned(v) {
+    this.downed = false;                 // let the pose change land
+    if (v) {
+      this.playClip('lounge', 0.35);
+      this.lookAt(null);
+      this.face.setExpression({ lids: 1, mouth: 'neutral', browAngle: 0, browRaise: 0 });
+      this.setRim(0);
+      this.root.rotation.x = -Math.PI / 2 * 0.06;
+    } else {
+      this.root.rotation.x = 0;
+    }
+    this.downed = !!v;
+  }
 
   /** set arousal/energy tempo scalar (drives tempoScaled clips + breath) */
   setTempo(t) { this.animator.tempo = t; }
@@ -86,7 +115,12 @@ export class Actor3D {
       const m = /** @type {THREE.Mesh} */ (o);
       if (m.geometry) m.geometry.dispose();
       const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
-      for (const mat of mats) { if (mat.map) mat.map.dispose(); mat.dispose(); }
+      // every texture slot, not just .map — the 128px roughness CanvasTexture is
+      // built per actor, so one leaked per hostile per combat wave
+      for (const mat of mats) {
+        for (const slot of TEXTURE_SLOTS) mat[slot]?.dispose?.();
+        mat.dispose();
+      }
     });
   }
 }

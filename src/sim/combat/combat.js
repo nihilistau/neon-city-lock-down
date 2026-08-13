@@ -357,6 +357,17 @@ export class Combat {
     return Math.abs(c.actor.root.position.x - ref.x) < 100;
   }
 
+  /** one of the cast is down for good — the survivors feel it */
+  _castMourn(fallen) {
+    this.d.sfx('thump');
+    emit('hud.alert', { text: `${fallen.name.toUpperCase()} IS DOWN`, kind: 'danger' });
+    for (const c of Object.values(this.d.cast())) {
+      if (!c.alive || c.id === fallen.id) continue;
+      c.applyStats({ fear: 14, tension: 16, happiness: -12, loyalty: -2 }, 'witnessed_death');
+      c.memory.setFlag(`lost_${fallen.id}`);
+    }
+  }
+
   /** cast members return fire from cover */
   _castFire(dt) {
     this._castFireT += dt;
@@ -510,6 +521,12 @@ export class Combat {
               best.char.injuries.push(injury);
               best.char.applyStats({ fear: 6, tension: 8, energy: -5 }, 'wounded');
               feed(`${best.char.name} takes a ${injury.severity} to the ${injury.part}.`, 'combat');
+              // the cast can actually fall now — Character.hurt() clears `alive`,
+              // which every targeting/AI/relationship filter has always read but
+              // nothing ever set. The dead drop out of `targets` next update.
+              if (best.char.hurt(res.damage, 'wounds')) {
+                this._castMourn(best.char);
+              }
             }
           } else if (cover > 0) {
             feed(best.kind === 'player' ? 'Rounds thud into your cover.' : `${best.char.name}'s cover holds.`, 'combat');
@@ -565,6 +582,7 @@ export class Combat {
       feed('The floor is clear.', 'combat');
       emit('hud.alert', { text: 'THREAT NEUTRALIZED', kind: 'info' });
       for (const c of Object.values(this.d.cast())) {
+        if (!c.alive) continue;   // no relief, no idle clip, no queue for the fallen
         c.applyStats({ trust: 5, tension: -6, fear: -4 }, 'victory');
         c.memory.setFlag('survived_breach');
         if (c.id !== 'vox' && c.present !== false) {

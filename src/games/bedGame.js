@@ -2,19 +2,32 @@
 // Bed game engine. Actions are gate-checked through gates.js (the sole authority).
 // Escalation is a consent ladder: "Ask for more" attempts to offer+grant the next
 // tier IF the partner's stats support it (canOffer) — otherwise they decline. The
-// explicitness setting caps the reachable top tier. All actions run through the
-// same paired-pose + stat pipeline as the rest of the game.
+// explicitness setting (chars.gates.explicitnessCap) caps the reachable top tier.
+// The scene itself is staged by app.enterBedScene(); this engine owns the ladder,
+// the stat pipeline, and parking the partner's brain for the duration.
 import { BED_ACTIONS, BED_TIERS } from '../../data/games/bedActions.js';
-import { GATE_LADDER, tierIndex, canOffer, gateCheck } from '../chars/gates.js';
+import { GATE_LADDER, tierIndex, canOffer, gateCheck, EXPLICITNESS_CAP } from '../chars/gates.js';
 import { animTempo } from '../chars/mood.js';
-import { startPairedPose, endPairedPose } from '../humanoid/pairedPoses.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
 import { cfg } from '../core/config.js';   // desire/climax/safeword tuning → config/gameplay.yaml (bed)
 
-const TIER_GATE = { 1: 'light_touch', 2: 'kiss', 3: 'touch', 4: 'intimate', 5: 'explicit' };
+/**
+ * Panel tier → the ladder rung that OPENS that row. Derived from the actions
+ * themselves rather than hard-coded: the old map was
+ * {1:light_touch,2:kiss,3:touch,4:intimate,5:explicit}, which skipped `undress`
+ * and `depraved` entirely, so row 4 read "locked" while its three undress
+ * actions were already enabled by their own gate check.
+ * @type {Record<number, import('../core/types.js').GateTier>}
+ */
+const TIER_GATE = Object.fromEntries(BED_TIERS.map((t) => [
+  t.tier,
+  t.actions.map((a) => a.gate).reduce((lo, g) => (tierIndex(g) < tierIndex(lo) ? g : lo)),
+]));
 // tier → intimate bed pose (data/poses/intimate.js)
 const BED_CLIP = { 1: 'bed_recline', 2: 'bed_reach', 3: 'bed_straddle', 4: 'bed_straddle', 5: 'bed_arch' };
+/** How long (game minutes) one bed action holds the partner's brain off autopilot. */
+const HOLD_MINUTES = 45;
 
 export class BedGame {
   /**
@@ -46,11 +59,30 @@ export class BedGame {
     this.active = true;
     this.climaxed = false;
     this.peakPleasure = 0;
-    // move onto the bed together (paired pose)
-    startPairedPose('couch_close', partner, partner); // solo anchor; partner leads
+    // Hold the partner's brain; app.enterBedScene() does the actual staging (onto
+    // the BED, in first person). This used to call startPairedPose('couch_close',
+    // partner, partner) — the same character in both roles, which cleared their
+    // queue twice, walked them to the lounge couch's seat0 AND seat1, and had
+    // them look at themselves. It only ever looked right because enterBedScene
+    // cleared the queue immediately afterwards: pure ordering luck.
+    this._hold();
     feed(`${partner.name} and you slip away together.`, 'gate');
     emit('bedgame.started', { partner: partner.id });
     return { ok: true, state: this.state() };
+  }
+
+  /**
+   * Keep the partner's utility AI parked for another `HOLD_MINUTES`.
+   * 'pose.paired' is the engine's existing brain-hold channel (app.js engages
+   * both named brains). Without a refresh per action the single 45-minute hold
+   * from the opening pose expired after ~45 real seconds at 1×, and the partner
+   * got up off the bed to go wander / pour a drink mid-scene.
+   */
+  _hold() {
+    if (!this.partner) return;
+    emit('pose.paired', {
+      pose: 'bed_scene', a: this.partner.id, b: this.partner.id, holdMinutes: HOLD_MINUTES,
+    });
   }
 
   /**
@@ -75,7 +107,7 @@ export class BedGame {
     if (!this.partner) return null;
     const p = this.partner;
     const settings = { explicitness: this.d.explicitness() };
-    const cap = tierIndex({ suggestive: 'kiss', mature: 'intimate', full: 'depraved' }[settings.explicitness]);
+    const cap = tierIndex(this._capTier());
     const tiers = BED_TIERS.map((t) => {
       const gateOk = gateCheck(p, TIER_GATE[t.tier], settings).allowed;
       const capped = tierIndex(TIER_GATE[t.tier]) > cap;
@@ -109,8 +141,15 @@ export class BedGame {
     return GATE_LADDER[nextIdx] || null;
   }
 
+  /**
+   * The top tier the explicitness setting allows. Read live from gates.js's
+   * authoritative source (config/chars.yaml → chars.gates.explicitnessCap); it
+   * was inlined here and in state(), so editing the config moved what gateCheck()
+   * permitted without moving what this panel showed as capped.
+   */
   _capTier() {
-    return { suggestive: 'kiss', mature: 'intimate', full: 'depraved' }[this.d.explicitness()];
+    return cfg('chars.gates.explicitnessCap', EXPLICITNESS_CAP)[this.d.explicitness()]
+      ?? EXPLICITNESS_CAP.mature;
   }
 
   /** the next locked tier the partner is BOTH able and willing to open (or null) */
@@ -137,6 +176,7 @@ export class BedGame {
       this.partner.gate(tier, 'grant', this.d.nowMinute());
       // saying yes to more is itself arousing + trust-affirming
       this.partner.applyStats({ arousal: 4, horniness: 3, trust: 2, tension: -2 }, 'yes');
+      this._hold();
       const line = this._consentLine(this.partner, tier);
       feed(`${this.partner.name}: ${line}`, 'gate');
       emit('bedgame.state', this.state());
@@ -163,6 +203,7 @@ export class BedGame {
     this.partner.actor.setTempo(animTempo(this.partner.stats));
     this.partner.actor.playClip(BED_CLIP[a.tier] || 'bed_recline', 0.4);
     this.d.sfx(a.tier >= 3 ? 'thump' : 'ui_confirm');
+    this._hold();   // every action re-parks the brain; the scene lasts as long as you do
     const line = this.d.rng.pick(a.lines);
     feed(line, 'dialogue');
     emit('bedgame.action', { id: a.id, tier: a.tier, line });
@@ -216,7 +257,9 @@ export class BedGame {
     if (this.partner) {
       // afterglow
       this.partner.applyStats({ tension: -8, happiness: 4, arousal: -10 }, 'afterglow');
-      endPairedPose(this.partner, this.partner);
+      // app.exitBedScene() puts the partner back on the floor and idling; the old
+      // endPairedPose(partner, partner) just cleared/stood the same queue twice
+      emit('pose.unpaired', { a: this.partner.id, b: this.partner.id });
       feed(`The night winds down. ${this.partner.name} settles against you.`, 'gate');
       emit('bedgame.ended', { partner: this.partner.id });
     }

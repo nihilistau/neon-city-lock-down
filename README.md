@@ -99,7 +99,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 - **New-game flow & roguelike.** A main menu picks from 16 scenarios and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
-  repair, **16 world events** plus a scheduled extraction endgame, perma-death
+  repair, **17 world events** plus a scheduled extraction endgame, perma-death
   with a run summary, and light meta-progression (a codex of discovered lore +
   run history).
 - **Combat as a mode.** Breaches arrive in **waves** with a combat HUD (hostile
@@ -125,11 +125,11 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   voice lines** (plus an optional live TTS sidecar for un-baked lines).
 - **Cinematics & a Director panel.** Camera-spline cutscenes with letterbox and
   subtitles; an 8-tab director console to stage lighting, cast, dialogue,
-  actions, 15 scenarios, the world, games, and settings.
+  actions, 16 scenarios, the world, games, and settings.
 - **Save/load & easter eggs.** Multiple save slots + autosave (deleted on death),
-  export/import, a playable bar synth, a fish tank that dies in long blackouts, a
-  balcony telescope, VOX growing fond of you across nights, and a Konami-code
-  maintenance-shaft stash.
+  JSON export (export-only — there is no import yet), a playable bar synth, a
+  fish tank that dies in long blackouts, a balcony telescope, VOX growing fond of
+  you across nights, and a Konami-code maintenance-shaft stash.
 
 ---
 
@@ -140,7 +140,9 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   Firefox). A discrete GPU is nice but not required — the scene is deliberately
   light (~33k triangles).
 - **[Node.js](https://nodejs.org) 18+** — only to run the tiny static file
-  server (no npm install, no build step, zero runtime dependencies).
+  server (no npm install, no build step, zero runtime dependencies). Running the
+  unit suites (`npm test`) needs **Node 20+**, where the built-in test runner is
+  stable.
 
 ### Get it running
 ```bash
@@ -208,8 +210,9 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-node --test "test/unit/*.test.mjs"    # 44 unit tests (pure logic: stats, gates, dialogue, combat, theory…)
+npm test                              # === node --test — 103 unit tests (stats, gates, dialogue, combat, theory…)
 node tools/lint-data.mjs              # validate all content modules + cross-references
+node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js
 node tools/bake-tts.mjs               # (re)bake voice lines via the voxtral CLI (incremental by hash)
 ```
 

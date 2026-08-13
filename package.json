@@ -6,7 +6,7 @@
   "description": "Neon-City: Lock-Down — 18+ neon-noir 3D roleplay/survival game (three.js).",
   "scripts": {
     "serve": "node tools/serve.mjs 8420",
-    "test": "node --test test/unit/*.mjs",
+    "test": "node --test",
     "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs",
     "lint:data": "node tools/lint-data.mjs",
     "lint:config": "node tools/lint-config.mjs",

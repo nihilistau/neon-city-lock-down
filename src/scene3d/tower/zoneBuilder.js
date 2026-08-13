@@ -455,6 +455,11 @@ export class World3D {
           roof_crate: 'Open the crate', supply_crate: 'Open the crate',
           vox_monolith: 'Touch the core',
           gurney0: 'Treat the wounded', gurney1: 'Treat the wounded',
+          // mystery-case clue props. Without these four the `ledger` clue was
+          // unobtainable (its zone `vanity` has no other interactable), so
+          // `ask_kai` never unlocked and the dead-drop case degraded to a guess.
+          vanity_table: 'Search the vanity', shower_pod: 'Inspect the shower pod',
+          security_desk: 'Read the camera logs', monitor_wall: 'Study the monitor wall',
         };
         if (PROP_PROMPTS[f.id]) {
           // clone materials on prop meshes so hover-highlight can't mutate the

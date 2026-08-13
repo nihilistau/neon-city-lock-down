@@ -91,8 +91,10 @@ const PIECES = {
       { bone: BONE_INDEX.chest, from: 0.762 * h, to: 0.86 * h },
     ], 0.03 * h);
     parts.push(shell);
-    // sleeves: upper arm cover
-    const { ARM_ANGLE } = { ARM_ANGLE: Math.PI / 180 * 42 };
+    // sleeves: upper arm cover (direction comes from the joint positions, so the
+    // dead `const { ARM_ANGLE } = { ARM_ANGLE: Math.PI/180*42 }` that used to sit
+    // here — a hardcoded copy of skeleton.js's config-overridable ARM_ANGLE that
+    // nothing read — is gone)
     for (const side of ['L', 'R']) {
       const sh = j['arm' + side], el = j['fore' + side];
       const dir = el.clone().sub(sh).normalize();

@@ -1,14 +1,19 @@
 // @ts-check
 // Scene tab: lighting presets, time control, camera focus.
 import { PRESETS } from '../../scene3d/lighting.js';
+import { cfg } from '../../core/config.js';
 
 /** @param {HTMLElement} el @param {import('../../core/app.js').App} app */
 export function tabScene(el, app) {
+  // read LIVE presets (config/lighting.yaml), not the static back-compat export —
+  // lighting.apply() already resolves them that way, so a config-added preset
+  // worked everywhere except the one UI that would let you click it
+  const presets = cfg('lighting.presets', PRESETS);
   el.innerHTML = `
     <div class="dir-section">
       <div class="dir-label">LIGHTING</div>
       <div class="dir-row" id="ts-lights">
-        ${Object.keys(PRESETS).map((id) =>
+        ${Object.keys(presets).map((id) =>
           `<button class="${app.lighting.presetId === id ? 'active' : ''}" data-preset="${id}">${id.replace('_', ' ')}</button>`).join('')}
       </div>
     </div>

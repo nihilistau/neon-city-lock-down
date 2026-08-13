@@ -134,7 +134,8 @@ export class LLMPanel {
           h('h1', { class: 'neon-title', style: 'font-size:22px' }, ['LLM ENGINE']),
           h('button', { onclick: () => this.close() }, ['Close (L)']),
         ]),
-        h('div', { class: 'llm-status', style: 'margin:4px 0 10px;color:var(--cyan)' }, [status]),
+        h('div', { class: 'llm-status', style: 'margin:4px 0 6px;color:var(--cyan)' }, [status]),
+        this._flashEl = h('div', { style: 'min-height:16px;color:var(--gold,#ffb347);font-size:12px;margin-bottom:6px' }, [this._flashMsg || '']),
         ...body,
       ]),
     ]);
@@ -162,8 +163,18 @@ export class LLMPanel {
     for (let i = 0; i < keys.length - 1; i++) o = (o[keys[i]] ??= {});
     o[keys[keys.length - 1]] = value;
     const res = await saveConfigFile('llm', llm);
-    if (!res.ok) console.warn('[llm config] save rejected:', res.errors);
+    // a rejected save used to be a console.warn and nothing else — the slider
+    // stayed where you dragged it while config/llm.yaml never changed
+    if (!res.ok) {
+      console.warn('[llm config] save rejected:', res.errors);
+      this._flash(`${relPath} rejected: ${(res.errors || ['save failed']).join(' · ')}`);
+    } else {
+      this._flash(`saved ${relPath} = ${value}`);
+    }
   }
+
+  /** status/error strip (same pattern as kitPanel / voicePanel) */
+  _flash(msg) { this._flashMsg = msg; if (this._flashEl) this._flashEl.textContent = msg; }
 
   /** a labelled range bound to an llm.<relPath> config value (saves on release) */
   _cfgRange(label, relPath, min, max, step) {
@@ -178,7 +189,9 @@ export class LLMPanel {
   _advanced() {
     return h('div', { class: 'dir-section' }, [
       h('div', { class: 'dir-label' }, ['ADVANCED ENGINE — config/llm.yaml']),
-      h('div', { class: 'dir-row' }, [this._cfgRange('top-p', 'sampling.topP', 0, 1, 0.01)]),
+      // min must match data/configSchema.js (topP: num(0.01, 1)) — a slider min of
+      // 0 let you drag to a value the schema rejects, silently discarding the save
+      h('div', { class: 'dir-row' }, [this._cfgRange('top-p', 'sampling.topP', 0.01, 1, 0.01)]),
       h('div', { class: 'dir-row' }, [this._cfgRange('top-k', 'sampling.topK', 0, 200, 1)]),
       h('div', { class: 'dir-row' }, [this._cfgRange('min-p', 'sampling.minP', 0, 0.5, 0.01)]),
       h('div', { class: 'dir-row' }, [this._cfgRange('repeat penalty', 'sampling.repeatPenalty', 1, 2, 0.01)]),
