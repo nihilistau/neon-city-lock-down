@@ -52,6 +52,8 @@ export const CONFIG_SCHEMA = {
       dayBaseStart: num(0, 100), dayBasePerDay: num(0, 50), dayBaseCap: num(0, 100),
       nightBoost: num(0, 50), duskBoost: num(0, 50), waveAmp: num(0, 50), ease: num(0, 1),
       spikeDecay: num(0, 1), flareChance: num(0, 1), flareMin: num(0, 50), flareMax: num(0, 50),
+      camerasBlindPenalty: num(0, 50), jammerRelief: num(0, 50),
+      jammerDurationMin: num(0, 10000), ceasefireRelief: num(0, 50),
     },
     survival: {
       mealsPerDay: num(0, 24), waterPerDay: num(0, 24),

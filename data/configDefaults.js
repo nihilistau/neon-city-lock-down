@@ -104,6 +104,11 @@ export const CONFIG_DEFAULTS = {
       spikeDecay: 0.9985,      // per-minute decay of an event spike
       flareChance: 0.002,      // per-minute chance of a random flare
       flareMin: 1, flareMax: 4,
+      // tower-system + flag consequences (added toward the threat TARGET)
+      camerasBlindPenalty: 8,  // cameras offline → VOX is blind, threat sits higher
+      jammerRelief: 12,        // a live signal jammer suppresses threat…
+      jammerDurationMin: 240,  // …for this many game-minutes after use
+      ceasefireRelief: 12,     // a brokered faction ceasefire eases the baseline
     },
     survival: {
       mealsPerDay: 3, waterPerDay: 1,   // per head

@@ -36,6 +36,18 @@ export class ElevatorUI {
   async ride(destFloor) {
     const app = this.app;
     if (this.riding || destFloor === app.world.activeFloor) return;
+    // A locked elevator must actually refuse. `systems.elevator.locked` was set
+    // by VOX/events and read by nothing, so the lockdown had no teeth.
+    if (app.run.systems.elevator.locked) {
+      feed('The elevator is locked down. VOX holds the car.', 'system');
+      emit('hud.alert', { text: 'Elevator locked down', kind: 'warn' });
+      return;
+    }
+    if (!app.run.systems.elevator.online) {
+      feed('The elevator is dead — no power to the car.', 'system');
+      emit('hud.alert', { text: 'Elevator offline', kind: 'warn' });
+      return;
+    }
     this.riding = true;
     const fromFloor = app.world.activeFloor;
     const mins = travelMinutes(fromFloor, destFloor);
