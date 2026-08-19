@@ -7,9 +7,17 @@ import * as THREE from 'three';
 import { PALETTE } from './materials/palette.js';
 import { cfg } from '../core/config.js';
 import { LIGHTING_PRESETS, TOD_KEYS } from '../../data/lightingPresets.js';
+import { EnvBuilder } from './env.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
+
+// Scratch colour for every lerp target below. `Color.lerp` only READS its
+// argument, so one reused instance is safe and correct. This used to be a fresh
+// `new THREE.Color(to)` per call: 7 allocations per frame for the whole duration
+// of any fade, plus one per frame FOREVER via the time-of-day path — which runs
+// unconditionally while presetId === 'neon_night', i.e. essentially always.
+const _lerpTo = new THREE.Color();
 const presets = () => cfg('lighting.presets', LIGHTING_PRESETS);
 // need ≥2 keyframes to interpolate; a malformed/empty config tod falls back to the default
 const todKeys = () => { const t = cfg('lighting.tod', TOD_KEYS); return Array.isArray(t) && t.length >= 2 ? t : TOD_KEYS; };
@@ -22,9 +30,16 @@ export class Lighting {
     this.key = new THREE.DirectionalLight(0xbfd8ff, 1.1);
     this.key.position.set(6, 10, 10);
     this.key.castShadow = true;
-    this.key.shadow.mapSize.set(1024, 1024);
-    this.key.shadow.camera.left = -12; this.key.shadow.camera.right = 12;
-    this.key.shadow.camera.top = 12; this.key.shadow.camera.bottom = -12;
+    this.key.shadow.mapSize.set(2048, 2048);
+    // The penthouse spans x -13.75..7.75; the old +/-12 frustum did not reach the
+    // west-wing bed alcove, so nothing there cast or received a shadow at all.
+    this.key.shadow.camera.left = -18; this.key.shadow.camera.right = 14;
+    this.key.shadow.camera.top = 14; this.key.shadow.camera.bottom = -14;
+    this.key.shadow.camera.near = 0.5;
+    this.key.shadow.camera.far = 44;
+    // no bias was set at all, which is what produced the acne + peter-panning
+    this.key.shadow.bias = -0.0006;
+    this.key.shadow.normalBias = 0.022;
 
     this.warm = new THREE.PointLight(0xffb347, 95, 11, 1.8);
     this.warm.position.set(-6.2, 2.0, -2.4);            // over the lounge lamp
@@ -52,6 +67,51 @@ export class Lighting {
     };
     /** @type {import('../core/clock.js').GameClock|null} set by the app for ToD */
     this.clock = null;
+
+    // Image-based lighting, derived from each preset's own palette so a retint
+    // also changes what the room's chrome, glass, skin and hair reflect.
+    this.env = new EnvBuilder(stage.renderer);
+    this._applyEnv('neon_night');
+  }
+
+  /**
+   * Scale a preset's authored hemisphere intensity.
+   *
+   * The 10 presets were authored with NO environment map, so their hemisphere
+   * light was standing in for all ambient bounce. Now that IBL supplies real
+   * ambient, applying both double-counts it — the penthouse went flat and beige
+   * and lost its noir contrast. Rather than re-author every preset (which would
+   * throw away their hand-tuned relative balance), scale only the pure-ambient
+   * term and leave the authored key/fill/accent alone.
+   * @param {number} v
+   */
+  _hemi(v) {
+    return v * cfg('lighting.hemiScale', 0.45);
+  }
+
+  /**
+   * Swap in the prefiltered environment for a preset. Not cross-faded — PMREM
+   * textures can't blend, and the reflection change reads as a natural cut.
+   * @param {string} id
+   */
+  _applyEnv(id) {
+    const p = presets()[id];
+    if (!p) return;
+    try {
+      this.stage.scene.environment = this.env.get(id, {
+        sky: p.fog?.color ?? 0x05070f,
+        horizon: p.hemi?.sky ?? 0x1b2a55,
+        ground: p.hemi?.ground ?? 0x07060a,
+        signs: [p.cool?.color ?? 0x39e6ff, p.accent?.color ?? 0xff3fa4, p.warm?.color ?? 0xffb347],
+        intensity: THREE.MathUtils.clamp(p.hemi?.intensity ?? 1, 0.12, 2),
+      });
+      // reflections should not overpower the authored key/fill balance
+      this.stage.scene.environmentIntensity = cfg('lighting.envIntensity', 0.4);
+      this.hemi.intensity = this._hemi(p.hemi?.intensity ?? this.hemi.intensity);
+    } catch (err) {
+      // IBL is an enhancement, never a boot blocker
+      console.warn('[lighting] env map build failed', err);
+    }
   }
 
   /** shift the light kit to another floor's world offset */
@@ -76,6 +136,7 @@ export class Lighting {
     this.presetId = id;
     this._fadeT = 0;
     this._fadeDur = Math.max(0.01, fadeSec);
+    this._applyEnv(id);
   }
 
   _snapshot() {
@@ -97,17 +158,18 @@ export class Lighting {
       this._fadeT = Math.min(1, this._fadeT + dt / this._fadeDur);
       const k = this._fadeT * this._fadeT * (3 - 2 * this._fadeT);
       const a = this._from, b = this._target;
-      const lerpColor = (light, prop, from, to) => light[prop].setHex(from).lerp(new THREE.Color(to), k);
+      // `light[prop]` is never `_lerpTo`, so setHex-then-lerp cannot self-alias
+      const lerpColor = (light, prop, from, to) => light[prop].setHex(from).lerp(_lerpTo.setHex(to), k);
       lerpColor(this.hemi, 'color', a.hemi.sky, b.hemi.sky);
       lerpColor(this.hemi, 'groundColor', a.hemi.ground, b.hemi.ground);
-      this.hemi.intensity = THREE.MathUtils.lerp(a.hemi.intensity, b.hemi.intensity, k);
+      this.hemi.intensity = this._hemi(THREE.MathUtils.lerp(a.hemi.intensity, b.hemi.intensity, k));
       lerpColor(this.key, 'color', a.key.color, b.key.color);
       this.key.intensity = THREE.MathUtils.lerp(a.key.intensity, b.key.intensity, k);
       for (const name of ['warm', 'cool', 'accent']) {
         lerpColor(this[name], 'color', a[name].color, b[name].color);
         this[name].intensity = THREE.MathUtils.lerp(a[name].intensity, b[name].intensity, k);
       }
-      this.stage.scene.fog.color.setHex(a.fog.color).lerp(new THREE.Color(b.fog.color), k);
+      this.stage.scene.fog.color.setHex(a.fog.color).lerp(_lerpTo.setHex(b.fog.color), k);
       this.stage.scene.fog.density = THREE.MathUtils.lerp(a.fog.density, b.fog.density, k);
       this.stage.renderer.toneMappingExposure = THREE.MathUtils.lerp(a.exposure, b.exposure, k);
     }
@@ -120,10 +182,10 @@ export class Lighting {
         if (f >= TOD[i].t && f <= TOD[i + 1].t) { a = TOD[i]; b = TOD[i + 1]; break; }
       }
       const k = b.t > a.t ? (f - a.t) / (b.t - a.t) : 0;
-      this.key.color.setHex(a.key.color).lerp(new THREE.Color(b.key.color), k);
+      this.key.color.setHex(a.key.color).lerp(_lerpTo.setHex(b.key.color), k);
       this.key.intensity = THREE.MathUtils.lerp(a.key.i, b.key.i, k);
       const neon = presets().neon_night;
-      this.hemi.intensity = neon.hemi.intensity * THREE.MathUtils.lerp(a.hemi, b.hemi, k);
+      this.hemi.intensity = this._hemi(neon.hemi.intensity * THREE.MathUtils.lerp(a.hemi, b.hemi, k));
       this.stage.renderer.toneMappingExposure = neon.exposure * THREE.MathUtils.lerp(a.exp, b.exp, k);
     }
 

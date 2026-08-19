@@ -49,7 +49,7 @@ export function compileLine(text) {
  * @param {import('../chars/character.js').Character} ctx.speaker
  * @param {Record<string, import('../chars/character.js').Character>} ctx.cast
  * @param {any} ctx.world @param {any} ctx.lighting @param {any} ctx.audio
- * @param {any} ctx.cutscene @param {(id:string)=>void} [ctx.onBeat]
+ * @param {() => any} [ctx.cameraDirector] @param {(id:string)=>void} [ctx.onBeat]
  * @param {number} ctx.nowMinute
  */
 export function makeDispatcher(ctx) {
@@ -90,7 +90,10 @@ export function makeDispatcher(ctx) {
         ctx.lighting?.apply(a[0], a[1] ? Number(a[1]) : 1.2);
         break;
       case 'cam':
-        ctx.cutscene?.shot?.(a[0]);
+        // was ctx.cutscene?.shot?.() — doubly dead: stageCtx.cutscene was fixed at
+        // null, and CutscenePlayer exposes _shot(spec), not shot(name). Route to
+        // the situational director, which is what a shot *name* actually means.
+        ctx.cameraDirector?.()?.requestShot(a[0], { speaker: speaker.id });
         break;
       case 'sfx':
         ctx.audio?.sfx?.(a[0]);

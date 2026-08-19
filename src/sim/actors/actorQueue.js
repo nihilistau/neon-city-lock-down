@@ -12,6 +12,36 @@ const WALK_SPEED = 1.22;      // m/s
 const ARRIVE_DIST = 0.14;
 
 /**
+ * Seat height each seated clip's `hipsPos` offset was authored against
+ * (data/poses/base.js). sit_relaxed was posed for the lounge couch (seat0 at
+ * y=0.46) with the actor root left on the floor; lounge's hips ride 0.04 higher.
+ */
+const SEAT_REF = { sit_relaxed: 0.46, lounge: 0.50 };
+
+/**
+ * Root Y for a character seated on a socket whose world Y is `socketY`.
+ * The `sit` command used to throw the socket's Y away entirely, so everyone sat
+ * at couch height: bar stools (0.76), the medbay gurney (0.85) and the bed (0.5)
+ * left characters sunk into or floating above the furniture. Pure so it can be
+ * unit-tested.
+ * @param {number} socketY @param {string} [clip]
+ * @returns {number}
+ */
+export function seatRootY(socketY, clip = 'sit_relaxed') {
+  return Math.max(0, socketY - (SEAT_REF[clip] ?? SEAT_REF.sit_relaxed));
+}
+
+/**
+ * Which seated clip a socket wants. `lie_*` sockets (the gurney) are reclines,
+ * everything else is an upright seat.
+ * @param {string} socketRef "furnitureId.socketName"
+ */
+export function seatClip(socketRef) {
+  const name = String(socketRef).split('.')[1] || '';
+  return name.startsWith('lie') ? 'lounge' : 'sit_relaxed';
+}
+
+/**
  * @typedef {Object} Command
  * @property {string} type  goto|sit|stand|playClip|face|look|turn|wait|call
  * @property {any[]} [args]
@@ -35,6 +65,8 @@ export class ActorQueue {
     this._path = null;      // active goto path
     this._waitT = 0;
     this.seatedAt = null;   // socket ref while sitting
+    /** Set when the character dies — a corpse accepts no further commands. */
+    this.frozen = false;
     this.zone = zoneAt(actor.root.position.x, actor.root.position.z) ?? 'lounge';
   }
 
@@ -42,6 +74,7 @@ export class ActorQueue {
 
   /** @param {Command} cmd */
   push(cmd) {
+    if (this.frozen) return false;
     if (cmd.gateTier && this.hooks.gateCheck) {
       const res = this.hooks.gateCheck(cmd.gateTier);
       if (!res.allowed) {
@@ -85,6 +118,7 @@ export class ActorQueue {
 
   /** @param {number} dt seconds */
   update(dt) {
+    if (this.frozen) return;
     if (!this.current) {
       this.current = this.queue.shift() ?? null;
       if (!this.current) return;
@@ -142,9 +176,11 @@ export class ActorQueue {
         const world = socket.getWorldPosition(new THREE.Vector3());
         const yaw = new THREE.Euler().setFromQuaternion(
           socket.getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y;
-        a.root.position.set(world.x, 0, world.z);
+        // consume the socket's HEIGHT, not just its footprint — see seatRootY()
+        const clip = seatClip(cmd.args[0]);
+        a.root.position.set(world.x, seatRootY(world.y, clip), world.z);
         a.faceYaw(yaw + Math.PI); // sit sockets face outward; body faces the same way
-        a.playClip('sit_relaxed', 0.45);
+        a.playClip(clip, 0.45);
         this.seatedAt = cmd.args[0];
         this._waitT = 0.5; // settle time
         break;
@@ -180,9 +216,11 @@ export class ActorQueue {
     const a = this.actor;
     this.seatedAt = null;
     a.playClip(a.persona.personality.idleClip || 'idle_stand', 0.4);
-    // step forward off the seat
+    // step forward off the seat, and back down to the floor — walking only moves
+    // x/z, so a stool-height root Y would otherwise stay for the rest of the run
     const fwd = new THREE.Vector3(0, 0, 0.45).applyEuler(a.root.rotation);
     a.root.position.add(fwd);
+    a.root.position.y = 0;
   }
 
   /**

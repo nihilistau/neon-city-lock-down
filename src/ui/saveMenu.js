@@ -10,8 +10,10 @@ export class SaveMenu {
     this.open = false;
     this.el = null;
     document.addEventListener('keydown', (e) => {
+      // guard every focusable text/choice control, not just <input> — Esc while
+      // editing the Creation Kit's JSON textarea used to stack this on top of it
       if (e.code === 'Escape' && this.app.mode === 'run'
-          && !(e.target instanceof HTMLInputElement)) {
+          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
         this.toggle();
       }
     });

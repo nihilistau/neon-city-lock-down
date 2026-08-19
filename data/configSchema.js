@@ -52,6 +52,8 @@ export const CONFIG_SCHEMA = {
       dayBaseStart: num(0, 100), dayBasePerDay: num(0, 50), dayBaseCap: num(0, 100),
       nightBoost: num(0, 50), duskBoost: num(0, 50), waveAmp: num(0, 50), ease: num(0, 1),
       spikeDecay: num(0, 1), flareChance: num(0, 1), flareMin: num(0, 50), flareMax: num(0, 50),
+      camerasBlindPenalty: num(0, 50), jammerRelief: num(0, 50),
+      jammerDurationMin: num(0, 10000), ceasefireRelief: num(0, 50),
     },
     survival: {
       mealsPerDay: num(0, 24), waterPerDay: num(0, 24),
@@ -96,6 +98,8 @@ export const CONFIG_SCHEMA = {
     // validated as present objects — the game tolerates missing fields (falls back).
     presets: { map: { any: true } },
     tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
+    envIntensity: num(0, 3),
+    hemiScale: num(0, 2),
   },
   humanoid: {
     gait: {
@@ -104,6 +108,31 @@ export const CONFIG_SCHEMA = {
     },
     animator: { crossfade: num(0, 3) },
     skeleton: { armAngle: num(0, 90) },
+    body: {
+      radialTrunk: num(6, 64), radialLimb: num(4, 48), skinBand: num(0.002, 0.2),
+      deltoidBlend: num(0, 1), gluteBlend: num(0, 1), jawBlend: num(0, 1),
+    },
+    skin: {
+      roughness: num(0.02, 1), sheen: num(0, 1), sheenRoughness: num(0, 1),
+      envMapIntensity: num(0, 3), subsurface: num(0, 2), subsurfaceWrap: num(0, 1),
+    },
+    hair: {
+      strands: num(0, 400), fallScale: num(0, 4), roughness: num(0.02, 1),
+      sheen: num(0, 1), anisotropy: num(0, 1),
+      envMapIntensity: num(0, 3), stiffness: num(1, 400), damping: num(0.1, 60),
+      sway: num(0, 0.5), idleSway: num(0, 0.5), maxDeg: num(0, 80),
+    },
+    eye: {
+      sclera: num(0, 0xffffff), roughness: num(0.02, 1),
+      envMapIntensity: num(0, 3), catchlight: num(0, 1),
+    },
+    face: {
+      redrawHz: num(1, 60), jawOpenDeg: num(0, 45), relief: num(0, 3), borderTuck: num(0, 0.05),
+    },
+    outfit: {
+      clearance: num(0.0005, 0.05), thickness: num(0.0002, 0.03),
+      radial: num(6, 64), envMapIntensity: num(0, 3),
+    },
   },
   world: {
     clock: {

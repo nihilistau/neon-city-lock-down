@@ -1,6 +1,21 @@
 // @ts-check
 // Tiny hyperscript helper — no framework. h(tag, props, children).
 // props: attributes + on<Event> handlers + style/class strings.
+// Plus escapeHtml, the shared guard for the innerHTML-building panels.
+
+/**
+ * Escape a value for interpolation into an innerHTML template — including into a
+ * double-quoted attribute. Content authored in the Creation Kit (`user/*.json`)
+ * reaches event prompts, codex entries and save labels, so these are not all
+ * trusted strings.
+ * @param {unknown} s
+ * @returns {string}
+ */
+export function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 /**
  * @param {string} tag

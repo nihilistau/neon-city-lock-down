@@ -5,19 +5,118 @@ import * as THREE from 'three';
 
 /** @type {Map<string, THREE.CanvasTexture>} */
 const cache = new Map();
+/** derived normal maps, keyed `${albedoKey}|${strength}` — same lifetime as `cache` */
+const normalCache = new Map();
 
 function make(key, size, drawFn, { repeat = 1 } = {}) {
   let tex = cache.get(key);
   if (tex) return tex;
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  drawFn(c.getContext('2d'), size);
+  // Every recipe calls noise() (a getImageData/putImageData round trip) and most
+  // are then read again by normalFor(). Without this the canvas is GPU-backed
+  // and each readback stalls on a GPU->CPU sync; these canvases are drawn once
+  // and read twice, so a CPU-backed one is strictly better.
+  drawFn(c.getContext('2d', { willReadFrequently: true }), size);
   tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat, repeat);
+  // remembered so normalFor() can re-read the pixels it was drawn from
+  tex.userData.recipeKey = key;
+  tex.userData.canvas = c;
   cache.set(key, tex);
   return tex;
+}
+
+/**
+ * Derive a tangent-space normal map from an albedo canvas via a Sobel gradient
+ * on its luminance — grout lines, plank seams, brush grain and fabric weave are
+ * all *drawn as dark lines*, so their luminance gradient IS the surface relief.
+ *
+ * Nothing in the project had a normal map before this, so every wall, floor and
+ * upholstery surface was perfectly flat under the key light.
+ *
+ * @param {THREE.CanvasTexture} albedo a texture returned by one of the makers below
+ * @param {number} [strength] height scale; higher = deeper relief
+ * @returns {THREE.CanvasTexture|null} null if `albedo` didn't come from make()
+ */
+export function normalFor(albedo, strength = 1.5) {
+  const key = albedo?.userData?.recipeKey;
+  const src = albedo?.userData?.canvas;
+  if (!key || !src) return null;
+  const ck = `${key}|${strength}`;
+  const hit = normalCache.get(ck);
+  if (hit) return hit;
+
+  const s = src.width;
+  const px = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, s, s).data;
+
+  // Luminance, pre-smoothed with a 3x3 box. The albedo generators dust every
+  // recipe with per-pixel Math.random() noise; Sobel on raw noise yields a
+  // sandpaper normal that reads as shimmer, not relief. The blur keeps the
+  // structural edges (grout, seams, weave) and drops the single-pixel grain.
+  const lum = new Float32Array(s * s);
+  for (let i = 0, n = s * s; i < n; i++) {
+    lum[i] = (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255;
+  }
+  const blur = new Float32Array(s * s);
+  const at = (x, y) => lum[((y + s) % s) * s + ((x + s) % s)];   // wrap: textures tile
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) sum += at(x + dx, y + dy);
+      blur[y * s + x] = sum / 9;
+    }
+  }
+  const b = (x, y) => blur[((y + s) % s) * s + ((x + s) % s)];
+
+  const out = document.createElement('canvas');
+  out.width = out.height = s;
+  const octx = out.getContext('2d');
+  const img = octx.createImageData(s, s);
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      // Sobel
+      const dx = (b(x + 1, y - 1) + 2 * b(x + 1, y) + b(x + 1, y + 1))
+               - (b(x - 1, y - 1) + 2 * b(x - 1, y) + b(x - 1, y + 1));
+      const dy = (b(x - 1, y + 1) + 2 * b(x, y + 1) + b(x + 1, y + 1))
+               - (b(x - 1, y - 1) + 2 * b(x, y - 1) + b(x + 1, y - 1));
+      // A dark line is a groove: negate so it reads as carved in, not raised.
+      let nx = -dx * strength, ny = -dy * strength, nz = 1;
+      const inv = 1 / Math.hypot(nx, ny, nz);
+      nx *= inv; ny *= inv; nz *= inv;
+      const i = (y * s + x) * 4;
+      img.data[i]     = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(out);
+  // Normal vectors are DATA, not colour — an sRGB decode here would skew every
+  // normal toward +Z and silently flatten the relief.
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.wrapS = albedo.wrapS; tex.wrapT = albedo.wrapT;
+  tex.repeat.copy(albedo.repeat);
+  normalCache.set(ck, tex);
+  return tex;
+}
+
+/**
+ * Build the `{ map, normalMap, normalScale }` triple for a MeshStandardMaterial
+ * in one call, so every call site stays a one-liner and can't forget the pair.
+ * @param {THREE.CanvasTexture} albedo
+ * @param {number} [strength] Sobel height scale
+ * @param {number} [scale] normalScale — how much of that relief actually shows
+ */
+export function surfaced(albedo, strength = 1.5, scale = 1) {
+  const normalMap = normalFor(albedo, strength);
+  return normalMap
+    ? { map: albedo, normalMap, normalScale: new THREE.Vector2(scale, scale) }
+    : { map: albedo };
 }
 
 function noise(ctx, size, alpha, mono = true) {

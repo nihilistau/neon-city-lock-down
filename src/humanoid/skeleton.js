@@ -4,6 +4,7 @@
 // (rotation.x tips forward, .y twists, .z tilts sideways for every bone).
 import * as THREE from 'three';
 import { cfg } from '../core/config.js';
+import { eyeBallCentre } from './face.js';
 
 /** Bone name → index. Order matters: parents precede children. */
 export const BONES = [
@@ -69,8 +70,12 @@ export function computeJoints(b) {
     neck: new THREE.Vector3(0, 0.862 * h, 0),
     head: new THREE.Vector3(0, 0.908 * h, 0.01 * h),
     jaw: new THREE.Vector3(0, 0.916 * h, 0.02 * h),
-    eyeL: new THREE.Vector3(0.0195 * h, 0.948 * h, 0.048 * h),
-    eyeR: new THREE.Vector3(-0.0195 * h, 0.948 * h, 0.048 * h),
+    // Eye bones sit AT the eyeball centres derived from the face patch (face.js
+    // owns that geometry). A bone even a centimetre off centre makes gaze orbit
+    // the eyeball around the skull instead of spinning it in its socket — which
+    // is half of why the eyes used to be loose Groups on `head` instead.
+    eyeL: eyeBallCentre('L').multiplyScalar(h),
+    eyeR: eyeBallCentre('R').multiplyScalar(h),
     breastL: new THREE.Vector3(0.040 * h, 0.782 * h, 0.052 * h),
     breastR: new THREE.Vector3(-0.040 * h, 0.782 * h, 0.052 * h),
     clavL: new THREE.Vector3(0.02 * h, 0.828 * h, 0),
@@ -91,9 +96,13 @@ export function computeJoints(b) {
     footR: new THREE.Vector3(-hx * 1.1, 0.052 * h, -0.01 * h),
     toeL: new THREE.Vector3(hx * 1.1, 0.018 * h, 0.075 * h),
     toeR: new THREE.Vector3(-hx * 1.1, 0.018 * h, 0.075 * h),
-    hair1: new THREE.Vector3(0, 0.94 * h, -0.045 * h),
-    hair2: new THREE.Vector3(0, 0.86 * h, -0.062 * h),
-    hair3: new THREE.Vector3(0, 0.78 * h, -0.058 * h),
+    // Hair chain pivots sit ON the fall line at the nape, not up on the crown:
+    // bodyBuilder skins the FREE (non-scalp) part of each strand card across
+    // hair1→hair3, and a pivot inside the skull would swing that free length
+    // through the head. The animator springs these from root motion.
+    hair1: new THREE.Vector3(0, 0.900 * h, -0.050 * h),
+    hair2: new THREE.Vector3(0, 0.830 * h, -0.058 * h),
+    hair3: new THREE.Vector3(0, 0.760 * h, -0.052 * h),
   };
   return j;
 }

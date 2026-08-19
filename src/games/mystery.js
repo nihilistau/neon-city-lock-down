@@ -36,7 +36,12 @@ export class Mystery {
   onProp(propId, zoneId) {
     if (!this.caseId || this.solved) return;
     const c = MYSTERY_CASES[this.caseId];
-    const clue = c.clues.find((cl) => (cl.prop === propId || cl.zone === zoneId) && !this.found.has(cl.id));
+    // A clue that names a prop must be found ON that prop. The old
+    // `cl.prop === propId || cl.zone === zoneId` also matched on zone alone, so
+    // now that every clue prop is a registered interactable, using the security
+    // desk's neighbouring monitor wall would hand you the desk's clue.
+    const clue = c.clues.find((cl) => !this.found.has(cl.id)
+      && (cl.prop ? cl.prop === propId : cl.zone === zoneId));
     if (!clue) return;
     this.found.add(clue.id);
     feed(`🔍 Clue: ${clue.text}`, 'event');

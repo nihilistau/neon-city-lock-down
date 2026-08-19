@@ -3,11 +3,12 @@
 // filtered by gate/explicitness; refusals cost compliance/trust, completions
 // shift stats. A round can organically escalate the whole room.
 import { TRUTHS, DARES } from '../../data/games/todPrompts.js';
-import { tierIndex } from '../chars/gates.js';
+import { tierIndex, EXPLICITNESS_CAP } from '../chars/gates.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { cfg } from '../core/config.js';
 
-const CAP_TIER = { suggestive: 2, mature: 4, full: 5 };
+/** Fallback ladder rung for a prompt tier that doesn't name its own `gate`. */
 const TIER_GATE = { 1: null, 2: 'light_touch', 3: 'kiss', 4: 'touch', 5: 'intimate' };
 
 export class TruthOrDare {
@@ -51,14 +52,30 @@ export class TruthOrDare {
     };
   }
 
+  /**
+   * The top ladder rung the explicitness setting allows — read live from the
+   * authoritative source (config/chars.yaml → chars.gates.explicitnessCap).
+   * This used to be an inlined `CAP_TIER = {suggestive:2, mature:4, full:5}`
+   * over prompt tiers, which drifted the moment anyone edited the config.
+   */
+  _capTier() {
+    return cfg('chars.gates.explicitnessCap', EXPLICITNESS_CAP)[this.d.explicitness()]
+      ?? EXPLICITNESS_CAP.mature;
+  }
+
+  /** is this prompt's required gate within the explicitness cap? */
+  _withinCap(prompt) {
+    const gate = prompt.gate ?? TIER_GATE[prompt.tier];
+    return !gate || tierIndex(gate) <= tierIndex(this._capTier());
+  }
+
   /** draw a prompt of the given kind at/below the current tier + caps */
   draw(kind) {
     const pool = kind === 'truth' ? TRUTHS : DARES;
     const used = kind === 'truth' ? this.usedTruths : this.usedDares;
-    const cap = CAP_TIER[this.d.explicitness()];
-    const maxTier = Math.min(this.roundTier, cap);
-    const eligible = pool.filter((p) => p.tier <= maxTier && !used.has(p.id));
-    const fallback = pool.filter((p) => p.tier <= maxTier);
+    const allowed = pool.filter((p) => p.tier <= this.roundTier && this._withinCap(p));
+    const eligible = allowed.filter((p) => !used.has(p.id));
+    const fallback = allowed;
     const choice = this.d.rng.pick(eligible.length ? eligible : fallback);
     used.add(choice.id);
     emit('tod.prompt', { kind, prompt: choice });

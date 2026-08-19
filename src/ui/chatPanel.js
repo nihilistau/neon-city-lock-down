@@ -29,7 +29,8 @@ export class ChatPanel {
     this.input = /** @type {HTMLInputElement} */ (this.root.querySelector('#chat-input'));
     this.targetSel = /** @type {HTMLSelectElement} */ (this.root.querySelector('#chat-target'));
 
-    this._typing = null;      // active typewriter state
+    this._typing = null;      // active typewriter timer
+    this._finishTyping = null; // completes the in-flight line instantly
     this._busy = false;
 
     this.root.querySelector('#chat-send').addEventListener('click', () => this._send());
@@ -89,10 +90,23 @@ export class ChatPanel {
       } else {
         this.engine.flushDirections();
         this._typing = null;
+        this._finishTyping = null;
       }
     };
-    // if something is already typing, finish it instantly
-    if (this._typing) { clearTimeout(this._typing); this.engine.flushDirections(); }
+    // Snap the previous line to its FULL text before starting this one. Cancelling
+    // the timer alone left the interrupted reply half-typed in the log forever —
+    // its remaining characters lived only in that closure.
+    const finish = () => {
+      if (i < full.length) {
+        i = full.length;
+        textEl.textContent = full;
+        this.engine.onReveal(i);
+      }
+      this.engine.flushDirections();
+    };
+    if (this._typing) clearTimeout(this._typing);
+    this._finishTyping?.();
+    this._finishTyping = finish;
     step();
   }
 

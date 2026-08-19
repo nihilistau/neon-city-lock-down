@@ -22,7 +22,7 @@ export class DialogueEngine {
    * @param {() => number} deps.nowMinute
    * @param {() => number} deps.day
    * @param {import('../core/rng.js').RngStream} deps.rng
-   * @param {Object} deps.stageCtx  world/lighting/audio/cutscene for dispatch
+   * @param {Object} deps.stageCtx  world/lighting/audio/cameraDirector for dispatch
    * @param {{chars?:string[], zones?:string[], items?:string[]}} deps.vocab
    * @param {import('./llmAdapter.js').LLMAdapter} [deps.llm]
    * @param {import('./llm/agent.js').CharacterAgent} [deps.agent]
@@ -143,7 +143,8 @@ export class DialogueEngine {
    */
   async _respond(char, intents, tone, dtone, isInterjection = false, rawText = '', opts = {}) {
     const now = this.nowMinute();
-    char.setPlayerDominance(this.stageCtx.playerDominance ?? 55);
+    const pd = this.stageCtx.playerDominance;   // live accessor (was a frozen value)
+    char.setPlayerDominance((typeof pd === 'function' ? pd() : pd) ?? 55);
 
     // ── LLM agent path: the character AUTHORS its reply; scene directives come
     // from inline [[tags]] (legacy) and/or the function-model extraction (engine).

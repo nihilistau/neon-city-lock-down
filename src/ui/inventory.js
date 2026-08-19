@@ -21,8 +21,10 @@ export class InventoryUI {
     this._renderChip(ITEMS.fists);
 
     document.addEventListener('keydown', (e) => {
+      // …and <select>: typing 'i' to jump to an option in the chat addressee
+      // dropdown used to open this panel and pause the sim
       if (e.code === 'KeyI' && this.app.mode === 'run'
-          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
         this.toggle();
       }
     });

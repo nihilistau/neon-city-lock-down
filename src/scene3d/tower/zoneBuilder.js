@@ -6,8 +6,11 @@ import * as THREE from 'three';
 import { ZONES, FLOORS, PENTHOUSE } from '../../../data/zones.js';
 import { makeFurniture } from './furniture.js';
 import { Curtains } from './curtains.js';
-import { tileTex, concreteTex, metalTex } from '../materials/texGen.js';
+import { tileTex, concreteTex, metalTex, surfaced } from '../materials/texGen.js';
+import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
+
+const TAU = Math.PI * 2;
 
 function cityWindowsTexture() {
   const c = document.createElement('canvas');
@@ -34,8 +37,15 @@ const glassMat = () => new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
   roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
 });
-const mullionMat = () => new THREE.MeshStandardMaterial({ map: metalTex('#1a1f2c'), roughness: 0.5, metalness: 0.7 });
-const wallMatOf = (tint) => new THREE.MeshStandardMaterial({ map: concreteTex(tint), roughness: 0.85 });
+// Normal-map strengths are tuned per surface: concrete carries broad grime
+// streaks (soft), tile has hard grout channels (deep), brushed metal is fine
+// directional grain (shallow but tight).
+const mullionMat = () => new THREE.MeshStandardMaterial({
+  ...surfaced(metalTex('#1a1f2c'), 1.2, 0.35), roughness: 0.5, metalness: 0.7,
+});
+const wallMatOf = (tint) => new THREE.MeshStandardMaterial({
+  ...surfaced(concreteTex(tint), 1.6, 0.8), roughness: 0.85,
+});
 
 export class World3D {
   /** @param {import('../stage.js').Stage} stage @param {import('../../core/rng.js').RngStream} rng */
@@ -116,11 +126,16 @@ export class World3D {
     });
   }
 
+  /**
+   * Architectural neon trim. One PointLight per trim run so the neon actually
+   * throws colour onto the wall behind it — affordable because it lives inside a
+   * floor group, and only the ONE active floor is ever visible to the renderer.
+   */
   _neonTrim(group, x, y, z, w, color = PALETTE.neonMagenta) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, 0.05),
-      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: color, emissiveIntensity: 2.2 }));
-    m.position.set(x, y, z);
-    group.add(m);
+    neonRun(group, {
+      x, y, z, length: w, axis: 'x', color, radius: 0.035,
+      light: { distance: 6, power: 8 },
+    });
   }
 
   _buildElevatorDoor(group, floor) {
@@ -133,7 +148,7 @@ export class World3D {
     backWall.position.set(0, 1.3, -0.55);
     shaft.add(backWall);
     // door panels
-    const doorMat = new THREE.MeshStandardMaterial({ map: metalTex('#232a3a'), roughness: 0.35, metalness: 0.8 });
+    const doorMat = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#232a3a'), 1.2, 0.35), roughness: 0.35, metalness: 0.8 });
     for (const side of [-1, 1]) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.3, 0.08), doorMat);
       panel.position.set(side * 0.44, 1.15, -0.06);
@@ -160,9 +175,9 @@ export class World3D {
   _build_penthouse(group, floor) {
     const P = PENTHOUSE;
     const F = P.floor, ceil = P.ceilingY;
-    const floorTex = new THREE.MeshStandardMaterial({ map: tileTex(), roughness: 0.35, metalness: 0.15 });
+    const floorTex = new THREE.MeshStandardMaterial({ ...surfaced(tileTex(), 2.2, 1.0), roughness: 0.35, metalness: 0.15 });
     this._slab(group, F, floorTex);
-    this._slab(group, P.balcony, new THREE.MeshStandardMaterial({ map: concreteTex('#141824'), roughness: 0.8 }));
+    this._slab(group, P.balcony, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#141824'), 1.6, 0.8), roughness: 0.8 }));
     this._ceiling(group, F, ceil);
 
     const wall = wallMatOf('#181c2a');
@@ -214,12 +229,15 @@ export class World3D {
       post.position.set(F.x[1], ceil / 2, mz);
       group.add(post);
     }
-    // ceiling light strips + neon trim
+    // ceiling light strips + neon trim. These were 2cm-thick slabs — the same
+    // sub-pixel shimmer problem as the old trim, three times across the ceiling.
+    // No lights on these: the ceiling wash is already the `cool` point light in
+    // the fixed kit, and three more would be pure shader cost for no new look.
     for (const lx of [-11, -4, 4]) {
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 8),
-        new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.neonCyan, emissiveIntensity: 1.2 }));
-      strip.position.set(lx, ceil - 0.01, 0);
-      group.add(strip);
+      neonRun(group, {
+        x: lx, y: ceil - 0.04, z: 0, length: 8, axis: 'z',
+        color: PALETTE.neonCyan, radius: 0.028, intensity: 2.0,
+      });
     }
     this._neonTrim(group, (F.x[0] + F.x[1]) / 2, 2.4, F.z[0] + 0.03, F.x[1] - F.x[0]);
 
@@ -247,7 +265,7 @@ export class World3D {
 
     // ── building defences ──
     // ceiling turret: base + yoke + barrel, watching the stairwell corner
-    const turretMat = new THREE.MeshStandardMaterial({ map: metalTex('#232a3a'), roughness: 0.35, metalness: 0.8 });
+    const turretMat = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#232a3a'), 1.2, 0.35), roughness: 0.35, metalness: 0.8 });
     const turret = new THREE.Group();
     const tBase = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 12), turretMat);
     tBase.position.y = -0.09;
@@ -273,7 +291,7 @@ export class World3D {
     group.add(shutterFrame);
     const shutter = new THREE.Mesh(
       new THREE.BoxGeometry(3.0, ceil, 0.12),
-      new THREE.MeshStandardMaterial({ map: metalTex('#1c222e'), roughness: 0.5, metalness: 0.7 }));
+      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1c222e'), 1.2, 0.35), roughness: 0.5, metalness: 0.7 }));
     shutter.position.set(-6.3, ceil + ceil / 2 - 0.15, 4.55);   // parked above the ceiling line
     group.add(shutter);
     const warnStripe = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 0.13),
@@ -300,7 +318,7 @@ export class World3D {
 
   _build_rooftop(group, floor) {
     const R = { x: [-10, 10], z: [-8, 8] };
-    this._slab(group, R, new THREE.MeshStandardMaterial({ map: concreteTex('#161a26'), roughness: 0.95 }));
+    this._slab(group, R, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#161a26'), 1.6, 0.8), roughness: 0.95 }));
     // parapet
     const par = wallMatOf('#1a1f2c');
     this._wall(group, par, { alongX: true, at: R.z[0], from: R.x[0], to: R.x[1], h: 1.0, thickness: 0.3 });
@@ -317,7 +335,7 @@ export class World3D {
   }
 
   _genericInterior(group, floor, rect, { tint = '#171b28', windows = false, ceilH = 3.0, lightColor = PALETTE.neonCyan } = {}) {
-    this._slab(group, rect, new THREE.MeshStandardMaterial({ map: concreteTex('#12151f'), roughness: 0.8 }));
+    this._slab(group, rect, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#12151f'), 1.6, 0.8), roughness: 0.8 }));
     this._ceiling(group, rect, ceilH, 0x0a0d14);
     const wall = wallMatOf(tint);
     this._wall(group, wall, { alongX: true, at: rect.z[0], from: rect.x[0], to: rect.x[1], h: ceilH });
@@ -332,11 +350,11 @@ export class World3D {
         group.add(win);
       }
     }
-    const strip = new THREE.Mesh(
-      new THREE.BoxGeometry((rect.x[1] - rect.x[0]) * 0.6, 0.02, 0.12),
-      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: lightColor, emissiveIntensity: 1.1 }));
-    strip.position.set((rect.x[0] + rect.x[1]) / 2, ceilH - 0.02, (rect.z[0] + rect.z[1]) / 2);
-    group.add(strip);
+    neonRun(group, {
+      x: (rect.x[0] + rect.x[1]) / 2, y: ceilH - 0.05, z: (rect.z[0] + rect.z[1]) / 2,
+      length: (rect.x[1] - rect.x[0]) * 0.6, axis: 'x',
+      color: lightColor, radius: 0.028, intensity: 2.0,
+    });
     this._walk(floor.id, floor.offsetX, {
       x: [rect.x[0] + 0.3, rect.x[1] - 0.3], z: [rect.z[0] + 0.3, rect.z[1] - 0.3],
     });
@@ -426,6 +444,10 @@ export class World3D {
     pts.userData.rainVol = vol;
     pts.name = 'rain';
     group.add(pts);
+    // Cached so update() doesn't run getObjectByName() — a full recursive
+    // traversal of the entire active floor group — every single frame just to
+    // rediscover this one object.
+    group.userData.rain = pts;
   }
 
   _buildFurniture() {
@@ -455,13 +477,27 @@ export class World3D {
           roof_crate: 'Open the crate', supply_crate: 'Open the crate',
           vox_monolith: 'Touch the core',
           gurney0: 'Treat the wounded', gurney1: 'Treat the wounded',
+          // mystery-case clue props. Without these four the `ledger` clue was
+          // unobtainable (its zone `vanity` has no other interactable), so
+          // `ask_kai` never unlocked and the dead-drop case degraded to a guess.
+          vanity_table: 'Search the vanity', shower_pod: 'Inspect the shower pod',
+          security_desk: 'Read the camera logs', monitor_wall: 'Study the monitor wall',
         };
         if (PROP_PROMPTS[f.id]) {
-          // clone materials on prop meshes so hover-highlight can't mutate the
-          // shared cached materials used by non-interactive furniture
+          // Clone materials on prop meshes so hover-highlight can't mutate the
+          // shared cached materials used by non-interactive furniture.
+          // Deduped per source material: this used to clone PER MESH, so a prop
+          // like weapon_rack or bar_shelves turned one shared cached material
+          // into 10-30 identical copies and threw away _matCache's whole point.
+          // One clone per distinct source material keeps the isolation and the
+          // intra-prop sharing.
+          const clones = new Map();
           item.group.traverse((o) => {
             const m = /** @type {THREE.Mesh} */ (o);
-            if (m.isMesh && m.material && !Array.isArray(m.material)) m.material = m.material.clone();
+            if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+            let c = clones.get(m.material);
+            if (!c) clones.set(m.material, (c = m.material.clone()));
+            m.material = c;
           });
           this.props.push({ mesh: item.group, id: f.id, prompt: PROP_PROMPTS[f.id], floor: zone.floor });
         }
@@ -472,7 +508,10 @@ export class World3D {
   _collectAnimated() {
     for (const group of Object.values(this.floorGroups)) {
       group.traverse((o) => {
-        if (/^(fish_|vox_ring_|fire_glow)/.test(o.name)) this.animated.push(o);
+        // `cam_` and `vinyl_disc` were named for animation that was never
+        // written — monitors.js only ever implemented NewsTicker, despite the
+        // comment in furniture.js claiming it drove the cam screens.
+        if (/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) this.animated.push(o);
       });
     }
   }
@@ -516,7 +555,10 @@ export class World3D {
     const group = this.floorGroups[this.activeFloor];
     if (!group) return;
     for (const o of this.animated) {
-      if (!o.parent?.visible && !group.visible) continue;
+      // `group` is by definition the ACTIVE floor, whose visible is always true,
+      // so the old `&& !group.visible` made this guard dead and animated all
+      // seven floors (including per-frame emissive writes) every frame.
+      if (!o.parent?.visible) continue;
       if (o.name.startsWith('fish_')) {
         const i = Number(o.name.slice(5));
         if (o.userData.dead) {
@@ -531,14 +573,28 @@ export class World3D {
         const i = Number(o.name.slice(9));
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         mat3.emissiveIntensity = 1.2 + Math.sin(t * 2 + i * 1.4) * 0.7 + (o.userData.excite || 0);
-        o.rotation.z = t * (0.1 + i * 0.05);
+        // wrapped: `t` is seconds-since-load, so an unwrapped angle climbs into
+        // the range where fp32 has no mantissa left for the fraction of a turn
+        o.rotation.z = (t * (0.1 + i * 0.05)) % TAU;
       } else if (o.name === 'fire_glow') {
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         mat3.emissiveIntensity = 2.2 + Math.sin(t * 7.3) * 0.5 + Math.sin(t * 13.7) * 0.3;
+      } else if (o.name.startsWith('cam_')) {
+        // security feed: slow per-screen brightness drift plus a brief dropout,
+        // each screen on its own phase so the wall never pulses as one block
+        const i = Number(o.name.slice(4));
+        const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
+        const drift = 0.32 + Math.sin(t * (0.7 + i * 0.13) + i * 1.7) * 0.09;
+        // dropout: ~1 frame in 12 of a 3.1s cycle, offset per screen
+        const cycle = (t * 0.32 + i * 0.37) % 1;
+        mat3.emissiveIntensity = cycle > 0.97 ? 0.06 : drift;
+      } else if (o.name === 'vinyl_disc') {
+        // 33 1/3 RPM = 0.5556 rev/s. The deck is powered, so it turns.
+        o.rotation.y = (t * 0.5556 * TAU) % TAU;
       }
     }
     // rain fall
-    const rain = group.getObjectByName('rain');
+    const rain = group.userData.rain;
     if (rain) {
       const pos = /** @type {THREE.BufferAttribute} */ (rain.geometry.getAttribute('position'));
       const vol = rain.userData.rainVol;

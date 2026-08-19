@@ -9,13 +9,43 @@
   color: var(--text-dim);
 }
 #hud-clock { top: 14px; left: 14px; color: var(--cyan) !important; font-family: var(--mono); }
-#hud-hint { bottom: 12px; left: 14px; }
+#hud-hint { bottom: 12px; left: 14px; display: flex; flex-direction: column; gap: 2px; }
+#hud-hint .hint-cam { color: var(--text); }
+#hud-hint .hint-keys { color: var(--text-dim); font-size: 10.5px; }
 #hud-resources { top: 14px; right: 14px; font-family: var(--mono); font-size: 13px; display: flex; gap: 10px; }
 #hud-resources .res.low { color: var(--red); text-shadow: 0 0 6px rgba(255,71,87,0.6); }
-#hud-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+
+/* threat — banded, not a continuous ramp, so a glance reads as a state */
+#hud-threat {
+  top: 46px; right: 14px; display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+}
+#hud-threat .th-track {
+  width: 96px; height: 5px; background: rgba(255, 255, 255, 0.08);
+  overflow: hidden; display: block;
+}
+#hud-threat .th-fill {
+  display: block; height: 100%; width: 0;
+  background: var(--green); transition: width 0.5s ease, background 0.5s ease;
+}
+#hud-threat .th-val { width: 20px; text-align: right; color: var(--text); }
+#hud-threat[data-band='raised']  .th-fill { background: var(--amber); }
+#hud-threat[data-band='high']    .th-fill { background: #ff8a3d; }
+#hud-threat[data-band='critical'] .th-fill { background: var(--red); box-shadow: 0 0 10px rgba(255,71,87,0.7); }
+#hud-threat[data-band='critical'] .th-label,
+#hud-threat[data-band='critical'] .th-val { color: var(--red); }
+/* the one moment it should demand attention */
+#hud-threat[data-band='critical'] { animation: thPulse 1.6s ease-in-out infinite; }
+@keyframes thPulse { 50% { border-color: var(--red); } }
+/* Above .screen (z-index 50): a blocking event choice must never render behind
+   an open panel, or its promise is unreachable and the run soft-locks. */
+#hud-choice {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 60;
+}
 .choice-box {
   background: var(--panel); border: 1px solid var(--amber);
-  padding: 22px 28px; max-width: 460px; z-index: 45;
+  padding: 22px 28px; max-width: 460px;
   box-shadow: 0 0 40px rgba(0,0,0,0.7);
 }
 .choice-prompt { font-size: 15px; line-height: 1.5; margin-bottom: 16px; color: var(--text); }
@@ -51,9 +81,14 @@
 #statbars {
   position: absolute; top: 52px; left: 12px;
   display: flex; flex-direction: column; gap: 6px;
-  width: 186px; max-height: 56vh; overflow-y: auto; padding-right: 2px;
+  width: 186px; overflow-y: auto; padding-right: 2px;
   pointer-events: auto; z-index: 12;
   scrollbar-width: thin;
+  /* The rail and the chat log both sit on the left edge and BOTH take pointer
+     events, so any overlap makes clicks land ambiguously. A flat 56vh overlapped
+     the chat by ~80px at 900px tall. Derive the cap from what chat actually
+     occupies instead: 44px offset + ~46px input row + 38vh log. */
+  max-height: min(56vh, calc(62vh - 150px));
 }
 .sb-card {
   background: rgba(6, 8, 14, 0.72);

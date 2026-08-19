@@ -111,7 +111,10 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 #titlecard.visible { opacity: 1; }
 #titlecard .tc-main { font-size: 54px; }
 #titlecard .tc-sub { font-size: 15px; letter-spacing: 0.5em; color: var(--text-dim); text-transform: uppercase; }
-.cinema #hud, .cinema #chat, .cinema #statbars, .cinema #director { display: none !important; }
+.cinema #chat, .cinema #statbars, .cinema #director { display: none !important; }
+/* Hide the HUD's chrome during cutscenes but NOT a pending event choice — it
+   lives inside #hud, and hiding it stranded the event script's promise. */
+.cinema #hud > *:not(#hud-choice) { display: none !important; }
 
 /* codex */
 .cx-list { display: flex; flex-direction: column; gap: 12px; margin: 10px 0; }

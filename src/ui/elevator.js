@@ -36,6 +36,18 @@ export class ElevatorUI {
   async ride(destFloor) {
     const app = this.app;
     if (this.riding || destFloor === app.world.activeFloor) return;
+    // A locked elevator must actually refuse. `systems.elevator.locked` was set
+    // by VOX/events and read by nothing, so the lockdown had no teeth.
+    if (app.run.systems.elevator.locked) {
+      feed('The elevator is locked down. VOX holds the car.', 'system');
+      emit('hud.alert', { text: 'Elevator locked down', kind: 'warn' });
+      return;
+    }
+    if (!app.run.systems.elevator.online) {
+      feed('The elevator is dead — no power to the car.', 'system');
+      emit('hud.alert', { text: 'Elevator offline', kind: 'warn' });
+      return;
+    }
     this.riding = true;
     const fromFloor = app.world.activeFloor;
     const mins = travelMinutes(fromFloor, destFloor);
@@ -57,6 +69,13 @@ export class ElevatorUI {
     app.cameraRig.fp.yaw = Math.PI;
     app.cameraRig.orbit.target.set(ex, 1.1, ez + 1.5);
     app.cameraRig.camera.position.set(ex + 3, 2.6, ez + 4.5);
+    // The avatar's transform is only written by FirstPersonControls.update(), which
+    // the rig calls in firstPerson/thirdPerson modes only. Riding in auto/director
+    // otherwise left the body — and playerMarker, which combat spawn checks, cast
+    // gaze and the director camera all key off — on the old floor, up to 1200
+    // world units away.
+    app.playerActor?.root.position.set(ex, 0, ez + 0.6);
+    app.playerMarker?.position.set(ex, 1.1, ez + 0.6);
     app.setAmbienceForFloor(destFloor);
     emit('floor.changed', { floor: destFloor, from: fromFloor });
     feed(`Elevator: ${FLOORS[destFloor].label}.`, 'system');

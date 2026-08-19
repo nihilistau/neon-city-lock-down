@@ -172,8 +172,12 @@ createServer(async (req, res) => {
           const hash = createHash('sha1').update(`${char}|${data.voice || ''}|${data.text || lineId}`).digest('hex').slice(0, 16);
           const rel = `${char}/${hash}.wav`;
           writeFileSync(join(ASSETS_VOICE, rel), buf);
-          const manifest = updateManifest(lineId, { file: rel, duration: +(pcm.length / 2 / sampleRate).toFixed(2), voice: data.voice || '', textHash: hash });
-          return json(res, 200, { ok: true, baked: rel, lineId, manifestSize: manifest });
+          // The manifest path must be PROJECT-root relative, matching bake-tts.mjs
+          // and what src/audio/voice.js fetches ('/' + file). Writing the
+          // assets-relative `rel` here made every panel-baked line 404.
+          const manifestPath = `assets/voice/${rel}`;
+          const manifest = updateManifest(lineId, { file: manifestPath, duration: +(pcm.length / 2 / sampleRate).toFixed(2), voice: data.voice || '', textHash: hash });
+          return json(res, 200, { ok: true, baked: manifestPath, lineId, manifestSize: manifest });
         }
         const file = join(USER_VOICES, `${safeName(data.name || 'clip')}.wav`);
         writeFileSync(file, buf);

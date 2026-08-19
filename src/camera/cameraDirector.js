@@ -12,6 +12,15 @@ import { cfg } from '../core/config.js';
 const HEAD = new THREE.Vector3();
 const A = new THREE.Vector3();
 const B = new THREE.Vector3();
+const C = new THREE.Vector3();
+// The composers return { eye, look }; tick() consumes both immediately (one
+// lerp each) and never retains them, so two dedicated scratch vectors replace
+// the ~5 clone()/new Vector3() the composers used to allocate every tick.
+// They are kept separate from A/B/C/HEAD so a composer can use those as
+// intermediates without stomping the frame it is building.
+const EYE = new THREE.Vector3();
+const LOOK = new THREE.Vector3();
+const FRAME = { eye: EYE, look: LOOK };
 
 export class CameraDirector {
   /**
@@ -45,6 +54,22 @@ export class CameraDirector {
     on('event.fired', () => this._push('event', sp('event'), st('event'), {}));
     on('bedgame.started', () => { this._suspended = true; });
     on('bedgame.ended', () => { this._suspended = false; });
+  }
+
+  /** Shot types with a `_compose_<type>` implementation — the valid `[[cam:x]]` set. */
+  static SHOT_TYPES = ['dialogue', 'action', 'event', 'establishing'];
+
+  /**
+   * Request a shot from a dialogue stage-direction (`[[cam:establishing]]`).
+   * Ignores unknown types rather than composing a missing frame.
+   * @param {string} type
+   * @param {Object} [data]
+   */
+  requestShot(type, data = {}) {
+    if (!CameraDirector.SHOT_TYPES.includes(type)) return;
+    const priority = cfg(`camera.director.shots.${type}.priority`, 5);
+    const ttl = cfg(`camera.director.shots.${type}.ttl`, 4.5);
+    this._push(type, priority, ttl, data);
   }
 
   /** Push (or refresh) a shot with a time-to-live in seconds. */
@@ -94,10 +119,11 @@ export class CameraDirector {
 
   // ── shot composers → { eye, look } ──
 
-  _headOf(char) {
+  /** @param {any} char @param {THREE.Vector3} [out] written in place, not allocated */
+  _headOf(char, out = HEAD) {
     const h = char.actor?.rig?.byName?.head;
-    if (h) return h.getWorldPosition(HEAD).clone();
-    return char.actor.root.position.clone().setY(1.5);
+    if (h) return h.getWorldPosition(out);
+    return out.copy(char.actor.root.position).setY(1.5);
   }
 
   /** slow orbit around the present cast's centroid (or the lounge) */
@@ -111,17 +137,16 @@ export class CameraDirector {
     } else { c.set(-3.5, 1.15, 0); }
     const radius = cfg('camera.director.establishing.radius', 4.2);
     const a = this._t * cfg('camera.director.establishing.speed', 0.12);
-    return {
-      eye: B.set(c.x + Math.cos(a) * radius, cfg('camera.director.establishing.height', 2.6), c.z + Math.sin(a) * radius).clone(),
-      look: c.clone(),
-    };
+    EYE.set(c.x + Math.cos(a) * radius, cfg('camera.director.establishing.height', 2.6), c.z + Math.sin(a) * radius);
+    LOOK.copy(c);
+    return FRAME;
   }
 
   /** over-the-shoulder 2-shot of the speaker + the guest */
   _compose_dialogue(shot) {
     const char = this.d.cast()[shot.data.speaker];
     if (!char) return this._compose_establishing();
-    const head = this._headOf(char);
+    const head = this._headOf(char, HEAD);
     const player = this.d.playerMarker.position;
     // dir from guest → speaker on the floor plane
     const dir = A.subVectors(head, player); dir.y = 0;
@@ -129,9 +154,9 @@ export class CameraDirector {
     dir.normalize();
     // eye: behind & above the guest, offset to one side for a 3/4 framing
     const side = B.set(-dir.z, 0, dir.x).multiplyScalar(0.7);
-    const eye = player.clone().addScaledVector(dir, -1.1).add(side); eye.y = 1.72;
-    const look = head.clone().addScaledVector(dir, 0.1); look.y = head.y - 0.06;
-    return { eye, look };
+    EYE.copy(player).addScaledVector(dir, -1.1).add(side); EYE.y = 1.72;
+    LOOK.copy(head).addScaledVector(dir, 0.1); LOOK.y = head.y - 0.06;
+    return FRAME;
   }
 
   /** track the player ↔ nearest living hostile */
@@ -150,10 +175,11 @@ export class CameraDirector {
     const axis = B.subVectors(target, player); axis.y = 0;
     if (axis.lengthSq() < 0.01) axis.set(1, 0, 0);
     axis.normalize();
-    const perp = new THREE.Vector3(-axis.z, 0, axis.x)
+    const perp = C.set(-axis.z, 0, axis.x)
       .multiplyScalar(span * cfg('camera.director.action.spanFactor', 0.9) + cfg('camera.director.action.spanPad', 1.5));
-    const eye = mid.clone().add(perp); eye.y = cfg('camera.director.action.eyeY', 2.2);
-    return { eye, look: mid.clone() };
+    EYE.copy(mid).add(perp); EYE.y = cfg('camera.director.action.eyeY', 2.2);
+    LOOK.copy(mid);
+    return FRAME;
   }
 
   /** brief wide of the room when an event fires, then it expires back to normal */

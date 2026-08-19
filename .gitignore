@@ -12,3 +12,7 @@ third_party/voxtral/target/
 third_party/voxtral/models/
 # user-created content + saved/cloned voices (creation kit output)
 user/
+# LM Studio credentials — never commit. Copy lmstudio-api-key.example.txt and fill it in,
+# or set the LMS_API_TOKEN env var instead (both paths fail soft when absent).
+lmstudio-api-key*.txt
+!lmstudio-api-key.example.txt

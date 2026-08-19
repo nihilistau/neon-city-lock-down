@@ -314,6 +314,10 @@ export class FirstPersonControls {
     document.removeEventListener('keydown', this._onKeyDown);
     document.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('blur', this._onBlur);
+    // focus + mousedown were added in the constructor but never removed: the
+    // mousedown one kept onFire (and this whole rig) reachable after disposal
+    window.removeEventListener('focus', this._onFocus);
     this.dom.removeEventListener('click', this._onClick);
+    this.dom.removeEventListener('mousedown', this._onMouseDown);
   }
 }

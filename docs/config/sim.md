@@ -24,6 +24,13 @@ degradation, and the day-plan actions. Defaults in `data/configDefaults.js` → 
 | `spikeDecay` | 0.9985 | Per-minute decay of an event-driven spike. |
 | `flareChance` | 0.002 | Per-minute chance of a random flare. |
 | `flareMin` / `flareMax` | 1 / 4 | Flare size range. |
+| `camerasBlindPenalty` | 8 | Added to the threat target while `systems.cameras` is offline — VOX can't see the streets massing. |
+| `jammerRelief` | 12 | Subtracted from the threat target while a signal jammer is live. |
+| `jammerDurationMin` | 240 | How long (game-minutes) the jammer stays effective after use. |
+| `ceasefireRelief` | 12 | Subtracted from the threat target while `flags.ceasefire` is set (brokered via the ceasefire objective). |
+
+These four are **tower-system and flag consequences** — before v0.3.0 the `cameras`
+system, the signal jammer, and the ceasefire flag were all set and read by nothing.
 
 ## `survival` — consumption & biology (`src/sim/survival.js`)
 

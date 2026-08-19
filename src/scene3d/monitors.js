@@ -48,6 +48,10 @@ export class NewsTicker {
     this.clockLabel = '';
     this.powered = true;
     this._acc = 0;
+    // Was read on line ~124 before it was ever assigned, so the ticker's first
+    // headline colour was chosen from `undefined` rather than from "is this an
+    // urgent bulletin".
+    this.urgentActive = false;
 
     /** @type {string[]} urgent queue from events */
     this.urgent = [];
@@ -66,6 +70,13 @@ export class NewsTicker {
   update(dt) {
     this._acc += dt;
     if (this._acc < 0.1) return;   // ~10Hz redraw
+    // The screen lives in the penthouse floor group; six floors out of seven are
+    // hidden at any time and this was still repainting a 1024x192 canvas and
+    // re-uploading the texture 10x a second while the player stood in the
+    // basement. Pin the accumulator at one tick's worth rather than letting it
+    // pile up, so returning to the penthouse resumes the scroll instead of
+    // fast-forwarding it by however long the player was away.
+    if (this.mesh.parent && !this.mesh.parent.visible) { this._acc = 0.1; return; }
     const step = this._acc;
     this._acc = 0;
 

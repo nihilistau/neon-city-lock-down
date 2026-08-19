@@ -9,8 +9,10 @@ export class Codex {
     this.app = app;
     this.open = false;
     document.addEventListener('keydown', (e) => {
+      // …and <select>: typing 'k' in the chat addressee dropdown used to open
+      // this panel and pause the sim
       if (e.code === 'KeyK' && this.app.mode === 'run'
-          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+          && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
         this.toggle();
       }
     });

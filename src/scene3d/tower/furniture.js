@@ -4,7 +4,7 @@
 // ActorQueue / paired poses target. Colliders are local-space AABBs for FP collision.
 import * as THREE from 'three';
 import { PALETTE } from '../materials/palette.js';
-import { fabricTex, woodTex, marbleTex, metalTex, concreteTex } from '../materials/texGen.js';
+import { fabricTex, woodTex, marbleTex, metalTex, concreteTex, surfaced } from '../materials/texGen.js';
 
 const concreteTexLazy = (tint) => concreteTex(tint);
 
@@ -17,16 +17,27 @@ const concreteTexLazy = (tint) => concreteTex(tint);
 const _matCache = new Map();
 const cached = (key, make) => { let m = _matCache.get(key); if (!m) _matCache.set(key, (m = make())); return m; };
 const mat = {
-  fabric: () => cached('fabric', () => new THREE.MeshStandardMaterial({ map: fabricTex(), roughness: 0.9 })),
+  // `surfaced()` pairs each albedo with a Sobel-derived normal map so the weave,
+  // grain, veining and brush lines are lit as relief instead of painted-on flat.
+  fabric: () => cached('fabric', () => new THREE.MeshStandardMaterial({ ...surfaced(fabricTex(), 1.1, 0.6), roughness: 0.9 })),
   leather: () => cached('leather', () => new THREE.MeshStandardMaterial({ color: PALETTE.leather, roughness: 0.55, metalness: 0.05 })),
-  wood: () => cached('wood', () => new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.7 })),
-  marble: () => cached('marble', () => new THREE.MeshStandardMaterial({ map: marbleTex(), roughness: 0.25, metalness: 0.1 })),
-  metal: () => cached('metal', () => new THREE.MeshStandardMaterial({ map: metalTex(), roughness: 0.4, metalness: 0.7 })),
+  wood: () => cached('wood', () => new THREE.MeshStandardMaterial({ ...surfaced(woodTex(), 1.8, 0.7), roughness: 0.7 })),
+  marble: () => cached('marble', () => new THREE.MeshStandardMaterial({ ...surfaced(marbleTex(), 0.9, 0.25), roughness: 0.25, metalness: 0.1 })),
+  metal: () => cached('metal', () => new THREE.MeshStandardMaterial({ ...surfaced(metalTex(), 1.2, 0.35), roughness: 0.4, metalness: 0.7 })),
+  // the bed's own quilt weave — was built by overwriting mattress.material after
+  // box() had already assigned the shared fabric material, which discarded a
+  // material per bed and skipped the cache entirely
+  bedding: () => cached('bedding', () => new THREE.MeshStandardMaterial({ ...surfaced(fabricTex('#3a3348', 3), 1.1, 0.6), roughness: 0.95 })),
   metalDark: () => cached('metalDark', () => new THREE.MeshStandardMaterial({ color: PALETTE.metalDark, roughness: 0.5, metalness: 0.6 })),
   glow: (color, intensity = 2) => cached(`glow:${color}:${intensity}`, () => new THREE.MeshStandardMaterial({
     color: 0x111111, emissive: new THREE.Color(color), emissiveIntensity: intensity,
   })),
 };
+
+const UP_Y = new THREE.Vector3(0, 1, 0);
+const TRIPOD_APEX = new THREE.Vector3(0, 1.15, 0);
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
 
 function socket(group, name, x, y, z, yaw = 0) {
   const s = new THREE.Object3D();
@@ -133,9 +144,9 @@ export const FURNITURE = {
   bed() {
     const group = new THREE.Group();
     box(group, mat.metalDark(), 2.0, 0.25, 2.3, 0, 0.18, 0);                  // platform
-    const mattress = box(group, mat.fabric(), 1.9, 0.22, 2.15, 0, 0.42, 0);
-    mattress.material = new THREE.MeshStandardMaterial({ map: fabricTex('#3a3348', 3), roughness: 0.95 });
-    box(group, mattress.material, 1.7, 0.1, 0.5, 0, 0.56, -0.75);             // pillows
+    const bedding = mat.bedding();
+    box(group, bedding, 1.9, 0.22, 2.15, 0, 0.42, 0);                         // mattress
+    box(group, bedding, 1.7, 0.1, 0.5, 0, 0.56, -0.75);                       // pillows
     box(group, mat.wood(), 2.0, 0.9, 0.12, 0, 0.65, -1.16);                   // headboard
     const strip = box(group, mat.glow(PALETTE.neonViolet, 1.6), 1.9, 0.03, 0.03, 0, 1.05, -1.14);
     strip.castShadow = false;
@@ -276,10 +287,14 @@ export const FURNITURE = {
   monitor_wall() {
     const group = new THREE.Group();
     box(group, mat.metalDark(), 4.4, 2.4, 0.15, 0, 1.4, 0);
-    // grid of cam screens — canvases animated by monitors.js (marked by name)
+    // Grid of cam feeds, animated by World3D.update via their names. Each screen
+    // needs its OWN material because they flicker independently — the shared
+    // mat.glow() cache would have made all eight pulse in lockstep (and would
+    // have dragged along every other prop using the same glow recipe).
     for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
-      const scr = box(group, mat.glow(0x39e6ff, 0.35), 0.95, 0.62, 0.04,
-        -1.575 + c * 1.05, 0.85 + r * 0.95, 0.09);
+      const scr = box(group, new THREE.MeshStandardMaterial({
+        color: 0x111111, emissive: new THREE.Color(0x39e6ff), emissiveIntensity: 0.35,
+      }), 0.95, 0.62, 0.04, -1.575 + c * 1.05, 0.85 + r * 0.95, 0.09);
       scr.name = `cam_${r * 4 + c}`;
       scr.castShadow = false;
     }
@@ -496,8 +511,14 @@ export const FURNITURE = {
         0.075, 0.03, 0.3, -0.585 + i * 0.09, 0.9, 0.02);
       white.name = `key_${i}`;
     }
+    // A black key sits in the GAP after each white key, except after E and after
+    // B — that is what makes a keyboard read as a keyboard. Within a 7-white-key
+    // octave those are indices 2 (E) and 6 (B). The old test was
+    // `[2, 6, 9, 13].includes(i % 7)`: `i % 7` can only be 0..6, so 9 and 13
+    // were unreachable and just obscured the rule.
     for (let i = 0; i < 13; i++) {
-      if ([2, 6, 9, 13].includes(i % 7)) continue;
+      const degree = i % 7;
+      if (degree === 2 || degree === 6) continue;
       box(group, mat.metalDark(), 0.05, 0.035, 0.16, -0.54 + i * 0.09, 0.915, -0.05);
     }
     for (const x of [-0.55, 0.55]) box(group, mat.metal(), 0.08, 0.85, 0.35, x, 0.42, 0);
@@ -585,9 +606,21 @@ export const FURNITURE = {
   telescope() {
     const group = new THREE.Group();
     const tripod = mat.metalDark();
-    for (const a of [0, 2.1, 4.2]) {
-      const leg = box(group, tripod, 0.03, 1.1, 0.03, Math.sin(a) * 0.25, 0.55, Math.cos(a) * 0.25);
-      leg.lookAt(0, 1.15, 0);
+    // Each leg spans foot → apex. The old code positioned an upright 1.1m post
+    // and then called lookAt(), which aims an object's -Z axis at the target —
+    // but the post's length is on its Y axis, so lookAt laid every leg FLAT
+    // across the tripod instead of leaning it in. Orienting +Y along the
+    // foot→apex vector is what "lean the post inward" actually means.
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      const foot = _v1.set(Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3);
+      const span = _v2.subVectors(TRIPOD_APEX, foot);
+      const len = span.length();
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, len, 0.03), tripod);
+      leg.position.copy(foot).addScaledVector(span, 0.5);   // midpoint of the leg
+      leg.quaternion.setFromUnitVectors(UP_Y, span.normalize());
+      leg.castShadow = leg.receiveShadow = true;
+      group.add(leg);
     }
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.7, 12), mat.metal());
     tube.position.set(0, 1.22, 0);

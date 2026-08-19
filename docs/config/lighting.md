@@ -27,6 +27,34 @@ Each preset:
 Colors are `0xRRGGBB` integers (YAML parses `0x…` as an int). Values not present fall back
 to the baked default, so partial preset edits are safe.
 
+## `envIntensity` / `hemiScale` — image-based lighting
+
+| Key | Default | Range | Meaning |
+|-----|---------|-------|---------|
+| `envIntensity` | `0.4` | 0–3 | Strength of the procedural environment map (`scene.environmentIntensity`). |
+| `hemiScale` | `0.45` | 0–2 | Multiplier applied to every preset's authored `hemi.intensity`. |
+
+**Why `hemiScale` exists.** All 10 presets were authored *before* there was an environment
+map, so their hemisphere light was standing in for all ambient bounce. Now that IBL supplies
+real ambient, applying both double-counts it — the penthouse goes flat and beige and loses its
+noir contrast. Rather than re-author every preset and throw away their hand-tuned relative
+balance, only the pure-ambient term is scaled; `key`, `warm`, `cool` and `accent` are left
+exactly as authored. Set `hemiScale: 1` to disable the compensation (and expect a brighter,
+flatter room), or lower it further for harder contrast.
+
+`src/scene3d/env.js` builds a small neon-noir environment — gradient sky, horizon city
+glow, neon sign cards, warm floor bounce — and PMREM-prefilters it into a reflection probe.
+Its palette is derived from **the active preset's own colors**, so retinting a preset also
+retints what the room's chrome, glass, skin sheen and hair reflect. One map is built and
+cached per preset on first use.
+
+This is what makes `MeshPhysicalMaterial`'s sheen (skin), clearcoat + anisotropy (hair) and
+every `metalness > 0` surface read as material rather than plastic — those are reflection
+lobes and need something to reflect.
+
+Set `0` to disable reflections entirely (cheapest, flattest). Above `1` the reflections start
+to overpower the authored key/fill balance.
+
 ## `tod` — time-of-day keyframes
 
 An array of keyframes (ascending `t` over `dayFraction`, 0 = midnight … 1 = midnight) that

@@ -104,6 +104,11 @@ export const CONFIG_DEFAULTS = {
       spikeDecay: 0.9985,      // per-minute decay of an event spike
       flareChance: 0.002,      // per-minute chance of a random flare
       flareMin: 1, flareMax: 4,
+      // tower-system + flag consequences (added toward the threat TARGET)
+      camerasBlindPenalty: 8,  // cameras offline → VOX is blind, threat sits higher
+      jammerRelief: 12,        // a live signal jammer suppresses threat…
+      jammerDurationMin: 240,  // …for this many game-minutes after use
+      ceasefireRelief: 12,     // a brokered faction ceasefire eases the baseline
     },
     survival: {
       mealsPerDay: 3, waterPerDay: 1,   // per head
@@ -174,6 +179,11 @@ export const CONFIG_DEFAULTS = {
   lighting: {
     presets: LIGHTING_PRESETS,   // 10 presets: neon_night, blackout_emergency, golden_hour, …
     tod: TOD_KEYS,               // time-of-day key/hemi/exposure keyframes (neon_night is ToD-aware)
+    envIntensity: 0.4,           // image-based lighting strength (src/scene3d/env.js).
+                                 // 0 disables reflections entirely; >1 overpowers the key/fill balance.
+    hemiScale: 0.45,             // presets were authored with no env map, so their hemisphere light
+                                 // stood in for all ambient bounce. Scale it back now that IBL is real,
+                                 // or the two double-count and the scene goes flat. 1 = no compensation.
   },
 
   // ── humanoid: procedural walk cycle + animation blending ──
@@ -186,6 +196,57 @@ export const CONFIG_DEFAULTS = {
     },
     animator: { crossfade: 0.3 },  // clip crossfade duration, seconds
     skeleton: { armAngle: 42 },    // A-pose arm angle from vertical (deg); proportions are code-defined
+    body: {                      // swept-limb mesh density + skin weighting (src/humanoid/bodyBuilder.js)
+      radialTrunk: 20,           // ring segments around the torso/neck/head stack
+      radialLimb: 12,            // ring segments around arms (legs use +2)
+      skinBand: 0.030,           // chain blend half-width, FRACTION OF HEIGHT
+      deltoidBlend: 0.80,        // share of the shoulder shelf driven by the arm bone
+      gluteBlend: 0.55,          // share of the seat driven by the thigh bone
+      jawBlend: 0.85,            // share of the chin mass driven by the jaw bone
+    },
+    skin: {                      // skin material (retuned for the procedural IBL)
+      roughness: 0.62, sheen: 0.65, sheenRoughness: 0.72,
+      envMapIntensity: 0.7,      // keep low: bloom threshold is 0.86, bodies must not glow
+      subsurface: 0.55,          // wrap-lighting subsurface strength (0 = off, stock lighting)
+      subsurfaceWrap: 0.55,      // how far light wraps past the terminator
+    },
+    hair: {                      // generated strand cards + secondary sway
+      strands: 0,                // 0 = use the per-style count (short 52 / bob 62 / long 72)
+      fallScale: 1,              // multiplier on the free-fall length
+      // Measured against the head-region blowout: sheen and (especially) any
+      // clearcoat/anisotropy on backlit strands clip to white under the strong
+      // point lights and bloom smears it across the head. These are the values
+      // that measured clean (~82 blown px vs ~17200) while still reading as hair.
+      roughness: 0.80,
+      sheen: 0.12,               // whisper of retroreflection; higher re-blooms
+      anisotropy: 0,             // OFF — a primary blowout driver on strands
+      envMapIntensity: 0.12,
+      stiffness: 55, damping: 9, // hair1..hair3 spring
+      sway: 0.030,               // radians per m/s² of body-space acceleration
+      idleSway: 0.035,           // ambient drift so hair is never dead still, radians
+      maxDeg: 26,                // per-bone clamp
+    },
+    eye: {                       // eyeballs — the glossiest surface on a character
+      // A wet sclera, not chrome. At roughness 0.20 the lounge lamp (95 candela)
+      // put a specular here hot enough to clear the bloom threshold, and because
+      // the blink scheduler covers/uncovers the eyes it winked on and off — it
+      // read as blinking lights on every head. Lower roughness at your own risk.
+      sclera: 0xdedad2,          // off-white; pure white is what blew out
+      roughness: 0.38, envMapIntensity: 0.22,
+      catchlight: 0.55,          // painted iris highlight; the iris is UNLIT, so 1.0 blooms
+    },
+    face: {
+      redrawHz: 15,              // canvas repaint cap (skipped entirely when hidden)
+      jawOpenDeg: 14,            // jaw bone rotation at full mouth open
+      relief: 1,                 // nose/brow/lip/chin displacement scale (0 = flat patch)
+      borderTuck: 0.014,         // how far the patch rim sinks into the skull, fraction of height
+    },
+    outfit: {                    // garment shells (src/humanoid/outfitBuilder.js)
+      clearance: 0.0055,         // gap over the skin, FRACTION OF HEIGHT
+      thickness: 0.0032,         // fabric thickness (drives the visible hem), fraction of height
+      radial: 18,                // ring segments around a garment
+      envMapIntensity: 0.7,
+    },
   },
 
   // ── world: clock pace + phase boundaries ──
