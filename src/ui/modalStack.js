@@ -20,7 +20,7 @@
 // owns the Escape key.
 import { emit } from '../core/bus.js';
 
-/** @typedef {{ id: string, close: () => void }} ModalEntry */
+/** @typedef {{ id: string, close: () => void, restoreFocus?: HTMLElement|null }} ModalEntry */
 
 /** @type {ModalEntry[]} */
 const stack = [];
@@ -49,8 +49,28 @@ export function initModalStack() {
 export function openModal(id, close) {
   if (stack.some((m) => m.id === id)) return;
   for (const other of [...stack].reverse()) closeModal(other.id);
-  stack.push({ id, close });
+  const restoreFocus = /** @type {HTMLElement|null} */ (document.activeElement);
+  stack.push({ id, close, restoreFocus });
   emit('modal.opened', { id });
+  // Accessibility, done HERE rather than in each of the eight panels: they all
+  // mount asynchronously into #overlay and none of them declared a role, so a
+  // screen reader saw an unlabelled div and a keyboard user was left with focus
+  // on whatever was behind the panel. One place that knows a modal just opened
+  // is the right place to say so.
+  queueMicrotask(() => {
+    const el = document.querySelector('#overlay > *:last-child');
+    if (!(el instanceof HTMLElement)) return;
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    if (!el.hasAttribute('aria-label')) {
+      const heading = el.querySelector('h1, .neon-title, .game-head');
+      el.setAttribute('aria-label', heading?.textContent?.trim() || id);
+    }
+    // move focus in, so the panel is where the keyboard is
+    const first = /** @type {HTMLElement|null} */ (
+      el.querySelector('button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+    first?.focus();
+  });
 }
 
 /**
@@ -64,6 +84,8 @@ export function closeModal(id) {
   if (i === -1) return;
   const [entry] = stack.splice(i, 1);
   try { entry.close(); } catch (err) { console.error('[modal] close failed', id, err); }
+  // hand the keyboard back to whatever opened this, not to <body>
+  if (entry.restoreFocus?.isConnected) entry.restoreFocus.focus();
   emit('modal.closed', { id });
 }
 

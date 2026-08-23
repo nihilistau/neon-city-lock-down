@@ -7,6 +7,7 @@ import { SCENARIOS } from '../../data/scenarios.js';
 import { LOADOUTS } from '../../data/items.js';
 import { readSlot } from '../core/save.js';
 import { meta } from '../sim/meta.js';
+import { settingsBody } from './settingsPanel.js';
 import { settings, setSetting } from '../core/settings.js';
 import { appearanceBlock, saveAppearance } from './appearance.js';
 import { h } from './widgets.js';
@@ -109,10 +110,16 @@ export function showMainMenu(app) {
     const settingsScreen = () => {
       root.innerHTML = '';
       const look = appearanceBlock({ live: true });
-      root.appendChild(h('div', { class: 'panel mm-panel mm-newgame' }, [
+      // The whole settings surface, not a stub pointing at a drawer the player
+      // has to discover. This screen used to say "Volumes and the rest live
+      // in-game under Esc", which was false — they lived in the DEBUG drawer,
+      // behind the backtick key, beside god-mode stat sliders.
+      root.appendChild(h('div', { class: 'panel mm-panel mm-newgame mm-settings' }, [
         h('h1', { class: 'neon-title', style: 'font-size:24px' }, ['SETTINGS']),
+        h('div', { class: 'dir-label' }, ['APPEARANCE']),
         look.el,
-        h('p', { class: 'mm-foot' }, ['Look applies on the next New Run. Volumes and the rest live in-game under Esc.']),
+        h('p', { class: 'mm-foot' }, ['Look applies on the next New Run.']),
+        ...settingsBody(settingsScreen),
         h('div', { class: 'actions' }, [h('button', { onclick: mainScreen }, ['Back'])]),
       ]));
     };

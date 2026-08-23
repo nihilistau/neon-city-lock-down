@@ -71,7 +71,84 @@
   --text-dim: #7d93a3;
   --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --display: "Oxanium", "Segoe UI", system-ui, sans-serif;
-  --mono: "Oxanium", "Cascadia Code", "Consolas", monospace;
+  /* --mono was "Oxanium, Cascadia Code, Consolas, monospace" — and Oxanium is a
+     PROPORTIONAL display face that always wins, so the token named "mono" was
+     never monospaced at all. Every ticking number in the game (the clock, seven
+     resource counters, threat, stat values) jittered horizontally inside its
+     fixed-width box as digits changed width. */
+  --mono: "Cascadia Code", "Consolas", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── type scale ───────────────────────────────────────────────────────────
+     22 distinct sizes were in use, including half-pixel steps (9.5, 10.5, 11.5,
+     12.5, 13.5) that no one can perceive but everyone has to maintain. This is
+     a 1.2ish ratio ladder; new UI picks a rung rather than a number. */
+  --t-micro: 10px;   /* dense chrome: stat pips, tags */
+  --t-tiny:  11px;   /* labels, hints */
+  --t-small: 12px;
+  --t-body:  13px;   /* default UI text */
+  --t-read:  14px;   /* anything read in sentences */
+  --t-lead:  17px;   /* subtitles, lead-ins */
+  --t-h3:    22px;
+  --t-h2:    26px;
+  --t-h1:    34px;
+  --t-hero:  54px;   /* title card only */
+
+  /* ── spacing rhythm (4px base) ── 20 ad-hoc values collapse to seven rungs */
+  --s-0: 2px; --s-1: 4px; --s-2: 8px; --s-3: 12px;
+  --s-4: 18px; --s-5: 24px; --s-6: 36px;
+
+  /* ── radius + elevation ── */
+  --r-sm: 2px; --r-md: 4px; --r-lg: 8px;
+  --e-panel: 0 0 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(57, 230, 255, 0.03);
+  --e-float: 0 6px 28px rgba(0, 0, 0, 0.55);
+
+  /* Motion. Every duration routes through these so prefers-reduced-motion can
+     zero them in one place rather than in thirty declarations. */
+  --dur-fast: 0.12s;
+  --dur-med: 0.3s;
+  --dur-slow: 0.8s;
+}
+
+/* ── accessibility ──────────────────────────────────────────────────────────
+   Before this block the game had ZERO of any of it: no aria attributes, no
+   roles, no media queries, no focus indicator, no reduced-motion handling. A
+   keyboard user could not see where they were, and `select:focus` in particular
+   had no indicator at all. */
+
+/* Keyboard focus, visible and never on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible,
+.clickable:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  box-shadow: 0 0 14px rgba(57, 230, 255, 0.4);
+}
+/* A skip target for the things that own focus when a modal opens. */
+[tabindex="-1"]:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The threat chip and the combat cover warning pulse FOREVER. For a
+     vestibular-sensitive player that is not atmosphere, it is a reason to stop
+     playing. Keep the colour signal, drop the movement. */
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text: #eaf6fc;
+    --text-dim: #b3c8d6;      /* was #7d93a3 — under 3:1 on the panel background */
+    --panel: rgba(6, 8, 16, 0.97);
+    --panel-edge: rgba(120, 245, 255, 0.5);
+  }
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -268,3 +345,15 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .look-styles button.active { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
 .look-slider { flex: 1; accent-color: var(--cyan); }
 .look-val { min-width: 72px; font-size: 11px; color: var(--cyan); }
+
+/* ── settings surface ────────────────────────────────────────────────────────
+   Shared by the main menu and the pause screen (src/ui/settingsPanel.js). */
+.set-scroll { max-height: 78vh; overflow-y: auto; padding-right: var(--s-2); }
+.mm-settings { max-height: 84vh; overflow-y: auto; }
+.set-row { display: flex; align-items: center; gap: var(--s-3); margin: var(--s-1) 0; }
+.set-label { width: 130px; flex: none; font-size: var(--t-tiny); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.set-row input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--cyan); }
+.set-hint { font-size: var(--t-tiny); color: var(--text-dim); flex: 1; }
+.set-seg { display: flex; gap: var(--s-1); }
+.set-seg-btn { padding: 3px var(--s-3); font-size: var(--t-tiny); }
+.set-seg-btn.sel { border-color: var(--cyan); color: var(--cyan); background: rgba(57, 230, 255, 0.10); }

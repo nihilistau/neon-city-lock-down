@@ -15,7 +15,7 @@ export class ChatPanel {
     this.cast = cast;
     this.root = document.getElementById('chat');
     this.root.innerHTML = `
-      <div id="chat-log" class="clickable"></div>
+      <div id="chat-log" class="clickable" role="log" aria-live="polite" aria-label="Conversation"></div>
       <div id="chat-chips"></div>
       <div id="chat-inputrow" class="clickable">
         <select id="chat-target">

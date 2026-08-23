@@ -52,7 +52,7 @@
   display: block; height: 100%; width: 0;
   background: var(--green); transition: width 0.5s ease, background 0.5s ease;
 }
-#hud-threat .th-val { width: 20px; text-align: right; color: var(--text); }
+#hud-threat .th-val { width: 20px; text-align: right; color: var(--text); font-family: var(--mono); }
 #hud-threat[data-band='raised']  .th-fill { background: var(--amber); }
 #hud-threat[data-band='high']    .th-fill { background: #ff8a3d; }
 #hud-threat[data-band='critical'] .th-fill { background: var(--red); box-shadow: 0 0 10px rgba(255,71,87,0.7); }
@@ -421,3 +421,15 @@
 .plan-ration-btn { padding: 2px 10px; font-size: 10.5px; letter-spacing: 0.06em; }
 .plan-ration-btn.sel { border-color: var(--cyan); color: var(--cyan); background: rgba(57,230,255,0.10); }
 .plan-ration-cost { margin-left: auto; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+
+/* Tabular figures on everything that counts. `--mono` now resolves to a real
+   monospace (it used to resolve to Oxanium, a proportional display face), and
+   tabular-nums covers any element whose stack falls through to --font: a digit
+   that changes width makes a fixed-width box twitch on every tick, and the
+   clock ticks once a second. */
+#hud-clock, #hud-resources, #hud-threat .th-val, #hud-floor,
+.sb-val, .tc-sv, .plan-ration-cost, .ds-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}

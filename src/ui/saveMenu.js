@@ -3,7 +3,8 @@
 import { saveToSlot, readSlot, applySave, listSlots, exportSave, importSave } from '../core/save.js';
 import { feed } from '../core/log.js';
 import { emit } from '../core/bus.js';
-import { escapeHtml } from './widgets.js';
+import { escapeHtml, h } from './widgets.js';
+import { settingsBody } from './settingsPanel.js';
 import { openModal, closeModal } from './modalStack.js';
 
 export class SaveMenu {
@@ -36,6 +37,12 @@ export class SaveMenu {
   show() {
     this.open = true;
     this.app.loop.pause('menu'); openModal('menu', () => this.close());
+    this._buildScreen();
+  }
+
+  /** Render the pause screen itself. Separate from show() so the settings view
+   *  can return here without taking a second pause token or modal-stack entry. */
+  _buildScreen() {
     const overlay = document.getElementById('overlay');
     const el = document.createElement('div');
     el.className = 'screen';
@@ -72,11 +79,11 @@ export class SaveMenu {
       const act = btn.dataset?.act;
       if (!act) return;
       if (act === 'close') this.close();
-      if (act === 'settings') {
-        this.close();
-        this.app.directorPanel?.setOpen(true);
-        this.app.directorPanel?.showTab('settings');
-      }
+      // Real settings, not the debug drawer. This button used to open the
+      // Director panel's settings tab — i.e. the only route to volume,
+      // explicitness and sensitivity was a developer tool, sitting next to
+      // god-mode stat sliders.
+      if (act === 'settings') this._showSettings();
       if (act === 'director') {
         this.close();
         this.app.directorPanel?.setOpen(true);
@@ -132,4 +139,23 @@ export class SaveMenu {
       }
     });
   }
+  /** Settings, rendered over the pause screen and sharing one definition with the main menu. */
+  _showSettings() {
+    const panel = this.el?.querySelector('.panel');
+    if (!panel) return;
+    const draw = () => {
+      panel.innerHTML = '';
+      const back = h('button', {}, ['Back']);
+      // rebuild the pause screen in place — calling show() again would
+      // re-enter the modal stack and take a second pause token
+      back.addEventListener('click', () => { this.el?.remove(); this.el = null; this._buildScreen(); });
+      panel.appendChild(h('div', { class: 'set-scroll' }, [
+        h('h1', { class: 'neon-title', style: 'font-size:22px' }, ['SETTINGS']),
+        ...settingsBody(draw),
+        h('div', { class: 'actions' }, [back]),
+      ]));
+    };
+    draw();
+  }
+
 }
