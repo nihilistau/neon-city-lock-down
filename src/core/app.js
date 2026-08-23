@@ -225,6 +225,31 @@ export class App {
     // music matrix: combat and intimacy override the baseline mood
     on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
     on('combat.resolved', () => { this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = false; });
+    // ── arrivals ──────────────────────────────────────────────────────────
+    // ActorQueue has emitted `zone.entered` every time an actor crosses a zone
+    // boundary since the day it was written, and NOTHING has ever subscribed —
+    // not even the debug feed. So the cast moved around a tower you could not
+    // perceive them moving around: they were simply elsewhere, then here.
+    //
+    // Two consequences, both from data that already exists. The room reports who
+    // just walked in, and whoever walked in looks at you — which is the whole
+    // difference between a character pathing past and a character arriving.
+    on('zone.entered', ({ id, zone, from }) => {
+      const c = this.cast[id];
+      if (!c || !c.alive || c.persona?.corporeal === false) return;
+      const here = zoneAt(this.playerMarker.position.x, this.playerMarker.position.z);
+      if (!zone || zone === from) return;
+      if (zone === here) {
+        feed(`${c.name} comes in from the ${ZONES[from]?.name?.toLowerCase() || 'hall'}.`, 'info');
+        c.actor.lookAt(this.playerMarker);
+        // drop the glance after a beat — a held stare reads as a bug, not interest
+        clearTimeout(this._glanceT?.[id]);
+        (this._glanceT ||= {})[id] = setTimeout(() => c.actor.lookAt(null), 4000);
+      } else if (from === here) {
+        feed(`${c.name} heads for the ${ZONES[zone]?.name?.toLowerCase() || 'hall'}.`, 'info');
+      }
+    });
+
     // keep the hand weapon model in sync with the equipped weapon
     on('inventory.equipped', () => this._setWeaponModel());
     on('bedgame.started', () => this.conductor.setMood({ intimacy: 0.8, warmth: 0.7, energy: 0.28, tension: 0.05 }));

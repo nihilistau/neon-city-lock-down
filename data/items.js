@@ -92,15 +92,37 @@ export const ITEMS = {
     id: 'keycard', name: 'Syndicate Keycard', icon: '🗝️', type: 'key', stack: false,
     desc: "Someone important's access card. VOX respects it. Mostly.",
   },
+  // Both of these carried a `value` and no `use`, so they had no button in the
+  // inventory at all: pure dead weight you could never do anything with, in a
+  // survival game about scarcity. Trading them converts `value` into `luxury`,
+  // which the `deal` day-action already spends to buy the tower a quiet night —
+  // so a looted chip is now three quarters of a bribe.
   chip: {
     id: 'chip', name: 'Data Chip', icon: '💾', type: 'valuable', stack: true, value: 8,
     desc: 'Encrypted contract data. Kai would pay well. So would his enemies.',
+    use: (app) => tradeValuable(app, 'chip', 'You put the chip on the wire. Someone bites.'),
   },
   jewels: {
     id: 'jewels', name: 'Loose Stones', icon: '💎', type: 'valuable', stack: true, value: 5,
     desc: 'Untraceable, portable wealth. The only currency in a lockdown.',
+    use: (app) => tradeValuable(app, 'jewels', 'The stones change hands in a stairwell.'),
   },
 };
+
+/**
+ * Turn a `valuable` into `luxury` at its own `value`. Trading is riskier at high
+ * threat — you are dealing with the people outside — so the take is discounted
+ * when the streets are hot. That makes "sell now or hold" an actual decision
+ * rather than a formality.
+ * @param {any} app @param {string} id @param {string} flavour
+ */
+function tradeValuable(app, id, flavour) {
+  const def = ITEMS[id];
+  const heat = Math.max(0, Math.min(1, (app.run.threat ?? 0) / 100));
+  const take = Math.max(1, Math.round((def.value ?? 1) * (1 - heat * 0.5)));
+  app.run.resources.luxury += take;
+  return `${flavour} +${take} luxury${heat > 0.5 ? ' — they knew you had no choice.' : ''}`;
+}
 
 /** starting inventories keyed by loadout id (used by the new-game flow) */
 export const STARTING_KITS = {

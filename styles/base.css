@@ -230,6 +230,12 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .mm-scen { border: 1px solid var(--panel-edge); padding: 8px 12px; cursor: pointer; transition: all 0.12s; border-left: 2px solid var(--cyan-dim); }
 .mm-scen:hover { border-color: var(--cyan-dim); }
 .mm-scen.sel { border-color: var(--cyan); background: rgba(57,230,255,0.07); }
+/* Locked scenarios are shown, not hidden — a card you can see is a reason to
+   play again; a card you can't see is content that may as well not exist. */
+.mm-scen.locked { cursor: default; border-left-color: var(--violet); opacity: 0.55; }
+.mm-scen.locked:hover { border-color: var(--panel-edge); }
+.mm-scen.locked .mm-scen-title { color: var(--violet); }
+.mm-scen.locked .mm-scen-blurb { font-style: italic; }
 .mm-scen-title { font-size: 12.5px; color: var(--cyan); }
 .mm-scen-blurb { font-size: 10.5px; color: var(--text-dim); line-height: 1.35; margin-top: 2px; }
 .mm-load-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }

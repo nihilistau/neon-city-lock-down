@@ -458,6 +458,10 @@ export const EVENTS = {
           { label: 'Let it ride', steps: [
             { type: 'alert', text: 'The leaves crisp. The rooftop will give less.', kind: 'warn' },
             { type: 'castFlag', flag: 'garden_blight' },
+            // the CAST flag is memory (they remember you let it burn); the RUN
+            // flag is the consequence the alert above actually promises, read by
+            // the forage action in sim/dayPlan.js
+            { type: 'runFlag', flag: 'gardenBlight' },
           ]},
         ]},
     ],

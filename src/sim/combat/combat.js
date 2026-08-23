@@ -534,9 +534,17 @@ export class Combat {
       const hp3 = h.actor.root.position;
 
       // mercs fight from cover at range; rushers close to melee
+      //
+      // `aggression` is authored per archetype in config/combat.yaml (rioter
+      // 0.8, looter 0.5, merc 0.95) and was the ONE archetype field the AI never
+      // read — every other one (hp, weapon, speed, skill) drives something. So
+      // all three fought identically and the tuning knob was decoration. It now
+      // decides how willing they are to break cover: a merc at 0.95 pushes, a
+      // looter at 0.5 hangs back and trades shots.
       const isRanged = weapon.range > 3;
       let wantAdvance = bestD > reach;
-      if (isRanged && h.state !== 'holding') {
+      const seeksCover = this.d.rng.chance(1 - (h.arch.aggression ?? 0.6));
+      if (isRanged && h.state !== 'holding' && (seeksCover || h.coverSpot)) {
         if (!h.coverSpot) {
           h.coverSpot = findCoverSpot(colliders, { x: best.pos.x, z: best.pos.z },
             { x: hp3.x, z: hp3.z }, this.d.walkable);

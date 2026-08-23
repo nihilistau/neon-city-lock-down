@@ -54,11 +54,16 @@ export const DAY_ACTIONS = [
     id: 'forage', label: 'Forage the rooftop garden', ap: 1, hint: 'time → food/water, maybe parts',
     can: () => true,
     apply: (run, rng) => {
-      const food = cfg('sim.dayPlan.forage.foodBase', 2) + rng.int(0, cfg('sim.dayPlan.forage.foodRand', 3));
-      const water = rng.int(0, cfg('sim.dayPlan.forage.waterRand', 3));
-      const parts = rng.chance(cfg('sim.dayPlan.forage.partsChance', 0.35)) ? 1 : 0;
+      // Letting the garden blight (data/events.js garden_blight, "Let it ride")
+      // set a flag that nothing read, while its own alert told the player "the
+      // rooftop will give less". It does now.
+      const blight = run.flags.gardenBlight ? cfg('sim.dayPlan.forage.blightMul', 0.4) : 1;
+      const food = Math.round((cfg('sim.dayPlan.forage.foodBase', 2) + rng.int(0, cfg('sim.dayPlan.forage.foodRand', 3))) * blight);
+      const water = Math.round(rng.int(0, cfg('sim.dayPlan.forage.waterRand', 3)) * blight);
+      const parts = rng.chance(cfg('sim.dayPlan.forage.partsChance', 0.35) * blight) ? 1 : 0;
       run.resources.food += food; run.resources.water += water; run.resources.parts += parts;
-      return `Scavenged +${food} food, +${water} water${parts ? ', +1 part' : ''}.`;
+      return `Scavenged +${food} food, +${water} water${parts ? ', +1 part' : ''}.`
+        + (blight < 1 ? ' The blighted beds gave up little.' : '');
     },
   },
   {
