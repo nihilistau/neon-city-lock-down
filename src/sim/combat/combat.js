@@ -21,6 +21,8 @@ import { cfg } from '../../core/config.js';
 const weapons = () => cfg('combat.weapons');
 import { feed } from '../../core/log.js';
 import { spend } from '../world.js';
+import { buildOutfit } from '../../humanoid/outfitBuilder.js';
+import { OUTFITS, DEFAULT_OUTFIT } from '../../../data/outfits.js';
 
 /** dark, hooded-looking rioter persona factory (procedural visual variety) */
 function hostilePersona(arch, i, rng) {
@@ -128,6 +130,15 @@ export class Combat {
     for (let i = 0; i < waveSpec.count; i++) {
       const persona = hostilePersona(waveSpec.archetype, i, this.d.rng);
       const actor = new Actor3D(persona);
+      // Dress them. Hostiles used to spawn as bare skinned bodies wearing only
+      // an accessory kit — a hood over a naked torso, a backpack on bare
+      // shoulders — in an adults-only game where nudity is supposed to be a
+      // deliberate wardrobe state, not the default for anyone who breaks in.
+      const wardrobeId = `hostile_${waveSpec.archetype}`;
+      const kitRecipe = OUTFITS[wardrobeId]?.[DEFAULT_OUTFIT[wardrobeId]];
+      if (kitRecipe) {
+        for (const m of buildOutfit(persona, actor.rig, kitRecipe)) actor.root.add(m);
+      }
       const ox = this.d.floorOffset ? this.d.floorOffset() : 0;
       actor.root.position.set(
         this._spawnAt[0] + ox + this.d.rng.range(-0.8, 0.8), 0,
