@@ -53,7 +53,10 @@ export const ACTIONS = [
     id: 'wander',
     score: (c, n) => 12 + n.fun * 0.2,
     exec: (c, ctx) => {
-      const spots = [['lounge', 'window'], ['lounge', 'center'], ['bar', 'corner'], ['bar', 'center']];
+      const spots = [
+        ['lounge', 'window'], ['lounge', 'center'], ['bar', 'corner'], ['bar', 'center'],
+        ['fireplace', 'hearth'], ['vanity', 'center'], ['shower', 'center'], ['balcony', 'rail'],
+      ];
       const [zone, wp] = ctx.rng.pick(spots);
       c.queue.goto(zone, wp);
       c.queue.wait(18);
@@ -99,5 +102,108 @@ export const ACTIONS = [
     },
     satisfy: { safety: 30 },
     statFx: { tension: -2 },
+  },
+  {
+    id: 'fireplace',
+    score: (c, n) => n.rest * 0.5 + (100 - c.stats.energy) * 0.2 + (c.stats.tension > 40 ? 10 : 0),
+    exec: (c) => {
+      c.queue.goto('fireplace', 'hearth');
+      c.queue.sit(c.id === 'aria' ? 'armchair1.seat0' : 'armchair0.seat0');
+      c.queue.wait(40);
+    },
+    satisfy: { rest: 25, safety: 10 },
+    statFx: { tension: -4, happiness: 2 },
+  },
+  {
+    id: 'rooftop_air',
+    score: (c, n, ctx) => n.air * 0.7 - (ctx.threat > 60 ? 30 : 0),
+    exec: (c) => {
+      c.queue.goto('rooftop', 'edge');
+      c.queue.playClip('idle_stand', 0.4, 35);
+    },
+    satisfy: { air: 55, rest: 8 },
+    statFx: { tension: -6, happiness: 3 },
+  },
+  {
+    id: 'sleep',
+    score: (c, n, ctx) => {
+      const h = (ctx.minuteOfDay ?? 720) / 60;
+      const late = (h >= 1 && h < 7) || h >= 22;
+      return (c.stats.energy < 35 ? n.rest * 1.1 : 0) + (late ? 18 : 0);
+    },
+    exec: (c) => {
+      c.queue.goto('bed_alcove', 'window');
+      c.queue.playClip('lounge', 0.5, 50);
+    },
+    satisfy: { rest: 60 },
+    statFx: { energy: 18, tension: -6 },
+  },
+  {
+    id: 'armoury_check',
+    score: (c, n, ctx) => (c.id === 'lola' ? 18 : 4) + ctx.threat * 0.15 + n.safety * 0.2,
+    exec: (c) => {
+      c.queue.goto('armoury', 'racks');
+      c.queue.playClip('idle_confident', 0.4, 28);
+    },
+    satisfy: { safety: 25 },
+    statFx: { tension: -2, dominance: 1 },
+  },
+  {
+    id: 'shower',
+    score: (c, n, ctx) => {
+      const h = (ctx.minuteOfDay ?? 720) / 60;
+      const morning = h >= 7 && h < 10 ? 18 : 0;
+      return n.rest * 0.25 + (100 - c.stats.energy) * 0.2 + morning;
+    },
+    exec: (c) => {
+      c.queue.goto('shower', 'pod');
+      c.queue.playClip('idle_stand', 0.4, 22);
+    },
+    satisfy: { rest: 15 },
+    statFx: { energy: 4, tension: -3 },
+  },
+  {
+    id: 'vanity',
+    score: (c, n, ctx) => {
+      const who = c.id === 'aria' || c.id === 'kai' ? 14 : 4;
+      const h = (ctx.minuteOfDay ?? 720) / 60;
+      const dusk = h >= 17 && h < 21 ? 10 : 0;
+      return who + dusk + n.social * 0.15;
+    },
+    exec: (c) => {
+      c.queue.goto('vanity', 'mirror');
+      c.queue.playClip('idle_stand', 0.4, 20);
+    },
+    satisfy: { social: 10, fun: 8 },
+    statFx: { openness: 2, happiness: 1 },
+  },
+  {
+    id: 'telescope',
+    score: (c, n, ctx) => {
+      const h = (ctx.minuteOfDay ?? 720) / 60;
+      const night = h >= 20 || h < 5 ? 16 : 4;
+      return n.air * 0.4 + night - (ctx.threat > 70 ? 20 : 0);
+    },
+    exec: (c) => {
+      c.queue.goto('balcony', 'telescope_spot');
+      c.queue.playClip('idle_stand', 0.4, 28);
+    },
+    satisfy: { air: 30, fun: 8 },
+    statFx: { tension: -3, openness: 2 },
+  },
+  {
+    id: 'garden',
+    score: (c, n, ctx) => {
+      const who = c.id === 'aria' ? 16 : 5;
+      const h = (ctx.minuteOfDay ?? 720) / 60;
+      const day = h >= 8 && h < 17 ? 12 : 0;
+      return who + day + n.air * 0.2 - (ctx.threat > 55 ? 25 : 0);
+    },
+    exec: (c) => {
+      c.queue.goto('rooftop', 'garden');
+      c.queue.playClip('idle_stand', 0.4, 30);
+    },
+    satisfy: { air: 25, rest: 8 },
+    statFx: { happiness: 3, tension: -2 },
   },
 ];

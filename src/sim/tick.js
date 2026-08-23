@@ -8,6 +8,7 @@ import { updateObjectives } from './objectives.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
 import { cfg } from '../core/config.js';   // systems degradation → config/sim.yaml (systems)
+import { tickBuffs } from './buffs.js';
 
 export class WorldTick {
   /**
@@ -25,6 +26,7 @@ export class WorldTick {
   /** @param {import('../core/clock.js').GameClock} clock */
   minute(clock) {
     const run = this.deps.run();
+    tickBuffs(run, clock.totalMinutes);
 
     // hour boundary: consumption + decay
     if (clock.minuteOfDay % 60 === 0) {

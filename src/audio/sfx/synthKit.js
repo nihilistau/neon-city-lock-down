@@ -135,6 +135,63 @@ const RECIPES = {
     src.connect(f); f.connect(g); g.connect(out);
     src.start(t);
   },
+  reload(ctx, out, t) {
+    // mag drop + slide slam
+    blip(ctx, out, t, 140, 0.05, 0.1, 'square');
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.18);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.12, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    src.connect(f); f.connect(g); g.connect(out);
+    src.start(t + 0.08);
+    blip(ctx, out, t + 0.18, 220, 0.07, 0.14, 'square');
+  },
+  hit_flesh(ctx, out, t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(90, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    g.gain.setValueAtTime(0.28, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(t + 0.18);
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.12);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 900;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.22, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    src.connect(f); f.connect(ng); ng.connect(out);
+    src.start(t);
+  },
+  hit_cover(ctx, out, t) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.15);
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass'; f.frequency.value = 1800;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    src.connect(f); f.connect(g); g.connect(out);
+    src.start(t);
+    blip(ctx, out, t, 420, 0.04, 0.08, 'square');
+  },
+  cover_slide(ctx, out, t) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.28);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t);
+    f.frequency.exponentialRampToValueAtTime(400, t + 0.22);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+    src.connect(f); f.connect(g); g.connect(out);
+    src.start(t);
+  },
 };
 
 function blip(ctx, out, t, freq, dur, level, type = 'sine') {

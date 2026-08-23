@@ -49,7 +49,31 @@ export const OUTFITS = {
     underwear: { pieces: [shorts('#1a160e')], warmth: 0.1 },
     none: { pieces: [], warmth: 0.05 },
   },
+  player: {
+    street_armor: { pieces: [top('#1a2834', 0.5), leggings('#121820'), { piece: 'jacket', color: '#15222c', roughness: 0.45, metalness: 0.28 }], warmth: 0.8 },
+    evening_wear: { pieces: [top('#1c2430', 0.5), leggings('#10161c')], warmth: 0.5 },
+    casual_lounge: { pieces: [top('#243040'), shorts('#1a2028')], warmth: 0.35 },
+    workout: { pieces: [top('#1e2a34', 0.9), shorts('#141a22')], warmth: 0.3 },
+    swim: { pieces: [shorts('#1a2834')], warmth: 0.15 },
+    sleepwear: { pieces: [top('#243040', 0.95), shorts('#1c242c')], warmth: 0.3 },
+    robe: { pieces: [robeP('#1c2830')], warmth: 0.4 },
+    towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
+    underwear: { pieces: [shorts('#1a2028')], warmth: 0.1 },
+    none: { pieces: [], warmth: 0.05 },
+  },
+  refugee: {
+    street_armor: { pieces: [top('#3a342c', 0.85), leggings('#2a241c'), { piece: 'jacket', color: '#2c281e', roughness: 0.75 }], warmth: 0.7 },
+    casual_lounge: { pieces: [top('#3a342c'), shorts('#2a241c')], warmth: 0.35 },
+    evening_wear: { pieces: [top('#3a342c'), leggings('#2a241c')], warmth: 0.45 },
+    workout: { pieces: [top('#3a342c', 0.9), shorts('#2a241c')], warmth: 0.3 },
+    swim: { pieces: [shorts('#2a241c')], warmth: 0.15 },
+    sleepwear: { pieces: [top('#3a342c', 0.95), shorts('#2a241c')], warmth: 0.3 },
+    robe: { pieces: [robeP('#3a342c')], warmth: 0.4 },
+    towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
+    underwear: { pieces: [shorts('#2a241c')], warmth: 0.1 },
+    none: { pieces: [], warmth: 0.05 },
+  },
 };
 
 /** default per-character starting outfit */
-export const DEFAULT_OUTFIT = { lola: 'evening_wear', aria: 'casual_lounge', kai: 'casual_lounge' };
+export const DEFAULT_OUTFIT = { lola: 'evening_wear', aria: 'casual_lounge', kai: 'casual_lounge', player: 'street_armor', refugee: 'street_armor' };

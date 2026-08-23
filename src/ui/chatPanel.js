@@ -3,6 +3,7 @@
 // The typewriter reveals cleanText and reports character offsets back to the
 // engine so inline stage directions fire at their authored moments.
 import { on, emit } from '../core/bus.js';
+import { iconUrl } from './icons.js';
 
 export class ChatPanel {
   /**
@@ -21,7 +22,8 @@ export class ChatPanel {
           <option value="room">◦ room</option>
           ${Object.values(cast).map((c) => `<option value="${c.id}">${c.name}</option>`).join('')}
         </select>
-        <input id="chat-input" type="text" maxlength="240" placeholder="say something…" autocomplete="off" spellcheck="false">
+        <button id="chat-whisper" class="chat-whisper" title="Whisper (only the addressee hears)"><img class="chip-ico" alt=""><span class="chip-lab">whisper</span></button>
+        <input id="chat-input" type="text" maxlength="500" placeholder="say something…" autocomplete="off" spellcheck="false">
         <button id="chat-send">▸</button>
       </div>`;
     this.log = this.root.querySelector('#chat-log');
@@ -32,6 +34,19 @@ export class ChatPanel {
     this._typing = null;      // active typewriter timer
     this._finishTyping = null; // completes the in-flight line instantly
     this._busy = false;
+    this._whisper = false;
+
+    const whisperBtn = this.root.querySelector('#chat-whisper');
+    whisperBtn.addEventListener('click', () => {
+      this._whisper = !this._whisper;
+      whisperBtn.classList.toggle('on', this._whisper);
+      const lab = whisperBtn.querySelector('.chip-lab');
+      if (lab) lab.textContent = this._whisper ? 'on' : 'whisper';
+    });
+    const wImg = whisperBtn.querySelector('img');
+    const paintWhisper = () => { if (wImg) wImg.src = iconUrl('whisper'); };
+    paintWhisper();
+    setTimeout(paintWhisper, 500);
 
     this.root.querySelector('#chat-send').addEventListener('click', () => this._send());
     this.input.addEventListener('keydown', (e) => {
@@ -42,6 +57,13 @@ export class ChatPanel {
 
     on('chat.reply', (msg) => this._enqueueReply(msg));
     on('chat.player', ({ text }) => this._addPlayerLine(text));
+    on('char.registered', ({ character }) => {
+      if ([...this.targetSel.options].some((o) => o.value === character.id)) return;
+      const opt = document.createElement('option');
+      opt.value = character.id;
+      opt.textContent = character.name;
+      this.targetSel.appendChild(opt);
+    });
   }
 
   async _send() {
@@ -51,9 +73,10 @@ export class ChatPanel {
     this.chips.innerHTML = '';
     this._busy = true;
     try {
-      const replies = await this.engine.playerSays(text, this.targetSel.value);
+      const replies = await this.engine.playerSays(text, this.targetSel.value, { whisper: this._whisper });
       const last = replies[replies.length - 1];
       if (last?.line?.branches) this._showChips(last.line.branches);
+      else emit('chat.idle');
     } finally {
       this._busy = false;
     }
@@ -118,6 +141,7 @@ export class ChatPanel {
       btn.textContent = b.chip;
       btn.addEventListener('click', () => {
         this.chips.innerHTML = '';
+        emit('chat.idle');
         // chips send their label as the utterance; branch intents give it weight
         this.input.value = b.chip;
         this._send();

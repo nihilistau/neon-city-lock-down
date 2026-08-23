@@ -208,6 +208,9 @@ export class DialogueEngine {
     }
 
     this._perform(char, compiled, line);
+    if (char.id === 'vox' && topic?.id && !String(topic.id).startsWith('fallback')) {
+      emit('vox.talked', { topicId: topic.id });
+    }
     return { ...line, compiled, topic: topic.id, branches: topic.branches };
   }
 

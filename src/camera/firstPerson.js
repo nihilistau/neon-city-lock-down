@@ -209,7 +209,10 @@ export class FirstPersonControls {
     if (!Number.isFinite(this.yaw)) { this.yaw = this._targetYaw = Math.PI; }
     if (!Number.isFinite(this.pitch)) { this.pitch = this._targetPitch = 0; }
 
-    const speed = this.keys.has('ShiftLeft') ? RUN_SPEED : WALK_SPEED;
+    this.crouching = this.keys.has('ControlLeft') || this.keys.has('ControlRight');
+    this.pos.y = this.crouching ? EYE * 0.70 : EYE;
+    const speed = (this.keys.has('ShiftLeft') && !this.crouching ? RUN_SPEED : WALK_SPEED)
+      * (this.crouching ? 0.55 : 1);
     const f = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     this._moving = !!(f || s);
@@ -227,8 +230,9 @@ export class FirstPersonControls {
       // face where the camera aims (horizontal): forward = (-sin, -cos)
       this.body.root.rotation.y = Math.atan2(-Math.sin(this.yaw), -Math.cos(this.yaw));
       this.body.facingTarget = this.body.root.rotation.y;
-      const clip = this.aiming ? 'aim'
-        : (this._moving ? 'walk' : (this.body.persona.personality.idleClip || 'idle_confident'));
+      const clip = this.crouching ? 'crouch'
+        : (this.aiming ? 'aim'
+          : (this._moving ? 'walk' : (this.body.persona.personality.idleClip || 'idle_confident')));
       if (this.body.animator.current?.id !== clip) this.body.playClip(clip, 0.18);
       this.body.update(dt);
     }

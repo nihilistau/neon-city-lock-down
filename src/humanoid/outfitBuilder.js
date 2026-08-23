@@ -277,6 +277,7 @@ export function buildOutfit(persona, rig, recipe) {
       // DoubleSide would only cost fill rate and flatten the hems.
       side: THREE.FrontSide,
     });
+    bindFabric(mat, p.piece);
     const mesh = new THREE.SkinnedMesh(geo, mat);
     mesh.castShadow = true;
     // explicit identity bindMatrix — reuse the bind-pose boneInverses computed
@@ -287,4 +288,28 @@ export function buildOutfit(persona, rig, recipe) {
     meshes.push(mesh);
   }
   return meshes;
+}
+
+const FABRIC_FOR = {
+  jacket: 'leather', dress: 'silk', robe: 'silk',
+  top: 'cotton', shorts: 'cotton', leggings: 'cotton', towel: 'cotton',
+};
+
+/** @param {string} piece */
+export function fabricForPiece(piece) {
+  return FABRIC_FOR[piece] || null;
+}
+
+/** @param {THREE.MeshPhysicalMaterial} mat @param {string} piece */
+function bindFabric(mat, piece) {
+  const kind = fabricForPiece(piece);
+  if (!kind || typeof Image === 'undefined') return;
+  const loader = new THREE.TextureLoader();
+  loader.load(`/assets/fabrics/${kind}.jpg`, (map) => {
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(2.2, 2.2);
+    mat.map = map;
+    mat.needsUpdate = true;
+  });
 }

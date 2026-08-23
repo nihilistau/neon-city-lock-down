@@ -10,7 +10,9 @@ import '../../data/dialogue/lola/depth.js';
 import '../../data/dialogue/aria/core.js';
 import '../../data/dialogue/aria/depth.js';
 import '../../data/dialogue/kai/core.js';
+import '../../data/dialogue/kai/depth.js';
 import '../../data/dialogue/vox/core.js';
+import '../../data/dialogue/vox/depth.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -34,7 +36,6 @@ import { Character } from '../chars/character.js';
 import { DialogueEngine } from '../dialogue/engine.js';
 import { TtsRouter } from '../dialogue/ttsRouter.js';
 import { LLMAdapter } from '../dialogue/llmAdapter.js';
-import { showGate18 } from '../ui/gate18.js';
 import { initHud } from '../ui/hud.js';
 import { initStatBars } from '../ui/statBars.js';
 import { ChatPanel } from '../ui/chatPanel.js';
@@ -59,6 +60,7 @@ import { BedGame } from '../games/bedGame.js';
 import { TruthOrDare } from '../games/truthOrDare.js';
 import { Gambits } from '../games/gambits.js';
 import { Mystery } from '../games/mystery.js';
+import { Cards } from '../games/cards.js';
 import { SaveMenu } from '../ui/saveMenu.js';
 import { initDeathScreen } from '../ui/deathScreen.js';
 import { endRun } from '../sim/death.js';
@@ -74,7 +76,7 @@ import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
-import { zoneAt } from '../sim/actors/nav.js';
+import { zoneAt, waypointPos } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
@@ -88,9 +90,14 @@ import { LLMPanel } from '../ui/llmPanel.js';
 import { VoicePanel } from '../ui/voicePanel.js';
 import { KitPanel } from '../ui/kitPanel.js';
 import { LOADOUTS } from '../../data/items.js';
+import { buildRefugee } from '../../data/cast/refugee.js';
+import { registerRefugeeTopics } from '../../data/dialogue/refugee.js';
 import { showMainMenu } from '../ui/mainMenu.js';
 import { addCodex } from '../sim/meta.js';
 import { applyScenario } from '../sim/scenario.js';
+import { jobDest, interruptChance } from '../sim/jobs.js';
+import { canAct, performAction, spendAp } from '../sim/dayPlan.js';
+import { shouldDinner, markDinner, shouldSleep, markSleep, DINNER_MINUTE, SLEEP_MINUTE } from '../sim/livingBeats.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
 function setTimeoutGameSafe(app, minutes, fn) {
@@ -131,9 +138,10 @@ export class App {
 
   async start() {
     this.loop.start();
-    await showGate18();
-    audio.unlock();                 // the gate click is our autoplay gesture
+    const unlock = () => audio.unlock();
+    document.addEventListener('pointerdown', unlock, { once: true });
     const choice = await showMainMenu(this);   // boot scene renders behind the menu
+    audio.unlock();
     emit('game.entered', {});
     await this.startRun(choice);
   }
@@ -181,6 +189,8 @@ export class App {
       nowMinute: () => this.clock.totalMinutes,
       combat: () => this.combat,
       cutscene: () => this.cutscene,
+      spawnRefugee: () => this.spawnRefugee(),
+      rideFloor: (id) => this.elevatorUI?.ride(id),
     });
     this.worldTick = new WorldTick({
       run: () => this.run,
@@ -245,11 +255,29 @@ export class App {
       }
     });
     // taking the shuttle ends the run — victorious
-    on('run.extraction', () => {
+    on('run.extraction', ({ outcome } = {}) => {
       if (this.mode !== 'run') return;
       this.mode = 'dead';
       this.loop.pause('death');
-      endRun(this, 'extracted');
+      endRun(this, outcome || 'extracted');
+    });
+    // a named companion falling is a scene, not a feed line
+    const playFallen = (name) => {
+      import('../../data/cutscenes/fallen.js').then(({ fallenCutscene }) => {
+        if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+        this.cutscene.play(fallenCutscene(name));
+      });
+    };
+    on('char.died', ({ id, name } = {}) => {
+      if (['lola', 'aria', 'kai'].includes(id) && this.run) this.run.flags.lostCast = true;
+      if (!['lola', 'aria', 'kai'].includes(id) || this.mode !== 'run') return;
+      if (this.combat.active || this.cutscene.playing) { this._fallenPending = name; return; }
+      playFallen(name);
+    });
+    on('combat.resolved', () => {
+      const name = this._fallenPending;
+      this._fallenPending = null;
+      if (name) playFallen(name);
     });
 
     // news ticker screen above the bar shelves (penthouse group so it hides with the floor)
@@ -312,6 +340,7 @@ export class App {
     this.relationships = new Relationships({
       cast: () => this.cast, brains: this.brains,
       rng: this.rng.stream('relationships'), nowMinute: () => this.clock.totalMinutes,
+      speak: (c, text) => { try { this.dialogue?.forceSay(c.id, text); } catch { feed(`${c.name}: ${text}`, 'dialogue'); } },
     });
     on('world.minute', ({ clock }) => {
       if (this.mode !== 'run') return;
@@ -319,10 +348,22 @@ export class App {
         if (this.cast[id]?.present) b.tick(clock.totalMinutes, 1);
       }
       this.relationships.tick();
+      const m = clock.minuteOfDay;
+      if (m === 8 * 60) this._castOutfitHour('casual_lounge');
+      else if (m === 18 * 60 + 30) this._castOutfitHour('evening_wear');
+      else if (m === 60) this._castOutfitHour('sleepwear');
     });
     // dialogue engagement suspends wandering
     on('chat.reply', ({ speaker }) => {
       this.brains[speaker]?.engage(this.clock.totalMinutes + 3);
+    });
+    on('vox.talked', ({ topicId } = {}) => {
+      if (!this.run || !topicId) return;
+      const seen = this.run.flags.voxTopics || [];
+      if (seen.includes(topicId)) return;
+      seen.push(topicId);
+      this.run.flags.voxTopics = seen;
+      this.run.flags.voxTalks = seen.length;
     });
     // paired poses hold both participants' brains
     on('pose.paired', ({ a, b, holdMinutes }) => {
@@ -341,10 +382,16 @@ export class App {
     this.player = { name: settings.playerName, dominance: 55 };
 
     // visible player avatar (third-person + first-person combat)
-    this.playerActor = new Actor3D(buildPlayerPersona(settings.playerName, settings.playerPronouns));
+    this.playerActor = new Actor3D(buildPlayerPersona(settings.playerName, settings.playerPronouns, settings.appearance || {}));
     this.playerActor.root.position.set(-2, 0, 2);
     this.playerActor.root.visible = false;   // shown by the rig per camera mode
     this.stage.scene.add(this.playerActor.root);
+    this.playerWardrobe = new Wardrobe({
+      id: 'player',
+      name: settings.playerName,
+      persona: this.playerActor.persona,
+      actor: this.playerActor,
+    }, 'street_armor');
     this.cameraRig.fp.attachBody(this.playerActor);
     this.cameraRig.fp.onFire = () => { if (this.combat.active) this.combat.fireRay(this.stage.camera); };
     this.cameraRig.fp.onReload = () => { if (this.combat.active) this.combat.reload(); };
@@ -359,6 +406,43 @@ export class App {
     this.kitPanel = new KitPanel(this);
     this.reticle = new Reticle();
     this.planPanel = new PlanPanel(this);
+
+    /**
+     * Spend a day-plan action by riding to its floor, then applying the effect.
+     * @param {string} id
+     */
+    this.startJob = async (id) => {
+      if (!canAct(this.run, id)) return { ok: false, msg: 'Can\'t do that right now.' };
+      const dest = jobDest(id);
+      if (dest && dest.floor !== this.world.activeFloor) {
+        emit('hud.alert', { text: `Heading to ${dest.label}…`, kind: 'info' });
+        await this.elevatorUI.ride(dest.floor);
+      }
+      const rng = this.rng.stream('dayplan');
+      if (interruptChance(this.run, id, rng)) {
+        spendAp(this.run, id);
+        this.eventRunner.fire('forage_scare');
+        const msg = 'Shots on the roof. You drop the harvest and get down.';
+        emit('hud.alert', { text: msg, kind: 'warn' });
+        return { ok: false, msg };
+      }
+      const r = performAction(this.run, id, rng);
+      if (r.ok) {
+        emit('hud.alert', { text: r.msg, kind: 'info' });
+        emit('resources.changed', this.run.resources);
+        emit('systems.changed', this.run.systems);
+        emit('threat.changed', { threat: this.run.threat });
+        emit('player.health', { health: this.run.player.health });
+      }
+      return r;
+    };
+
+    this._castOutfitHour = (outfitId) => {
+      for (const c of Object.values(this.cast)) {
+        if (!c.alive || c.id === 'vox') continue;
+        c.wardrobe?.change(outfitId);
+      }
+    };
 
     // combat controller (needs picker + playerMarker)
     this.combat = new Combat({
@@ -382,6 +466,14 @@ export class App {
       giveItem: (id, qty) => this.inventory.add(id, qty),
       fx: this.combatFx,
       playerSkill: () => this.run.player.skill ?? 70,
+      floorOffset: () => this.world.floorGroups[this.world.activeFloor]?.position.x ?? 0,
+      playerCrouch: () => !!this.cameraRig?.fp?.crouching,
+      muzzle: () => {
+        if (!this._weaponMesh) return null;
+        const v = new THREE.Vector3();
+        this._weaponMesh.getWorldPosition(v);
+        return v;
+      },
     });
     this.combatHud = new CombatHud(this);
     // combat camera magnetism: soft continuous pull toward whichever hostile the aim is near
@@ -453,6 +545,10 @@ export class App {
       playerSkill: () => this.run.player.skill ?? 60,
     });
     this.mystery = new Mystery({ cast: () => this.cast });
+    this.cards = new Cards({
+      rng: this.rng.stream('cards'),
+      kaiDominance: () => this.cast.kai?.stats.dominance ?? 50,
+    });
     this.gamesPanel = new GamesPanel(this);
 
     this.directorPanel = new DirectorPanel(this);
@@ -495,6 +591,25 @@ export class App {
       if (this.mode === 'run' && clock.minuteOfDay % 60 === 0
           && !this.combat.active && !this.run.activeEventId && !this.cutscene.playing) {
         saveToSlot(this, 'auto');
+      }
+      if (this.mode === 'run' && clock.minuteOfDay === DINNER_MINUTE && shouldDinner(this.run, clock)) {
+        markDinner(this.run, clock);
+        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+          import('../../data/cutscenes/dinner.js').then(({ dinnerCutscene }) => {
+            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            this.cutscene.play(dinnerCutscene(clock.day));
+          });
+        }
+      }
+      if (this.mode === 'run' && clock.minuteOfDay === SLEEP_MINUTE && shouldSleep(this.run, clock)) {
+        markSleep(this.run, clock);
+        this._castOutfitHour('sleepwear');
+        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+          import('../../data/cutscenes/sleep.js').then(({ sleepCutscene }) => {
+            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            this.cutscene.play(sleepCutscene(clock.day));
+          });
+        }
       }
     });
 
@@ -855,7 +970,8 @@ export class App {
   /** @param {any} persona @param {string} zoneId */
   spawn(persona, zoneId) {
     const actor = new Actor3D(persona);
-    const [x, z] = ZONES[zoneId]?.anchor ?? [0, 0];
+    const zone = ZONES[zoneId];
+    const [x, z] = zone ? waypointPos(zoneId) : [0, 0];
     actor.root.position.set(x, 0, z);
     actor.setRim(0.35);
     this.stage.scene.add(actor.root);
@@ -864,6 +980,34 @@ export class App {
     this.cast[persona.id] = character;
     emit('char.registered', { character });
     return character;
+  }
+
+  /** A named guest at reception. Counted as a corporeal mouth via the cast. */
+  spawnRefugee() {
+    const idx = Math.max(0, (this.run.refugees || 1) - 1);
+    const persona = buildRefugee(idx);
+    if (this.cast[persona.id]) return this.cast[persona.id];
+    registerRefugeeTopics(persona.id);
+    const c = this.spawn(persona, 'reception');
+    c.wardrobe = new Wardrobe({
+      id: 'refugee',
+      name: c.name,
+      persona: c.persona,
+      actor: c.actor,
+    }, 'street_armor');
+    this.brains[c.id] = new Brain(c, {
+      rng: this.rng.stream(`brain_${c.id}`),
+      others: (self) => Object.values(this.cast).filter((x) => x !== self && x.alive && x.id !== 'vox'),
+      threat: () => this.run.threat,
+      sfx: (id) => playSfx(audio, id),
+      combatActive: () => this.combat?.active ?? false,
+    });
+    if (this.dialogue?.vocab?.chars && !this.dialogue.vocab.chars.includes(persona.id)) {
+      this.dialogue.vocab.chars.push(persona.id);
+    }
+    feed(`${c.name} is in reception — another mouth, another story.`, 'system');
+    emit('hud.alert', { text: `${c.name} made it inside`, kind: 'info' });
+    return c;
   }
 
   /** Send an NPC away (they leave the room/tower). Reversible. VOX can't leave. */
@@ -885,7 +1029,8 @@ export class App {
     c.present = true;
     if (c.actor.root) {
       c.actor.root.visible = true;
-      const [x, z] = ZONES[c.queue.zone]?.anchor ?? [0, 0];
+      const zoneId = c.queue.zone;
+      const [x, z] = ZONES[zoneId] ? waypointPos(zoneId) : [0, 0];
       c.actor.snapTo?.(x, z);
     }
     emit('char.registered', { character: c });

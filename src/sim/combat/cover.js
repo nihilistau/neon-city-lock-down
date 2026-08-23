@@ -57,6 +57,12 @@ export function coverBetween(pos, from, colliders) {
   return best;
 }
 
+/** Crouch adds a base cover bonus, stacked with furniture, capped at 1. */
+export function crouchCover(base, crouching) {
+  if (!crouching) return Math.max(0, Math.min(1, base));
+  return Math.max(0, Math.min(1, base + 0.28));
+}
+
 /**
  * Pick a spot to take cover in: just behind an obstacle, on the far side from
  * the threat. Returns {x, z, quality} or null.

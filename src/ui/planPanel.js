@@ -3,9 +3,11 @@
 // foraging, training, resting, or faction deals; track mid-run objectives. This
 // is the active decision layer between events.
 import { DAY_ACTIONS, canAct, performAction } from '../sim/dayPlan.js';
+import { jobDest } from '../sim/jobs.js';
 import { objectiveState } from '../sim/objectives.js';
-import { on } from '../core/bus.js';
+import { on, emit } from '../core/bus.js';
 import { h } from './widgets.js';
+import { iconUrl } from './icons.js';
 
 export class PlanPanel {
   /** @param {import('../core/app.js').App} app */
@@ -28,11 +30,13 @@ export class PlanPanel {
   close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('plan'); }
   show() { this.open = true; this.app.loop.pause('plan'); this._render(); }
 
-  _act(id) {
-    const r = performAction(this.app.run, id, this.rng);
+  async _act(id) {
+    this.close();
+    const r = this.app.startJob
+      ? await this.app.startJob(id)
+      : performAction(this.app.run, id, this.rng);
     this._last = r.msg;
-    this.app.toast?.(r.msg);
-    this._render();
+    emit('hud.alert', { text: r.msg, kind: r.ok ? 'info' : 'warn' });
   }
 
   _render() {
@@ -44,9 +48,10 @@ export class PlanPanel {
 
     const actions = DAY_ACTIONS.map((a) => {
       const ok = canAct(run, a.id);
+      const dest = jobDest(a.id);
       return h('button', { class: `plan-act ${ok ? '' : 'disabled'}`, disabled: !ok, onclick: () => this._act(a.id) }, [
         h('span', { class: 'plan-act-name' }, [a.label, h('em', {}, [` ${a.ap} AP`])]),
-        h('span', { class: 'plan-act-hint' }, [a.hint]),
+        h('span', { class: 'plan-act-hint' }, [a.hint, dest ? ` · ${dest.label}` : '']),
       ]);
     });
 
@@ -59,10 +64,14 @@ export class PlanPanel {
     const sys = Object.entries(run.systems).map(([k, s]) =>
       h('span', { class: `plan-sys ${s.online ? '' : 'off'}` }, [`${k} ${Math.round(s.hp)}%`]));
 
-    const el = h('div', { class: 'screen', style: 'background:rgba(4,5,9,0.92)' }, [
-      h('div', { class: 'panel', style: 'min-width:520px;max-width:640px;max-height:88vh;overflow-y:auto' }, [
+    const el = h('div', { class: 'plan-wrap' }, [
+      h('div', { class: 'plan-scrim', onclick: () => this.close() }),
+      h('div', { class: 'plan-drawer clickable' }, [
         h('div', { class: 'game-head' }, [
-          h('h1', { class: 'neon-title', style: 'font-size:22px' }, [`DAY ${clock.day} — PLAN`]),
+          h('h1', { class: 'neon-title plan-title' }, [
+            h('img', { class: 'chip-ico', src: iconUrl('plan'), alt: '' }),
+            ` DAY ${clock.day}`,
+          ]),
           h('button', { onclick: () => this.close() }, ['Close (P)']),
         ]),
         h('div', { class: 'plan-ap' }, [`Action points: `, h('b', {}, [`${ap} / ${apMax}`]),

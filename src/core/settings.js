@@ -8,6 +8,7 @@ const DEFAULTS = {
   confirmed18: false,
   playerName: 'Cipher',
   playerPronouns: 'she',         // 'she' (Female) | 'he' (Male)
+  appearance: { skin: '#b98a6e', hair: '#141018', hairStyle: 'bob', height: 1.74, build: 1.0 },
   explicitness: 'mature',        // 'suggestive' | 'mature' | 'full'
   volumes: { master: 0.8, music: 0.7, sfx: 0.8, ambience: 0.7, voice: 1.0, ui: 0.6 },
   cameraMode: 'auto',            // 'auto' (situational director) | 'director' | 'firstPerson'
@@ -22,7 +23,7 @@ const DEFAULTS = {
   // thinking: let reasoning models think before replying (slower, sometimes
   // richer) vs. reply directly (/no_think — fast, clean). Default off = snappy.
   llm: { enabled: false, agentMode: true, thinking: false, temperature: 0.85, reasoning: 'off', chatModel: '', functionModel: '', charModels: {}, charModes: {}, baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '' },
-  tts: { sidecarUrl: 'http://localhost:8425', useSidecar: true },
+  tts: { sidecarUrl: 'http://localhost:8425', useSidecar: false },
   debug: false,
 };
 

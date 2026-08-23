@@ -12,8 +12,9 @@
 // - LOOT: downed hostiles are stripped for ammo and the occasional item.
 import * as THREE from 'three';
 import { Actor3D } from '../../humanoid/actor3d.js';
-import { resolveAttack, rollInjury, hitChance } from './resolver.js';
-import { coverBetween, findCoverSpot } from './cover.js';
+import { resolveAttack, resolveAimedShot, rollInjury, hitChance } from './resolver.js';
+import { coverBetween, findCoverSpot, crouchCover } from './cover.js';
+import { rollLoot } from './loot.js';
 import { emit } from '../../core/bus.js';
 import { cfg } from '../../core/config.js';
 // Live combat data (hot-reloadable via config/combat.yaml)
@@ -23,21 +24,24 @@ import { spend } from '../world.js';
 
 /** dark, hooded-looking rioter persona factory (procedural visual variety) */
 function hostilePersona(arch, i, rng) {
+  const kit = arch === 'merc' ? 'visor' : arch === 'looter' ? 'backpack' : 'hoodie';
+  const hair = arch === 'merc' ? 'slick' : arch === 'looter' ? 'undercut' : 'short';
   return {
     id: `hostile_${i}_${rng.int(0, 9999)}`,
     name: arch === 'merc' ? 'Merc' : arch === 'looter' ? 'Looter' : 'Rioter',
     accent: '#ff4757',
+    kit,
     colors: {
-      skin: ['#8a6752', '#6e5142', '#a3765c'][i % 3],
-      hair: '#0c0a10',
+      skin: ['#8a6752', '#6e5142', '#a3765c', '#3d2a22'][i % 4],
+      hair: ['#0c0a10', '#3a2418', '#1a1420'][i % 3],
       eyes: '#b0b8c0',
       lips: '#5c4038',
     },
-    hairStyle: 'short',
+    hairStyle: hair,
     face: { browWeight: 1.3 },
     body: {
-      height: 1.7 + rng.range(-0.06, 0.1), shoulderW: 0.42, hipW: 0.34,
-      bust: 0, waist: 1.05, hips: 0.9, build: 1.1,
+      height: 1.7 + rng.range(-0.06, 0.1), shoulderW: 0.42 + rng.range(-0.03, 0.04),
+      hipW: 0.34, bust: 0, waist: 1.05, hips: 0.9, build: 1.05 + rng.range(0, 0.15),
     },
     personality: { breathBase: 1.2, fidget: 0.8, idleClip: 'idle_stand' },
   };
@@ -93,6 +97,7 @@ export class Combat {
     this.active = true;
     this._onResolve = spec.onResolve || null;
     this._spawnAt = spec.spawnAt;
+    this._spawnFloor = spec.floor || null;
     const waves = spec.waves?.length
       ? spec.waves.map((w) => ({ count: w.count, archetype: w.archetype || 'rioter' }))
       : [{ count: spec.count || 2, archetype: spec.archetype || 'rioter' }];
@@ -121,8 +126,9 @@ export class Combat {
     for (let i = 0; i < waveSpec.count; i++) {
       const persona = hostilePersona(waveSpec.archetype, i, this.d.rng);
       const actor = new Actor3D(persona);
+      const ox = this.d.floorOffset ? this.d.floorOffset() : 0;
       actor.root.position.set(
-        this._spawnAt[0] + this.d.rng.range(-0.8, 0.8), 0,
+        this._spawnAt[0] + ox + this.d.rng.range(-0.8, 0.8), 0,
         this._spawnAt[1] + this.d.rng.range(-0.5, 0.5));
       actor.setRim(0.8);
       actor.face.setExpression({ mouth: 'grit', browAngle: -0.8, browRaise: -0.5 });
@@ -170,6 +176,10 @@ export class Combat {
   dropShutters() {
     const run = this.d.run();
     const def = this.d.defences?.();
+    if (run.flags.shuttersJammed) {
+      emit('hud.alert', { text: 'The shutter rails scream and bind. Steel stays up.', kind: 'danger' });
+      return { ok: false, reason: 'jammed' };
+    }
     if (!def || def.shutter.down) return { ok: false, reason: 'already_down' };
     if (run.resources.cells < 2) {
       emit('hud.alert', { text: 'Not enough power cells (need 2)', kind: 'danger' });
@@ -201,7 +211,8 @@ export class Combat {
   /** player's current cover value against a given hostile */
   playerCoverAgainst(h) {
     const p = this.d.playerMarker.position;
-    return coverBetween({ x: p.x, z: p.z }, h.actor.root.position, this._colliders());
+    const base = coverBetween({ x: p.x, z: p.z }, h.actor.root.position, this._colliders());
+    return crouchCover(base, !!this.d.playerCrouch?.());
   }
 
   /** best-case display of the player's cover vs any living hostile */
@@ -253,7 +264,7 @@ export class Combat {
     emit('combat.mag', { mag: this.mag, magSize: this.magSize, reserve: run.resources.ammo });
     this.d.sfx('gunshot');
     const p = this.d.playerMarker.position;
-    const from = new THREE.Vector3(p.x, 1.5, p.z);
+    const from = this._muzzlePos() || new THREE.Vector3(p.x, 1.5, p.z);
     const to = camera.position.clone().addScaledVector(ray.ray.direction, 24);
     this._fxShot(from, to, false);
   }
@@ -268,7 +279,7 @@ export class Combat {
     const take = Math.min(need, run.resources.ammo);
     run.resources.ammo -= take;
     this.mag += take;
-    this.d.sfx('door_servo');
+    this.d.sfx('reload');
     emit('combat.mag', { mag: this.mag, magSize: this.magSize, reserve: run.resources.ammo });
     emit('resources.changed', run.resources);
   }
@@ -304,16 +315,20 @@ export class Combat {
       { x: h.actor.root.position.x, z: h.actor.root.position.z },
       { x: p.x, z: p.z }, this._colliders());
     const skill = this.d.playerSkill ? this.d.playerSkill() : 70;
-    const res = resolveAttack({ weapon, skill, distance: dist, cover }, this.d.rng);
+    // Aimed: the caller already put the crosshair / interact on this body.
+    const res = resolveAimedShot({ weapon, cover, skill, rng: this.d.rng });
     const target = h.actor.root.position.clone(); target.y = 1.2;
-    if (wpn.ranged) this._fxShot(new THREE.Vector3(p.x, 1.5, p.z), target, res.hit);
-    else if (res.hit && this.d.fx) this.d.fx.impact(target, 'blood');
-    if (res.hit) {
-      this._damageHostile(h, res.damage, res.crit ? 'Critical hit!' : null);
-      emit('combat.hit', { crit: res.crit });
-    } else {
-      feed(cover > 0 ? 'Your shot chews into their cover.' : (wpn.ranged ? 'Your shot goes wide.' : 'You swing and miss.'), 'combat');
-    }
+    const from = this._muzzlePos() || new THREE.Vector3(p.x, 1.5, p.z);
+    if (wpn.ranged) this._fxShot(from, target, true, res.glancing ? 'spark' : 'blood');
+    else if (this.d.fx) this.d.fx.impact(target, res.glancing ? 'spark' : 'blood');
+    this.d.sfx(res.glancing ? 'hit_cover' : 'hit_flesh');
+    this._damageHostile(h, res.damage, res.crit ? 'Critical hit!' : (res.glancing ? 'Glancing — cover ate some of it.' : null));
+    emit('combat.hit', { crit: res.crit, glancing: res.glancing });
+  }
+
+  _muzzlePos() {
+    const m = this.d.muzzle?.();
+    return m || null;
   }
 
   /** muzzle flash + tracer (+ impact on hit) between two world points. */
@@ -341,7 +356,31 @@ export class Combat {
       h.actor.root.rotation.x = -Math.PI / 2 * 0.06;
       feed(`${h.actor.persona.name} is down.`, 'combat');
       this.d.sfx('thump');
+      this._offerLoot(h);
     }
+  }
+
+  _offerLoot(h) {
+    h.lootable = true;
+    h.looted = false;
+    this.d.picker.register({
+      mesh: h.actor.root, id: `${h.id}_loot`,
+      prompt: `Loot the ${h.actor.persona.name.toLowerCase()}`,
+      onInteract: () => this._lootBody(h),
+    });
+  }
+
+  _lootBody(h) {
+    if (!h || h.looted) return;
+    h.looted = true;
+    const run = this.d.run();
+    const loot = rollLoot(this.d.rng);
+    run.resources.ammo += loot.ammo;
+    emit('resources.changed', run.resources);
+    if (loot.item && this.d.giveItem) this.d.giveItem(loot.item, 1);
+    feed(`You strip the body: +${loot.ammo} rounds${loot.item ? `, ${loot.item}` : ''}.`, 'combat');
+    emit('hud.alert', { text: `Looted +${loot.ammo} ammo`, kind: 'info' });
+    this.d.sfx('thump');
   }
 
   /**
@@ -376,7 +415,9 @@ export class Combat {
     if (!this.hostiles.some((h) => h.hp > 0)) return;
     const run = this.d.run();
     for (const c of Object.values(this.d.cast())) {
-      if (!c.alive || c.present === false || c.id === 'vox' || run.resources.ammo < 1) continue;
+      if (!c.alive || c.present === false || c.id === 'vox') continue;
+      // don't dump the shared magazine — they only fire if the reserve is healthy
+      if (run.resources.ammo <= 15) continue;
       if (!this._onCombatFloor(c)) continue;
       // re-filter per shooter: an earlier cast member may have dropped the target
       const alive = this.hostiles.filter((h) => h.hp > 0);
@@ -564,22 +605,12 @@ export class Combat {
     if (this.mag > 0) { this.d.run().resources.ammo += this.mag; this.mag = 0; emit('resources.changed', this.d.run().resources); }
     emit('combat.resolved', { win });
     if (win) {
-      // strip the fallen: ammo + occasional gear
-      const run = this.d.run();
-      const downed = this.hostiles.filter((h) => h.hp <= 0).length;
-      let ammoLoot = 0;
-      for (let i = 0; i < downed; i++) {
-        ammoLoot += this.d.rng.int(3, 8);
-        if (this.d.giveItem && this.d.rng.chance(0.3)) {
-          this.d.giveItem(this.d.rng.pick(['stim', 'shiv', 'ration']), 1);
-        }
+      const leftover = this.hostiles.filter((h) => h.hp <= 0 && !h.looted);
+      if (leftover.length) {
+        feed('The floor is clear. Strip the fallen before they go cold.', 'combat');
+      } else {
+        feed('The floor is clear.', 'combat');
       }
-      if (ammoLoot) {
-        run.resources.ammo += ammoLoot;
-        emit('resources.changed', run.resources);
-        feed(`You strip the fallen: +${ammoLoot} rounds.`, 'combat');
-      }
-      feed('The floor is clear.', 'combat');
       emit('hud.alert', { text: 'THREAT NEUTRALIZED', kind: 'info' });
       for (const c of Object.values(this.d.cast())) {
         if (!c.alive) continue;   // no relief, no idle clip, no queue for the fallen
@@ -594,16 +625,19 @@ export class Combat {
     } else {
       feed('You are down. The tower has fallen.', 'combat');
     }
-    setTimeout(() => this._cleanup(), 6000);
+    setTimeout(() => this._cleanup(), 14000);
     this._onResolve?.(win);
   }
 
   _cleanup() {
     for (const h of this.hostiles) {
+      if (h.hp <= 0 && !h.looted) this._lootBody(h);
       this.d.stage.scene.remove(h.actor.root);
       h.actor.dispose();
-      const idx = this.d.picker.targets.findIndex((t) => t.id === h.id);
-      if (idx >= 0) this.d.picker.targets.splice(idx, 1);
+      if (this.d.picker?.targets) {
+        this.d.picker.targets = this.d.picker.targets.filter(
+          (t) => t.id !== h.id && t.id !== `${h.id}_loot`);
+      }
     }
     this.hostiles.length = 0;
   }

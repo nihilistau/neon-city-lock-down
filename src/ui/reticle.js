@@ -3,6 +3,7 @@
 // person; the ammo readout shows during combat (mag / reserve, with a reload
 // hint when empty). Both are pure DOM driven by the bus.
 import { on } from '../core/bus.js';
+import { iconUrl } from './icons.js';
 
 export class Reticle {
   constructor() {
@@ -28,9 +29,10 @@ export class Reticle {
     on('combat.started', () => { this._combat = true; this._sync(); });
     on('combat.resolved', () => { this._combat = false; this._sync(); });
     on('combat.mag', ({ mag, magSize, reserve }) => {
+      const ico = `<img class="res-ico" alt="" src="${iconUrl('ammo')}">`;
       this.ammo.innerHTML = mag < 1
-        ? `<b class="empty">RELOAD</b> <span>${reserve}</span>`
-        : `<b>${mag}</b><small>/${magSize}</small> <span>· ${reserve}</span>`;
+        ? `${ico}<b class="empty">RELOAD</b> <span>${reserve}</span>`
+        : `${ico}<b>${mag}</b><small>/${magSize}</small> <span>· ${reserve}</span>`;
     });
     on('combat.hit', () => this._flashHit());
   }

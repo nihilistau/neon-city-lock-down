@@ -33,8 +33,8 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 (vendored, no build step). Character voices are baked with a local
 [voxtral](https://huggingface.co/mistralai/Voxtral-4B-TTS-2603) text-to-speech model.
 
-> **18+ only.** Adult themes, strong language, violence, and consensual sexual
-> content between fictional adult characters. A boot-time age gate is required.
+> **Adult game.** Adult themes, strong language, violence, and consensual sexual
+> content between fictional adult characters. All characters are adults.
 
 ---
 
@@ -46,7 +46,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 | 🟣 | **Aria Chen** | Shy → playful. A high-end street-girl whose nerves lose to her curiosity. Everyone assumes she's fragile; everyone is wrong. |
 | 🟡 | **Kai Mercer** | Enigmatic, charming, patient. An information broker who watches everything and is loyal only to the most interesting outcome. |
 | 🔵 | **VOX** | The tower, awake. Sixty floors of sensors and three decades of uptime made it something more than a concierge. |
-| — | **You** | A legendary freelance hacker/fixer. A myth. Name and pronouns are yours to set at the gate. |
+| — | **You** | A legendary freelance hacker/fixer. A myth. Name, pronouns, and look are yours to set on New Run. |
 
 ---
 
@@ -99,9 +99,9 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 - **New-game flow & roguelike.** A main menu picks from 16 scenarios and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
-  repair, **17 world events** plus a scheduled extraction endgame, perma-death
-  with a run summary, and light meta-progression (a codex of discovered lore +
-  run history).
+  repair, **22 world events** plus a scheduled extraction endgame (shuttle seats
+  or stay), perma-death with a run summary, and light meta-progression (a codex
+  of discovered lore + run history).
 - **Combat as a mode.** Breaches arrive in **waves** with a combat HUD (hostile
   hp bars, live hit-chance, wave countdown). Furniture is real **cover** — it
   cuts incoming hit chance for you, the cast, and hostiles alike; the cast
@@ -150,8 +150,7 @@ git clone https://github.com/nihilistau/neon-city-lock-down.git
 cd neon-city-lock-down
 node tools/serve.mjs 8420        # or double-click run.bat on Windows
 ```
-Open **http://localhost:8420**, confirm you're 18+, set your handle, and enter
-the tower.
+Open **http://localhost:8420**, set your handle on New Run, and enter the tower.
 
 ### Optional — live voice + the Voice Controls panel (V)
 The Voxtral TTS fork is vendored under `third_party/voxtral/` (source only). Build it +
@@ -234,7 +233,7 @@ src/scene3d/          stage, zone/furniture builders, procedural materials, ligh
 src/humanoid/         skeleton, body/outfit builders, face rig, animator, gait, paired poses
 src/audio/            engine, music (theory/conductor/instruments/sequencer), sfx, ambience, voice, sidecar
 src/games/            bed game, truth-or-dare, gambits, mystery
-src/ui/               age gate, HUD, chat, stat bars, director panel + 8 tabs, games, codex, elevator
+src/ui/               HUD, chat, stat bars, director panel + 8 tabs, games, codex, elevator
 src/camera/           camera rig, first-person, director orbit, cinematic
 src/cutscene/         cutscene player (timeline over the shared script interpreter)
 data/                 cast, dialogue packs, zones, events, scenarios, outfits, poses,

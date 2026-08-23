@@ -1,4 +1,6 @@
 // @ts-check
+import { applyStim } from '../src/sim/buffs.js';
+
 // Item catalog. Weapons feed the combat resolver (weaponKey → WEAPONS entry);
 // consumables run a `use(app)` effect; valuables/key items are inert flavour or
 // unlock hooks. Bulk survival stock (food/water/ammo/meds/cells/parts/luxury)
@@ -20,7 +22,7 @@
 export const ITEMS = {
   // ── weapons ──────────────────────────────────────────────
   fists: {
-    id: 'fists', name: 'Bare Hands', icon: '✊', type: 'weapon', weaponKey: 'shiv',
+    id: 'fists', name: 'Bare Hands', icon: '✊', type: 'weapon', weaponKey: 'fists',
     desc: 'Always available. Not recommended against the armed.',
   },
   sidearm: {
@@ -47,16 +49,15 @@ export const ITEMS = {
     use: (app) => {
       const p = app.run.player;
       p.health = Math.min(100, p.health + 45);
-      for (const c of Object.values(app.cast)) c.injuries = [];
-      return 'You patch yourself up. +45 health, injuries treated.';
+      p.injuries = [];
+      return 'You patch yourself up. +45 health.';
     },
   },
   stim: {
     id: 'stim', name: 'Combat Stim', icon: '💉', type: 'consumable', stack: true,
     desc: 'Wakes you up hard. Restores stamina/energy, dulls fear for a while.',
     use: (app) => {
-      app.run.player.stamina = Math.min(100, (app.run.player.stamina || 60) + 40);
-      app.run.player.morale = Math.min(100, app.run.player.morale + 10);
+      applyStim(app.run, app.clock?.totalMinutes ?? 0);
       return 'The stim hits. Everything gets sharp and loud.';
     },
   },

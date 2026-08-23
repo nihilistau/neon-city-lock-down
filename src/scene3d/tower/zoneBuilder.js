@@ -119,6 +119,13 @@ export class World3D {
     }
   }
 
+  _practical(group, x, y, z, color, intensity = 24, distance = 9) {
+    const l = new THREE.PointLight(color, intensity, distance, 2);
+    l.position.set(x, y, z);
+    group.add(l);
+    return l;
+  }
+
   _walk(floorId, offsetX, rect) {
     this.walkRects[floorId].push({
       x: [rect.x[0] + offsetX, rect.x[1] + offsetX],
@@ -319,87 +326,362 @@ export class World3D {
   _build_rooftop(group, floor) {
     const R = { x: [-10, 10], z: [-8, 8] };
     this._slab(group, R, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#161a26'), 1.6, 0.8), roughness: 0.95 }));
-    // parapet
     const par = wallMatOf('#1a1f2c');
     this._wall(group, par, { alongX: true, at: R.z[0], from: R.x[0], to: R.x[1], h: 1.0, thickness: 0.3 });
     this._wall(group, par, { alongX: true, at: R.z[1], from: R.x[0], to: R.x[1], h: 1.0, thickness: 0.3 });
     this._wall(group, par, { alongX: false, at: R.x[0], from: R.z[0], to: R.z[1], h: 1.0, thickness: 0.3 });
     this._wall(group, par, { alongX: false, at: R.x[1], from: R.z[0], to: R.z[1], h: 1.0, thickness: 0.3 });
-    // elevator head shed
     const shed = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3, 2.6), wallMatOf('#141824'));
     shed.position.set(-8, 1.5, -6.8);
     group.add(shed);
+    // helipad ring
+    const pad = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.05, 28),
+      new THREE.MeshStandardMaterial({ color: 0x1a1e28, emissive: PALETTE.neonAmber, emissiveIntensity: 0.55, side: THREE.DoubleSide }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(4.5, 0.03, 0);
+    group.add(pad);
+    const hMark = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.02, 0.16),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.neonAmber, emissiveIntensity: 1.2 }));
+    hMark.position.set(4.5, 0.04, 0);
+    group.add(hMark);
+    // soil beds under the garden furniture
+    for (const [x, z, w, d] of [[-5, 3.1, 4.2, 3.4], [-7.4, 3.1, 1.6, 2.2]]) {
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d),
+        new THREE.MeshStandardMaterial({ color: 0x1a140e, roughness: 1 }));
+      soil.position.set(x, 0.04, z);
+      group.add(soil);
+    }
+    // flood lights
+    for (const [x, z] of [[-9.2, -7.2], [9.2, -7.2], [9.2, 7.2]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), mullionMat());
+      pole.position.set(x, 1.2, z);
+      group.add(pole);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xffe6b0, emissiveIntensity: 2.2 }));
+      lamp.position.set(x, 2.35, z);
+      group.add(lamp);
+    }
+    // HVAC blocks
+    for (const [x, z] of [[-8.4, 5.6], [8.2, -5.4]]) {
+      const hvac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.1),
+        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a3038'), 1.1, 0.3), metalness: 0.55, roughness: 0.45 }));
+      hvac.position.set(x, 0.4, z);
+      group.add(hvac);
+    }
+    this._practical(group, 4.5, 2.8, 0, PALETTE.neonAmber, 20, 12);
     this._buildExterior(group, true);
     this._buildRain(group, { x: [-12, 12], z: [-10, 10], y: [0, 14] });
     this._walk('rooftop', floor.offsetX, { x: [-9.6, 9.6], z: [-7.6, 7.6] });
   }
 
-  _genericInterior(group, floor, rect, { tint = '#171b28', windows = false, ceilH = 3.0, lightColor = PALETTE.neonCyan } = {}) {
-    this._slab(group, rect, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#12151f'), 1.6, 0.8), roughness: 0.8 }));
-    this._ceiling(group, rect, ceilH, 0x0a0d14);
+  /**
+   * Per-floor room shell. `walls` is N(+Z), E(+X), S(-Z), W(-X):
+   * 'solid' | 'open' | 'glass' | 'parapet'
+   */
+  _roomShell(group, floor, rect, {
+    ceilH = 3, tint = '#171b28', floorTint = '#12151f', ceilColor = 0x0a0d14,
+    walls = ['solid', 'solid', 'solid', 'solid'],
+    floorMat = null,
+  } = {}) {
+    this._slab(group, rect, floorMat || new THREE.MeshStandardMaterial({
+      ...surfaced(concreteTex(floorTint), 1.6, 0.8), roughness: 0.82,
+    }));
+    this._ceiling(group, rect, ceilH, ceilColor);
     const wall = wallMatOf(tint);
-    this._wall(group, wall, { alongX: true, at: rect.z[0], from: rect.x[0], to: rect.x[1], h: ceilH });
-    this._wall(group, wall, { alongX: true, at: rect.z[1], from: rect.x[0], to: rect.x[1], h: ceilH });
-    this._wall(group, wall, { alongX: false, at: rect.x[0], from: rect.z[0], to: rect.z[1], h: ceilH });
-    this._wall(group, wall, { alongX: false, at: rect.x[1], from: rect.z[0], to: rect.z[1], h: ceilH });
-    if (windows) {
-      const glass = glassMat();
-      for (let i = 0; i < 3; i++) {
-        const win = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 0.08), glass);
-        win.position.set(rect.x[0] + 2.5 + i * 3, 1.7, rect.z[1] + 0.02);
-        group.add(win);
+    const glass = glassMat();
+    const specs = [
+      { alongX: true, at: rect.z[1], from: rect.x[0], to: rect.x[1], kind: walls[0] },
+      { alongX: false, at: rect.x[1], from: rect.z[0], to: rect.z[1], kind: walls[1] },
+      { alongX: true, at: rect.z[0], from: rect.x[0], to: rect.x[1], kind: walls[2] },
+      { alongX: false, at: rect.x[0], from: rect.z[0], to: rect.z[1], kind: walls[3] },
+    ];
+    for (const s of specs) {
+      if (s.kind === 'open') continue;
+      if (s.kind === 'parapet') {
+        this._wall(group, wall, { alongX: s.alongX, at: s.at, from: s.from, to: s.to, h: 1.08, thickness: 0.3 });
+        continue;
       }
+      if (s.kind === 'glass') {
+        const mid = (s.from + s.to) / 2;
+        const span = Math.min(10, (s.to - s.from) * 0.7);
+        this._wall(group, wall, {
+          alongX: s.alongX, at: s.at, from: s.from, to: s.to, h: ceilH,
+          gaps: [[mid - span / 2, mid + span / 2]],
+        });
+        const g = new THREE.Mesh(
+          s.alongX ? new THREE.BoxGeometry(span, ceilH - 0.35, 0.07) : new THREE.BoxGeometry(0.07, ceilH - 0.35, span),
+          glass);
+        g.position.set(s.alongX ? mid : s.at, ceilH / 2, s.alongX ? s.at : mid);
+        group.add(g);
+        continue;
+      }
+      this._wall(group, wall, { alongX: s.alongX, at: s.at, from: s.from, to: s.to, h: ceilH });
     }
-    neonRun(group, {
-      x: (rect.x[0] + rect.x[1]) / 2, y: ceilH - 0.05, z: (rect.z[0] + rect.z[1]) / 2,
-      length: (rect.x[1] - rect.x[0]) * 0.6, axis: 'x',
-      color: lightColor, radius: 0.028, intensity: 2.0,
-    });
     this._walk(floor.id, floor.offsetX, {
       x: [rect.x[0] + 0.3, rect.x[1] - 0.3], z: [rect.z[0] + 0.3, rect.z[1] - 0.3],
     });
   }
 
   _build_fl40(group, floor) {
-    this._genericInterior(group, floor, { x: [-10, 10], z: [-6, 6] }, { lightColor: PALETTE.neonRed });
-    // dividing wall security|armoury with door gap
-    this._wall(group, wallMatOf('#171b28'), { alongX: false, at: 0, from: -6, to: 6, h: 3.0, gaps: [[-0.9, 0.9]] });
+    const R = { x: [-10, 10], z: [-6, 6] };
+    const ceilH = 3.2;
+    this._roomShell(group, floor, R, {
+      ceilH, tint: '#1c1218', floorTint: '#141018', ceilColor: 0x12080c,
+      walls: ['solid', 'solid', 'solid', 'solid'],
+    });
+    const split = wallMatOf('#241018');
+    this._wall(group, split, { alongX: false, at: 0, from: -6, to: 6, h: ceilH, gaps: [[-1.0, 1.0]] });
+    // blast-glass in the split
+    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.8), glassMat());
+    port.position.set(0, 1.85, 3.2);
+    group.add(port);
+    // security dais (west)
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.18, 10.4),
+      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a1520'), 1.1, 0.4), metalness: 0.35, roughness: 0.5 }));
+    dais.position.set(-5.2, 0.05, 0);
+    group.add(dais);
+    // monitor alcove hood
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonRed, emissiveIntensity: 0.35 }));
+    hood.position.set(-4, 2.85, -4.6);
+    group.add(hood);
+    // armoury range
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.02, 0.22),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonAmber, emissiveIntensity: 0.9 }));
+    stripe.position.set(5, 0.02, 0);
+    group.add(stripe);
+    const lane = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.018, 1.15),
+      new THREE.MeshStandardMaterial({ color: 0x1a1520, roughness: 0.7 }));
+    lane.position.set(4.4, 0.02, -3.5);
+    group.add(lane);
+    const backstop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.6, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x2a1818, roughness: 0.9 }));
+    backstop.position.set(9.3, 0.85, -3.5);
+    group.add(backstop);
+    neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7 });
+    neonRun(group, { x: -5, y: ceilH - 0.12, z: 0, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.025, intensity: 1.2 });
+    const cage = new THREE.MeshStandardMaterial({ color: 0x1a1520, metalness: 0.55, roughness: 0.4 });
+    for (const z of [-4.4, -0.2, 4.0]) {
+      const bay = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.5, 0.05), cage);
+      bay.position.set(8.4, 1.25, z);
+      group.add(bay);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.5, 2.2), cage);
+      mesh.position.set(7.2, 1.25, z);
+      group.add(mesh);
+    }
+    // ceiling beams
+    for (const x of [-6, -2, 2, 6]) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 11.6),
+        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a1820'), 1.0, 0.3), metalness: 0.5, roughness: 0.45 }));
+      beam.position.set(x, ceilH - 0.08, 0);
+      group.add(beam);
+    }
+    this._practical(group, -5, 2.4, 0, PALETTE.neonRed, 28, 10);
+    this._practical(group, 5, 2.2, -3.2, PALETTE.neonAmber, 16, 8);
   }
 
   _build_fl27(group, floor) {
-    this._genericInterior(group, floor, { x: [-8, 8], z: [-8, 8] }, { tint: '#101622', lightColor: PALETTE.neonCyan });
+    const R = { x: [-8, 8], z: [-8, 8] };
+    const ceilH = 3.4;
+    this._roomShell(group, floor, R, {
+      ceilH, tint: '#0c141c', floorTint: '#0a1018', ceilColor: 0x060c12,
+      walls: ['solid', 'solid', 'solid', 'solid'],
+    });
+    // raised access floor (server tiles)
+    const tile = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#15202c'), 1.4, 0.35), metalness: 0.45, roughness: 0.4 });
+    this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile, -0.02);
+    // concentric ring
+    const ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.7, 32),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonCyan, emissiveIntensity: 0.7, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(0, 0.04, 1.4);
+    group.add(ring);
+    const face = new THREE.Mesh(new THREE.BoxGeometry(5.2, 2.5, 0.14),
+      new THREE.MeshStandardMaterial({ color: 0x0a1018, emissive: PALETTE.neonCyan, emissiveIntensity: 0.4, roughness: 0.22, metalness: 0.45 }));
+    face.position.set(0, 1.6, 7.35);
+    group.add(face);
+    for (const [x, s] of [[-1.3, 0.2], [0, 0.32], [1.3, 0.2]]) {
+      const eye = new THREE.Mesh(new THREE.CircleGeometry(s, 16),
+        new THREE.MeshStandardMaterial({ color: 0x061018, emissive: PALETTE.neonCyan, emissiveIntensity: 2.6, side: THREE.DoubleSide }));
+      eye.position.set(x, 1.95, 7.44);
+      group.add(eye);
+    }
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.95, 0.24, 24),
+      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2430'), 1.2, 0.4), metalness: 0.55, roughness: 0.4 }));
+    dais.position.set(0, 0.12, 1.4);
+    group.add(dais);
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0 });
+    // hex of server columns
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.32, 2.9, 0.32),
+        new THREE.MeshStandardMaterial({ color: 0x0c141c, metalness: 0.55, roughness: 0.32, emissive: PALETTE.neonCyan, emissiveIntensity: 0.14 }));
+      col.position.set(Math.cos(a) * 5.2, 1.45, Math.sin(a) * 5.2);
+      group.add(col);
+    }
+    // floor vents
+    const ventMat = new THREE.MeshStandardMaterial({ color: 0x0a1016, metalness: 0.6, roughness: 0.35 });
+    for (const [x, z] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.04, 0.9), ventMat);
+      v.position.set(x, 0.03, z);
+      group.add(v);
+    }
+    this._practical(group, 0, 2.6, 1.4, PALETTE.neonCyan, 36, 11);
   }
 
   _build_fl12(group, floor) {
-    this._genericInterior(group, floor, { x: [-8, 8], z: [-6, 6] }, { tint: '#1b2430', lightColor: 0xbfe8ff });
+    const R = { x: [-8, 8], z: [-6, 6] };
+    const ceilH = 3.05;
+    const tile = new THREE.MeshStandardMaterial({ ...surfaced(tileTex('#d8e4ee'), 2.2, 0.7), roughness: 0.42, metalness: 0.06 });
+    this._roomShell(group, floor, R, {
+      ceilH, tint: '#243040', floorTint: '#1b2430', ceilColor: 0x1a222c,
+      walls: ['solid', 'solid', 'solid', 'solid'],
+      floorMat: tile,
+    });
+    // wet stripe
+    const wet = new THREE.Mesh(new THREE.BoxGeometry(15.4, 0.015, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0xbfe8ff, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.35 }));
+    wet.position.set(0, 0.02, 0);
+    group.add(wet);
+    // treatment alcoves
+    const screen = new THREE.MeshStandardMaterial({ color: 0xe8f0f6, roughness: 0.7 });
+    for (const x of [1.4, 5.2]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.0, 2.6), screen);
+      wall.position.set(x, 1.05, -3.2);
+      group.add(wall);
+    }
+    for (const x of [3.5, -3.2]) {
+      const lamp = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16),
+        new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xe8f4ff, emissiveIntensity: 2.8, side: THREE.DoubleSide }));
+      lamp.rotation.x = Math.PI / 2;
+      lamp.position.set(x, ceilH - 0.08, -2.2);
+      group.add(lamp);
+    }
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: -5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.5 });
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: 5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.1 });
+    // cabinet glow strip
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0x3dff9a, emissiveIntensity: 1.4 }));
+    glow.position.set(-4.5, 1.7, -5.15);
+    group.add(glow);
+    this._practical(group, 3.5, 2.4, -2.2, 0xe8f4ff, 22, 8);
+    this._practical(group, -3.2, 2.4, 1.5, 0xbfe8ff, 14, 7);
   }
 
   _build_ground(group, floor) {
     const R = { x: [-10, 10], z: [-8, 10] };
-    this._genericInterior(group, floor, R, { tint: '#1a1e2c', ceilH: 4.2, lightColor: PALETTE.neonCyan });
-    // glass front (behind the barricade) replacing the +z wall visually
-    const glass = glassMat();
-    const front = new THREE.Mesh(new THREE.BoxGeometry(16, 4.0, 0.06), glass);
-    front.position.set(0, 2.0, R.z[1] - 0.4);
-    group.add(front);
-    this._neonTrim(group, 0, 3.6, R.z[0] + 0.15, 14, PALETTE.neonCyan);
+    const ceilH = 4.4;
+    this._roomShell(group, floor, R, {
+      ceilH, tint: '#161c28', floorTint: '#121820', ceilColor: 0x0c1018,
+      walls: ['glass', 'solid', 'solid', 'solid'],
+    });
+    const marble = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.22, metalness: 0.18 });
+    this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble, -0.06);
+    this._neonTrim(group, 0, 3.7, R.z[0] + 0.16, 16, PALETTE.neonCyan);
+    this._neonTrim(group, 0, 4.15, R.z[1] - 0.2, 16, PALETTE.neonMagenta);
+    // mezzanine strip along -Z
+    const mez = new THREE.Mesh(new THREE.BoxGeometry(18.4, 0.12, 2.2),
+      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2230'), 1.2, 0.35), metalness: 0.4, roughness: 0.45 }));
+    mez.position.set(0, 3.05, -6.6);
+    group.add(mez);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(18.4, 0.06, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonCyan, emissiveIntensity: 0.8 }));
+    rail.position.set(0, 3.45, -5.55);
+    group.add(rail);
+    // columns
+    const colMat = new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#2a3140'), 1.4, 0.5), roughness: 0.55, metalness: 0.12 });
+    for (const x of [-6.5, 0, 6.5]) {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, ceilH, 12), colMat);
+      col.position.set(x, ceilH / 2, 2.4);
+      group.add(col);
+    }
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.85, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x0a0c12, emissive: PALETTE.neonCyan, emissiveIntensity: 1.05 }));
+    sign.position.set(0, 3.55, -7.85);
+    group.add(sign);
+    neonRun(group, { x: 0, y: ceilH - 0.12, z: 0, length: 16, axis: 'x', color: PALETTE.neonCyan, radius: 0.045, intensity: 2.4 });
+    // vestibule mats
+    const mat = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.04, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x1a1020, roughness: 0.9 }));
+    mat.position.set(0, 0.03, 7.4);
+    group.add(mat);
+    this._practical(group, 0, 3.2, 2.4, PALETTE.neonCyan, 32, 12);
+    this._practical(group, 0, 2.4, -4, PALETTE.neonMagenta, 18, 9);
   }
 
   _build_basement(group, floor) {
     const R = { x: [-14, 14], z: [-10, 10] };
-    this._genericInterior(group, floor, R, { tint: '#14161c', ceilH: 2.6, lightColor: 0x8899aa });
-    // oil stains
-    for (let i = 0; i < 5; i++) {
-      const stain = new THREE.Mesh(new THREE.CircleGeometry(0.5 + this.rng.next() * 0.8, 12),
-        new THREE.MeshStandardMaterial({ color: 0x07080c, roughness: 0.3 }));
+    const ceilH = 2.55;
+    this._roomShell(group, floor, R, {
+      ceilH, tint: '#12141a', floorTint: '#0c0e12', ceilColor: 0x0a0c10,
+      walls: ['solid', 'open', 'solid', 'solid'],
+    });
+    // ramp volume on +X (open wall)
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.2, 8),
+      new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c22'), 1.4, 0.7), roughness: 0.9 }));
+    ramp.rotation.z = -0.12;
+    ramp.position.set(11.2, 0.35, 4);
+    group.add(ramp);
+    for (let i = 0; i < 7; i++) {
+      const stain = new THREE.Mesh(new THREE.CircleGeometry(0.45 + this.rng.next() * 0.9, 12),
+        new THREE.MeshStandardMaterial({ color: 0x07080c, roughness: 0.28 }));
       stain.rotation.x = -Math.PI / 2;
-      stain.position.set(this.rng.range(-12, 12), 0.012, this.rng.range(-8, 8));
+      stain.position.set(this.rng.range(-12, 10), 0.014, this.rng.range(-8, 8));
       group.add(stain);
     }
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xffc14a, emissiveIntensity: 0.4 });
+    for (const x of [-9, -4, 1, 6]) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 4.6), lineMat);
+      line.position.set(x, 0.03, -5.2);
+      group.add(line);
+      const stop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0x2a2010, roughness: 0.8 }));
+      stop.position.set(x, 0.05, -7.4);
+      group.add(stop);
+    }
+    for (const z of [-6.5, -2, 2.5, 7]) {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 26, 8),
+        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#3a4038'), 1.0, 0.3), metalness: 0.7, roughness: 0.4 }));
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(0, ceilH - 0.18, z);
+      group.add(pipe);
+    }
+    // structural columns grid
+    const colM = new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c20'), 1.2, 0.6), roughness: 0.75 });
+    for (const x of [-7, 0, 7]) {
+      for (const z of [-4, 4]) {
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, ceilH, 10), colM);
+        col.position.set(x, ceilH / 2, z);
+        group.add(col);
+      }
+    }
+    const sodium = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.1, 0.28),
+      new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xffb347, emissiveIntensity: 2.0 }));
+    sodium.position.set(0, ceilH - 0.08, 0);
+    group.add(sodium);
+    neonRun(group, { x: 0, y: 0.04, z: 8.8, length: 20, axis: 'x', color: 0xffb347, radius: 0.02, intensity: 0.6 });
+    this._practical(group, 0, 2.1, 0, 0xffb347, 22, 10);
   }
 
   _buildExterior(group, fromRoof = false) {
     const tex = cityWindowsTexture();
+    const loader = new THREE.TextureLoader();
+    loader.load('/assets/city/windows.jpg', (map) => {
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(2, 4);
+      matC.map = map;
+      matC.needsUpdate = true;
+    });
+    loader.load('/assets/city/skyline.jpg', (map) => {
+      map.colorSpace = THREE.SRGBColorSpace;
+      const plate = new THREE.Mesh(
+        new THREE.PlaneGeometry(90, 40),
+        new THREE.MeshBasicMaterial({ map, fog: true }));
+      plate.position.set(4, fromRoof ? 8 : 2, fromRoof ? 42 : 48);
+      plate.lookAt(4, fromRoof ? 8 : 2, 0);
+      group.add(plate);
+    });
     const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const mesh = new THREE.InstancedMesh(geo, matC, 80);
@@ -482,6 +764,7 @@ export class World3D {
           // `ask_kai` never unlocked and the dead-drop case degraded to a guess.
           vanity_table: 'Search the vanity', shower_pod: 'Inspect the shower pod',
           security_desk: 'Read the camera logs', monitor_wall: 'Study the monitor wall',
+          reception_desk: 'Search the reception desk', helipad: 'Inspect the helipad rail',
         };
         if (PROP_PROMPTS[f.id]) {
           // Clone materials on prop meshes so hover-highlight can't mutate the

@@ -1,6 +1,6 @@
 // @ts-check
 // Save/load menu (Esc). Three slots + autosave restore + export/import.
-import { saveToSlot, readSlot, applySave, listSlots, exportSave } from '../core/save.js';
+import { saveToSlot, readSlot, applySave, listSlots, exportSave, importSave } from '../core/save.js';
 import { feed } from '../core/log.js';
 
 export class SaveMenu {
@@ -50,9 +50,15 @@ export class SaveMenu {
         <h1 class="neon-title" style="font-size:22px">LOCKDOWN PAUSED</h1>
         <h2>save · load · breathe</h2>
         <div class="ds-grid">${rows}</div>
-        <div class="actions">
+        <div class="actions" style="flex-wrap:wrap">
           <button data-act="export">Export JSON</button>
+          <button data-act="import">Import JSON</button>
+          <button data-act="settings">Settings</button>
+          <button data-act="director">Director</button>
+          <button data-act="kit">Kit</button>
+          <button data-act="codex">Codex</button>
           <button data-act="close">Resume</button>
+          <button data-act="quit" class="danger">Quit to menu</button>
         </div>
       </div>`;
     overlay.appendChild(el);
@@ -63,7 +69,41 @@ export class SaveMenu {
       const act = btn.dataset?.act;
       if (!act) return;
       if (act === 'close') this.close();
+      if (act === 'settings') {
+        this.close();
+        this.app.directorPanel?.setOpen(true);
+        this.app.directorPanel?.showTab('settings');
+      }
+      if (act === 'director') {
+        this.close();
+        this.app.directorPanel?.setOpen(true);
+      }
+      if (act === 'codex') {
+        this.close();
+        this.app.codex?.show();
+      }
+      if (act === 'kit') {
+        this.close();
+        this.app.kitPanel?.show();
+      }
+      if (act === 'quit') {
+        if (confirm('Quit to the main menu? Unsaved progress lives in autosave.')) location.reload();
+      }
       if (act === 'export') exportSave(this.app);
+      if (act === 'import') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const text = await file.text();
+          const res = importSave(this.app, text);
+          feed(res.ok ? 'Save imported.' : `Import failed (${res.reason}).`, res.ok ? 'system' : 'warn');
+          this.close();
+        });
+        input.click();
+      }
       if (act === 'save') {
         saveToSlot(this.app, btn.dataset.slot);
         feed(`Saved to slot ${btn.dataset.slot}.`, 'system');

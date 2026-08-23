@@ -1,6 +1,6 @@
 // @ts-check
 // Boot/menu backdrop: neon grid, city silhouette, floating title sign.
-// Lives behind the 18+ gate and main menu; disposed when a run starts.
+// Lives behind the main menu; disposed when a run starts.
 import * as THREE from 'three';
 
 function makeTitleTexture() {
@@ -11,14 +11,14 @@ function makeTitleTexture() {
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '800 96px "Segoe UI", system-ui, sans-serif';
+  ctx.font = '800 96px Oxanium, "Segoe UI", sans-serif';
   // glow layers
   for (const [blur, color] of [[42, '#0e5e6e'], [18, '#1fb6d0'], [0, '#8ef4ff']]) {
     ctx.shadowBlur = blur; ctx.shadowColor = '#39e6ff';
     ctx.fillStyle = color;
     ctx.fillText('NEON-CITY', c.width / 2, 82);
   }
-  ctx.font = '700 58px "Segoe UI", system-ui, sans-serif';
+  ctx.font = '700 58px Oxanium, "Segoe UI", sans-serif';
   for (const [blur, color] of [[36, '#701f47'], [14, '#d0327f'], [0, '#ffb7dd']]) {
     ctx.shadowBlur = blur; ctx.shadowColor = '#ff3fa4';
     ctx.fillStyle = color;
@@ -79,6 +79,17 @@ export class BootScene {
         this.group.add(win);
       }
     }
+
+    // city plate behind the sign
+    const loader = new THREE.TextureLoader();
+    loader.load('/assets/city/skyline.jpg', (map) => {
+      map.colorSpace = THREE.SRGBColorSpace;
+      const plate = new THREE.Mesh(
+        new THREE.PlaneGeometry(54, 24),
+        new THREE.MeshBasicMaterial({ map, fog: true }));
+      plate.position.set(0, 7.5, -32);
+      this.group.add(plate);
+    });
 
     // title sign
     const tex = makeTitleTexture();

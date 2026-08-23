@@ -2,6 +2,7 @@
 // The 15 scenarios. Each sets a stage: mood shifts, lighting, character
 // placement, and optionally launches an event, game, or cutscene.
 import { INTRO_CUTSCENE } from './cutscenes/intro.js';
+import { LOUNGE_SETTLE } from './cutscenes/settle.js';
 import { DAY3_CUTSCENE } from './cutscenes/day3.js';
 
 /**
@@ -12,7 +13,7 @@ import { DAY3_CUTSCENE } from './cutscenes/day3.js';
  * @property {string} [lighting]
  * @property {Record<string, [string, string?]>} [placements] charId → [zone, waypoint]
  * @property {string} [fireEvent]
- * @property {string} [game]  'tod' | 'bed:<charId>' | 'mystery:<caseId>'
+ * @property {string} [game]  'tod' | 'bed' | 'bed:<charId>' | 'cards' | 'mystery:<caseId>'
  */
 
 /** @type {Record<string, ScenarioDef>} */
@@ -21,7 +22,7 @@ export const SCENARIOS = {
     id: 'first_night', title: 'First Night Introductions',
     blurb: 'The gates just came down. Three dangerous strangers, one penthouse, and a city on fire below.',
     castMoodShifts: { lola: { tension: 5 }, aria: { fear: 6, openness: -4 } },
-    openingCutscene: INTRO_CUTSCENE,
+    openingCutscene: [...INTRO_CUTSCENE, ...LOUNGE_SETTLE],
   },
   blackout_confessions: {
     id: 'blackout_confessions', title: 'Blackout Confessions',
@@ -50,6 +51,7 @@ export const SCENARIOS = {
     blurb: 'A door left open. An invitation that isn\'t quite spoken. The night decides the rest.',
     castMoodShifts: { aria: { arousal: 10, openness: 8 }, lola: { arousal: 8 } },
     lighting: 'candlelit',
+    game: 'bed',
   },
   rooftop_smoke: {
     id: 'rooftop_smoke', title: 'Rooftop Smoke Break',
@@ -96,6 +98,7 @@ export const SCENARIOS = {
     castMoodShifts: { kai: { dominance: 6, openness: 4 }, lola: { tension: 4 }, aria: { openness: 5 } },
     placements: { kai: ['lounge', 'couch_front'], lola: ['lounge', 'center'], aria: ['lounge', 'couch_front'] },
     lighting: 'neon_night',
+    game: 'cards',
   },
   arias_first_job: {
     id: 'arias_first_job', title: "Aria's First Job Story",
@@ -122,6 +125,13 @@ export const SCENARIOS = {
     blurb: 'Six minutes of blindness. VOX wants a name. VOX usually gets what it wants.',
     game: 'mystery:jammed_cameras',
     castMoodShifts: { lola: { tension: 5 } },
+  },
+  ghost_on_the_grid: {
+    id: 'ghost_on_the_grid', title: 'Mystery: The Grid Ghost',
+    blurb: 'Something walks floor 27 after midnight. VOX did not admit it. VOX is a terrible liar.',
+    game: 'mystery:grid_ghost',
+    placements: { kai: ['vox_core', 'core'] },
+    lighting: 'security_red',
   },
   last_night: {
     id: 'last_night', title: 'Last Night Before the Gates Open',

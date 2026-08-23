@@ -1,16 +1,19 @@
 /* Director panel */
 #director { position: absolute; top: 0; right: 0; bottom: 0; display: flex; align-items: flex-start; }
 #dir-toggle {
-  position: absolute; top: 52px; right: 12px;
-  width: 36px; height: 36px; padding: 0; font-size: 18px;
+  position: absolute; top: 88px; right: 12px;
+  width: 36px; height: 36px; padding: 0; font-size: 16px;
   z-index: 20;
+  background: rgba(8, 10, 18, 0.8);
+  border-color: var(--panel-edge);
 }
 #dir-drawer {
   position: absolute; top: 0; right: 0; bottom: 0; width: 330px;
-  background: rgba(8, 10, 18, 0.94);
+  background: rgba(8, 10, 18, 0.92);
   border-left: 1px solid var(--panel-edge);
   display: flex; flex-direction: column;
   z-index: 19; padding-top: 8px;
+  backdrop-filter: blur(10px);
 }
 #dir-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 8px; }
 .dir-tab { font-size: 10px; padding: 4px 8px; letter-spacing: 0.05em; border-color: #1a2436; color: var(--text-dim); }

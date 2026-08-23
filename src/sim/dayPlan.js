@@ -119,3 +119,13 @@ export function performAction(run, id, rng) {
   run.dayPlan.ap -= ap;
   return { ok: true, msg, ap: run.dayPlan.ap };
 }
+
+/** Spend AP without applying the action (job interrupted on-site). */
+export function spendAp(run, id) {
+  const a = DAY_ACTIONS.find((x) => x.id === id);
+  if (!a) return false;
+  const ap = apOf(a);
+  if ((run.dayPlan?.ap ?? 0) < ap) return false;
+  run.dayPlan.ap -= ap;
+  return true;
+}

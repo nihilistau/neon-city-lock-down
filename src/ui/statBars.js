@@ -10,6 +10,12 @@ const STAT_COLOR = {
   energy: '#7fff5a', sobriety: '#8ec7ff', loyalty: '#c39bff', fear: '#ff4757',
 };
 const GATE_SHORT = { light_touch: 'T', kiss: 'K', touch: 'H', undress: 'U', intimate: 'I', explicit: 'X', depraved: 'D' };
+const HERO = ['trust', 'tension', 'openness', 'arousal'];
+const STAT_LABEL = {
+  arousal: 'arousal', pleasure: 'pleasure', happiness: 'happy', horniness: 'heat',
+  openness: 'open', dominance: 'dom', trust: 'trust', tension: 'tension',
+  energy: 'energy', sobriety: 'sober', loyalty: 'loyal', fear: 'fear',
+};
 
 let root = null;
 /** @type {Map<string, HTMLElement>} */
@@ -25,6 +31,10 @@ export function initStatBars() {
   root.innerHTML = '';
   cards.clear();
 
+  on('combat.started', () => root?.classList.add('hidden'));
+  on('combat.resolved', () => root?.classList.remove('hidden'));
+  on('bedgame.started', () => root?.classList.add('hidden'));
+  on('bedgame.ended', () => root?.classList.remove('hidden'));
   on('char.registered', ({ character }) => { if (!cards.has(character.id)) addCard(character); });
   on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
   on('char.stat', ({ id, stats }) => updateBars(id, stats));
@@ -41,8 +51,8 @@ function addCard(character) {
   // var(--accent, …) did NOT fall back, so every card silently lost its colour.
   card.style.setProperty('--accent', character.persona.accent);
   const bars = STAT_KEYS.map((k) =>
-    `<div class="sb-row" data-stat="${k}">
-       <span class="sb-label">${k.slice(0, 4)}</span>
+    `<div class="sb-row${HERO.includes(k) ? ' hero' : ''}" data-stat="${k}">
+       <span class="sb-label">${STAT_LABEL[k] || k}</span>
        <span class="sb-track"><span class="sb-fill" style="background:${STAT_COLOR[k]}"></span></span>
        <span class="sb-val"></span>
      </div>`).join('');
@@ -58,7 +68,7 @@ function addCard(character) {
   cards.set(character.id, card);
   // click the header to collapse to name + mood + gates only
   card.querySelector('.sb-head').addEventListener('click', () => card.classList.toggle('collapsed'));
-  if (character.id === 'vox') card.classList.add('collapsed');
+  card.classList.add('collapsed');
   updateBars(character.id, character.stats);
   updateGates(character.id, character.gates);
 }

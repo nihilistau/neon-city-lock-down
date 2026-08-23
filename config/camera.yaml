@@ -30,7 +30,7 @@ aimAssist:                # continuous combat magnetism (sticky aim)
 
 director:                 # situational auto-camera (mode 'auto')
   shots:                  # priority (higher wins) + time-to-live seconds
-    dialogue: { priority: 3, ttl: 4.5 }
+    dialogue: { priority: 3, ttl: 8 }
     action:   { priority: 6, ttl: 1000000000 }
     event:    { priority: 4, ttl: 4 }
   easeBase: 0.0008        # per-second lerp base (1 - base^dt)

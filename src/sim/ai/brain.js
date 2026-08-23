@@ -5,6 +5,7 @@
 import { defaultNeeds, growNeeds, satisfy } from './needs.js';
 import { ACTIONS } from './actionCatalog.js';
 import { feed } from '../../core/log.js';
+import { nightScoreMul } from '../livingBeats.js';
 
 export class Brain {
   /**
@@ -58,9 +59,13 @@ export class Brain {
     if (this._cooldown > 0) return;
 
     // score catalog, softmax pick
-    const ctx = { ...this.ctx, threat: this.ctx.threat() };
+    const minuteOfDay = ((nowMinute % 1440) + 1440) % 1440;
+    const ctx = { ...this.ctx, threat: this.ctx.threat(), minuteOfDay };
     const scored = ACTIONS
-      .map((a) => ({ a, s: Math.max(0, a.score(this.c, this.needs, ctx)) }))
+      .map((a) => ({
+        a,
+        s: Math.max(0, a.score(this.c, this.needs, ctx) * nightScoreMul(minuteOfDay, a.id)),
+      }))
       .filter((x) => x.s > 0);
     if (!scored.length) { this._cooldown = 3; return; }
 
