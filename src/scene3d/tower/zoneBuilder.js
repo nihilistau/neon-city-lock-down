@@ -850,7 +850,14 @@ export class World3D {
         // `cam_` and `vinyl_disc` were named for animation that was never
         // written — monitors.js only ever implemented NewsTicker, despite the
         // comment in furniture.js claiming it drove the cam screens.
-        if (/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) this.animated.push(o);
+        if (!/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) return;
+        // Parse the trailing index ONCE, here at build time. update() used to do
+        // `o.name.slice(5)` per object per frame — a fresh substring for every
+        // fish, camera screen and VOX ring, sixty times a second, to recover a
+        // number that was decided when the object was created.
+        const m = o.name.match(/(\d+)$/);
+        o.userData.animIdx = m ? Number(m[1]) : 0;
+        this.animated.push(o);
       });
     }
   }
@@ -925,8 +932,8 @@ export class World3D {
       // so the old `&& !group.visible` made this guard dead and animated all
       // seven floors (including per-frame emissive writes) every frame.
       if (!o.parent?.visible) continue;
+      const i = o.userData.animIdx;   // parsed once in _collectAnimated
       if (o.name.startsWith('fish_')) {
-        const i = Number(o.name.slice(5));
         if (o.userData.dead) {
           o.position.y = Math.min(1.24, o.position.y + 0.002);
           o.rotation.x = Math.PI;
@@ -936,7 +943,6 @@ export class World3D {
           o.rotation.y = Math.cos(t * (0.5 + i * 0.2) + i * 2) > 0 ? 0 : Math.PI;
         }
       } else if (o.name.startsWith('vox_ring_')) {
-        const i = Number(o.name.slice(9));
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         mat3.emissiveIntensity = 1.2 + Math.sin(t * 2 + i * 1.4) * 0.7 + (o.userData.excite || 0);
         // wrapped: `t` is seconds-since-load, so an unwrapped angle climbs into
@@ -948,7 +954,6 @@ export class World3D {
       } else if (o.name.startsWith('cam_')) {
         // security feed: slow per-screen brightness drift plus a brief dropout,
         // each screen on its own phase so the wall never pulses as one block
-        const i = Number(o.name.slice(4));
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         const drift = 0.32 + Math.sin(t * (0.7 + i * 0.13) + i * 1.7) * 0.09;
         // dropout: ~1 frame in 12 of a 3.1s cycle, offset per screen

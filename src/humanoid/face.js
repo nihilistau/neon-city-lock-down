@@ -19,6 +19,11 @@ import * as THREE from 'three';
 import { cfg } from '../core/config.js';
 
 const _e = new THREE.Euler();
+// Hoisted out of FaceRig.update(): these were re-created every frame for every
+// visible actor purely to be iterated once.
+const SIDES = ['L', 'R'];
+const MOUTH_KEYS = ['w', 'curve', 'open', 'pout'];
+const VISEME_KEYS = ['open', 'wide', 'round', 'teeth'];
 
 /**
  * Face patch geometry, in FRACTIONS OF BODY HEIGHT. Exported because
@@ -374,7 +379,7 @@ export class FaceRig {
     const k = Math.min(1, dt * 14);
     this._eyeYaw += (this.state.gaze.x * 0.5 - this._eyeYaw) * k;
     this._eyePitch += (-this.state.gaze.y * 0.32 - this._eyePitch) * k;
-    for (const side of ['L', 'R']) {
+    for (const side of SIDES) {
       const bone = this.eyeBones[side];
       if (bone) bone.quaternion.setFromEuler(_e.set(this._eyePitch, this._eyeYaw, 0, 'XYZ'));
     }
@@ -383,7 +388,7 @@ export class FaceRig {
     const target = MOUTHS[this.state.mouth] || MOUTHS.neutral;
     const cur = this._mouthCur;
     const mk = Math.min(1, dt * 10);
-    for (const key of ['w', 'curve', 'open', 'pout']) {
+    for (const key of MOUTH_KEYS) {
       const t = target[key] ?? 0;
       if (Math.abs(cur[key] - t) > 0.003) { cur[key] += (t - cur[key]) * mk; this._dirty = true; }
     }
@@ -436,7 +441,7 @@ export class FaceRig {
       this._visTarget = VISEMES.rest;
     }
     const kk = Math.min(1, dt * 22);
-    for (const key of ['open', 'wide', 'round', 'teeth']) {
+    for (const key of VISEME_KEYS) {
       const d = (next[key] ?? 0) - this._vis[key];
       if (Math.abs(d) > 0.004) { this._vis[key] += d * kk; this._dirty = true; }
     }
