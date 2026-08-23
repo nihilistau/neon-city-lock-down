@@ -193,6 +193,29 @@ export const CONFIG_DEFAULTS = {
                                  // or the two double-count and the scene goes flat. 1 = no compensation.
   },
 
+  // ── render: the post-FX stack and shadow quality ──
+  // Every one of these was hardcoded in src/scene3d/*. They are the settings a
+  // player reaches for when the game runs hot or looks wrong on their panel, and
+  // there was no way to touch any of them. Phase 6 hangs the graphics menu here.
+  render: {
+    shadows: 'soft',             // 'off' | 'hard' | 'soft' — soft is PCFSoftShadowMap
+    shadowMapSize: 2048,         // per-side texels for the key light's shadow map
+    ao: {
+      enabled: true,
+      radius: 0.45,              // world-space sample radius in metres
+      intensity: 0.9,            // 0 = no darkening, 1 = full occlusion in creases
+      bias: 0.025,               // depth slack, in metres; too low = self-occlusion acne
+      samples: 12,               // hemisphere taps per pixel
+    },
+    bloom: {
+      strength: 0.42,
+      radius: 0.40,
+      threshold: 1.55,           // LINEAR HDR, pre-tonemap. Above lit skin/hair, below the neon core.
+    },
+    grain: { amount: 0.055, vignette: 0.42 },
+    fov: 55,                     // vertical field of view, degrees
+  },
+
   // ── humanoid: procedural walk cycle + animation blending ──
   humanoid: {
     gait: {                      // src/humanoid/gait.js pose amplitudes (degrees, metres)

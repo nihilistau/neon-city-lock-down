@@ -27,6 +27,7 @@ import { BootScene } from '../scene3d/bootScene.js';
 import { Lighting } from '../scene3d/lighting.js';
 import { World3D } from '../scene3d/tower/zoneBuilder.js';
 import { Picker } from '../scene3d/picking.js';
+import { rimPool } from '../scene3d/rimPool.js';
 import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
 import { buildPlayerPersona } from '../../data/cast/player.js';
@@ -178,6 +179,7 @@ export class App {
     this.combatFx = new CombatFx(this.stage.scene);
     this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
     this.lighting = new Lighting(this.stage);
+    rimPool.init(this.stage.scene);   // fixed light count for the whole run
     this.lighting.clock = this.clock;
     this.lighting.apply('neon_night', 0.01);
 
@@ -1218,6 +1220,7 @@ export class App {
         c.actor.update(dtSec);
       }
       this.picker.update();
+      rimPool.update();   // rims live on the scene root; they follow their claimant
     }
     this.postfx.render(dt);
   }

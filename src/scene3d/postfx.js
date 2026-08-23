@@ -6,6 +6,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { AOPass } from './aoPass.js';
+import { cfg } from '../core/config.js';
 
 /** MSAA sample count for the composer target. 4 is the sweet spot on WebGL2. */
 const MSAA_SAMPLES = 4;
@@ -70,10 +72,20 @@ export class PostFX {
     // and its default target is created with no `samples`. Every neon edge in
     // the game was aliased. Supplying the target explicitly is the whole fix.
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    // A DEPTH attachment on the composer target. RenderPass fills it as a side
+    // effect of drawing the scene, which is what lets the AO pass run without a
+    // second geometry submission. Float depth, not the default UnsignedShort:
+    // the camera spans 0.05..400m, and at 16 bits the far half of that range
+    // quantises hard enough that AO banded on anything past the near furniture.
+    const depthTexture = new THREE.DepthTexture(size.width, size.height);
+    depthTexture.type = THREE.FloatType;
+    depthTexture.format = THREE.DepthFormat;
     const target = new THREE.WebGLRenderTarget(size.width, size.height, {
       type: THREE.HalfFloatType,
       samples: MSAA_SAMPLES,
+      depthTexture,
     });
+    this.depthTexture = depthTexture;
     this.composer = new EffectComposer(renderer, target);
     this.renderPass = new RenderPass(scene, camera);
     // Threshold is in LINEAR HDR (bloom runs before OutputPass tone-maps), so
@@ -82,18 +94,31 @@ export class PostFX {
     // cast's own highlights crossed it and bloomed into blazing blobs on every
     // head. 1.55 sits above lit skin/hair and below the neon core (2.4), so only
     // things that are actually emissive glow.
+    const bloomCfg = cfg('render.bloom', {});
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.42,   // strength
-      0.40,   // radius
-      1.55    // threshold — above lit surfaces, below the neon core
+      bloomCfg.strength ?? 0.42,
+      bloomCfg.radius ?? 0.40,
+      bloomCfg.threshold ?? 1.55
     );
     this.grain = new ShaderPass(GrainVignetteShader);
+    const grainCfg = cfg('render.grain', {});
+    this.grain.uniforms.grainAmount.value = grainCfg.amount ?? 0.055;
+    this.grain.uniforms.vignetteStrength.value = grainCfg.vignette ?? 0.42;
     this.output = new OutputPass();
+
+    // Ambient occlusion. Optional because it is the one pass here with a real
+    // per-pixel cost, and because a driver that cannot sample a depth attachment
+    // off a multisampled target should degrade to "no AO", not to a black screen.
+    const aoCfg = cfg('render.ao', {});
+    this.ao = aoCfg.enabled === false ? null : new AOPass(camera, aoCfg);
 
     // Grain LAST: OutputPass applies ACES tone-mapping + sRGB, so anything after
     // it works in display-referred colour, which is where film grain belongs.
     this.composer.addPass(this.renderPass);
+    // AO before bloom: a crease still bright when bloom runs smears its own
+    // brightness back over the geometry the AO exists to seat.
+    if (this.ao) this.composer.addPass(this.ao);
     this.composer.addPass(this.bloom);
     this.composer.addPass(this.output);
     this.composer.addPass(this.grain);
@@ -101,6 +126,7 @@ export class PostFX {
     const applySize = (w, h) => {
       this.composer.setSize(w, h);
       this.grain.uniforms.resolution.value.set(w, h);
+      this.ao?.setSize(w, h);   // WebGLRenderTarget.setSize resizes its own depth attachment
     };
     stage.resizeHooks.push(applySize);
     applySize(window.innerWidth, window.innerHeight);

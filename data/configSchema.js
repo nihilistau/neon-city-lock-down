@@ -102,6 +102,17 @@ export const CONFIG_SCHEMA = {
     envIntensity: num(0, 3),
     hemiScale: num(0, 2),
   },
+  render: {
+    shadows: { type: 'string', enum: ['off', 'hard', 'soft'] },
+    shadowMapSize: { type: 'number', enum: [512, 1024, 2048, 4096] },
+    ao: {
+      enabled: { type: 'boolean' }, radius: num(0.05, 3), intensity: num(0, 2),
+      bias: num(0.001, 0.5), samples: num(4, 32),
+    },
+    bloom: { strength: num(0, 3), radius: num(0, 2), threshold: num(0, 8) },
+    grain: { amount: num(0, 0.4), vignette: num(0, 1.5) },
+    fov: num(30, 110),
+  },
   humanoid: {
     gait: {
       strideLen: num(0.1, 3), walkSpeed: num(0.1, 10), thighAmp: num(0, 90), shinFlex: num(0, 120),

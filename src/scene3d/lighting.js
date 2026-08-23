@@ -30,7 +30,8 @@ export class Lighting {
     this.key = new THREE.DirectionalLight(0xbfd8ff, 1.1);
     this.key.position.set(6, 10, 10);
     this.key.castShadow = true;
-    this.key.shadow.mapSize.set(2048, 2048);
+    const mapSize = cfg('render.shadowMapSize', 2048);
+    this.key.shadow.mapSize.set(mapSize, mapSize);
     // The penthouse spans x -13.75..7.75; the old +/-12 frustum did not reach the
     // west-wing bed alcove, so nothing there cast or received a shadow at all.
     this.key.shadow.camera.left = -18; this.key.shadow.camera.right = 14;
