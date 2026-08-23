@@ -169,7 +169,7 @@ export function initHud() {
 
   const helpEl = root.querySelector('#hud-help');
   const CAM_HELP = {
-    auto: 'C camera · E/click interact',
+    auto: 'WASD move · C camera · E/click interact  (auto-camera is framing the shot)',
     thirdPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouse aim · LMB fire · R reload · E interact',
     firstPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouselook · LMB fire · R reload · E interact',
     director: 'C camera · drag orbit · F focus cast · click interact',

@@ -59,10 +59,12 @@ export class CameraRig {
   attachDirector(deps) {
     this.director = new CameraDirector(deps);
     // honour the saved / default mode now that auto is available
+    // Honour every saved mode. 'thirdPerson' used to fall through to auto, so
+    // the mode most players would pick could not be persisted at all.
     const saved = settings.cameraMode;
-    this.setMode(saved === 'firstPerson' ? 'firstPerson'
-      : saved === 'director' ? 'director'
-      : (settings.autoCamera ? 'auto' : 'director'));
+    const valid = ['firstPerson', 'thirdPerson', 'director'];
+    this.setMode(valid.includes(saved) ? saved
+      : (settings.autoCamera && this.director ? 'auto' : 'thirdPerson'));
   }
 
   /** @param {'auto'|'director'|'thirdPerson'|'firstPerson'|'cinematic'} mode */
@@ -70,7 +72,12 @@ export class CameraRig {
     this.mode = mode;
     this.orbit.enabled = mode === 'director';
     this.fp.thirdPerson = mode === 'thirdPerson';
-    if (mode === 'firstPerson' || mode === 'thirdPerson') {
+    // 'auto' keeps the controller alive for MOVEMENT but hands framing to the
+    // situational director. It used to disable the controller outright, which
+    // made the default mode a spectator mode: WASD inert, orbit off, and no
+    // on-screen clue that C was the way out of it.
+    this.fp.driveCamera = mode === 'firstPerson' || mode === 'thirdPerson';
+    if (this.fp.driveCamera || mode === 'auto') {
       // start the controller at the body so entering FP/TPS never teleports
       if (this.fp.body) { const b = this.fp.body.root.position; this.fp.pos.set(b.x, this.fp.pos.y, b.z); }
       this.fp.enable();
@@ -86,6 +93,9 @@ export class CameraRig {
   update(dt) {
     if (this.mode === 'director') this.orbit.update();
     else if (this.mode === 'firstPerson' || this.mode === 'thirdPerson') this.fp.update(dt);
-    else if (this.mode === 'auto' && this.director) this.director.tick(dt);
+    else if (this.mode === 'auto') {
+      this.fp.update(dt);            // movement + body animation
+      this.director?.tick(dt);       // …and the director frames it
+    }
   }
 }
