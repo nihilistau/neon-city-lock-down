@@ -16,3 +16,5 @@ user/
 # or set the LMS_API_TOKEN env var instead (both paths fail soft when absent).
 lmstudio-api-key*.txt
 !lmstudio-api-key.example.txt
+test-results/
+playwright-report/

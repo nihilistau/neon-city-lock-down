@@ -1,0 +1,45 @@
+# Render config — shadows, ambient occlusion, bloom, film grain, field of view.
+# Loaded over data/configDefaults.js. These are the same values the in-game
+# Settings screen writes (src/ui/settingsPanel.js → applyConfig), so editing here
+# changes the defaults a new player starts from.
+#
+# Every one of these was hardcoded across src/scene3d/* before v0.5, which meant
+# a player whose machine could not afford the post-FX stack had no way to turn
+# any of it down.
+
+# 'off' | 'hard' | 'soft'. `hard` is PCFShadowMap — one texel of penumbra, which
+# reads as a jagged stencil at this map size. `soft` is PCFSoftShadowMap and is
+# the difference between "there is a shadow here" and "this thing is standing on
+# this floor". Turn it down first if the game runs hot.
+shadows: soft
+
+# Per-side texels for the key light's shadow map. 512 | 1024 | 2048 | 4096.
+shadowMapSize: 2048
+
+# Screen-space ambient occlusion (src/scene3d/aoPass.js). Contact darkening in
+# creases and where objects meet the floor — without it a PBR scene under an IBL
+# environment fills every crevice with uniform ambient and everything reads as a
+# decal sitting ON the floor rather than IN the room.
+# Measured cost at 1912x961: about 1.5ms a frame.
+ao:
+  enabled: true
+  radius: 0.45      # world-space sample radius, metres
+  intensity: 0.9    # 0 = no darkening, 1 = full occlusion in creases
+  bias: 0.025       # depth slack, metres — too low and flat surfaces self-occlude
+  samples: 12       # hemisphere taps per pixel; a #define, so changing it rebuilds the shader
+
+bloom:
+  strength: 0.42
+  radius: 0.40
+  # LINEAR HDR, applied BEFORE tone-mapping — so this is not a 0..1 brightness.
+  # 1.55 sits above lit skin and hair and below the neon core (2.4), so only
+  # things that are actually emissive glow. Lowering it makes the cast's own
+  # specular highlights bloom into blobs on every head.
+  threshold: 1.55
+
+grain:
+  amount: 0.055     # film grain, applied after tone-mapping in display colour
+  vignette: 0.42
+
+# Vertical field of view, degrees. Applies on reload (the camera is built once).
+fov: 55

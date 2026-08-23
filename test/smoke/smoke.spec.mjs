@@ -1,56 +1,196 @@
 // @ts-check
-// Headless smoke test via the ?debug=1 window.__ncld API. Run against a live
-// server: node tools/serve.mjs 8420  →  then drive with chrome-devtools MCP or
-// Playwright. This file documents the smoke contract as an executable checklist;
-// it uses Playwright if installed, else prints the manual steps.
+// End-to-end smoke test. Drives a real browser through the real game.
 //
-//   npx playwright test test/smoke/smoke.spec.mjs
+//   npx playwright test          (starts tools/serve.mjs itself — see playwright.config.mjs)
 //
-// It is intentionally dependency-optional so `node --test` never imports Playwright.
+// WHAT THIS REPLACED
+// The previous version of this file printed a checklist of eleven things a
+// human should check, and exited 0. It reported a green tick in the suite while
+// asserting nothing at all, because Playwright was never installed — so the one
+// test whose whole job was to catch "the game does not boot" could not fail.
+// The hidden control hint and the elevator soft-lock both shipped past it.
+//
+// This file is NOT run by `node --test`; it lives behind `npx playwright test`
+// so the zero-dependency runtime promise is unaffected.
+import { test, expect } from '@playwright/test';
 
-export const SMOKE_STEPS = [
-  'boot → main menu visible (no age-gate clickthrough)',
-  'click New Run / Continue → window.__ncld.ready === true within 5s',
-  'zero console errors after boot',
-  'intro cutscene plays and is skippable (Space)',
-  "say('lola','hey Lola') → returns a reply + a stat delta",
-  "forceEvent('blackout') → lighting preset becomes blackout_emergency",
-  'advanceMinutes(2880) → survives to day 3, resources depleted',
-  'bed game: warm a partner, escalate through the consent ladder, actions gate-check',
-  'save(3) → mutate → load(3) → stats restored exactly',
-  'kill() → death screen with run summary + bonds, autosave deleted, meta run recorded',
-  'fps() > 30 sustained (env vsync ceiling permitting)',
-];
+const URL = process.env.NCLD_URL || 'http://localhost:8420/?debug=1';
 
-// If Playwright is present, run the automated version.
-let test, expect;
-try {
-  ({ test, expect } = await import('@playwright/test'));
-} catch {
-  console.log('[smoke] Playwright not installed — manual checklist:');
-  for (const s of SMOKE_STEPS) console.log('  •', s);
+/** Boot to a live run and hand back the page. Fails loudly rather than timing out silently. */
+async function bootToRun(page) {
+  /** @type {string[]} */
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push(String(e)));
+
+  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+
+  // 18+ gate — restored in this branch, and its click is also what unlocks
+  // WebAudio autoplay, so skipping it would silently test a muted game. A fresh
+  // browser profile gets the FIRST-RUN variant, which offers both "enter" and
+  // "leave"; a returning player gets a single button. Match the affirmative one
+  // by name rather than by position so both variants work.
+  const gatePanel = page.locator('.gate-panel');
+  await expect(gatePanel, 'the 18+ gate should be the first thing shown').toBeVisible({ timeout: 20000 });
+  await gatePanel.getByRole('button', { name: /enter|18 or older/i }).first().click();
+
+  const newRun = page.getByRole('button', { name: /New Run/i });
+  await expect(newRun).toBeVisible({ timeout: 10000 });
+  await newRun.click();
+
+  // the new-run screen's own confirm button
+  const begin = page.getByRole('button', { name: /^(Begin|Start|Enter the tower|Start run)/i }).first();
+  if (await begin.isVisible().catch(() => false)) await begin.click();
+
+  await page.waitForFunction(() => window.__ncld?.app?.mode === 'run', null, { timeout: 45000 });
+  return errors;
 }
 
-if (test) {
-  const URL = process.env.NCLD_URL || 'http://localhost:8420/?debug=1';
-  test('boots, chats, events, saves, dies', async ({ page }) => {
-    const errors = [];
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-    await page.goto(URL);
-    await page.getByRole('button', { name: 'New Run' }).click();
-    await page.getByRole('button', { name: /Begin/ }).click();
-    await page.waitForFunction(() => window.__ncld?.ready === true, { timeout: 8000 });
-    // skip cutscene
-    await page.evaluate(async () => {
-      const app = window.__ncld.app;
-      while (app.cutscene?.playing) { document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true })); await new Promise((r) => setTimeout(r, 300)); }
-    });
-    const reply = await page.evaluate(() => window.__ncld.debug.say('hey Lola', 'lola').then((r) => r.length));
-    expect(reply).toBeGreaterThan(0);
-    await page.evaluate(() => window.__ncld.debug.forceEvent('blackout'));
-    await page.waitForTimeout(8000);
-    const preset = await page.evaluate(() => window.__ncld.app.lighting.presetId);
-    expect(preset).toBe('blackout_emergency');
-    expect(errors).toEqual([]);
+test.describe('Neon-City: Lock-Down', () => {
+  test('boots to a live run with no console errors', async ({ page }) => {
+    const errors = await bootToRun(page);
+    const state = await page.evaluate(() => ({
+      mode: window.__ncld.app.mode,
+      floor: window.__ncld.app.world.activeFloor,
+      cast: Object.keys(window.__ncld.app.cast).length,
+      lights: (() => { let n = 0; window.__ncld.app.stage.scene.traverseVisible((o) => { if (o.isLight) n++; }); return n; })(),
+    }));
+    expect(state.mode).toBe('run');
+    expect(state.floor).toBe('penthouse');
+    expect(state.cast).toBeGreaterThanOrEqual(3);
+    expect(state.lights).toBeGreaterThan(0);
+    // an ignorable-error allowlist would defeat the point; there should be none
+    expect(errors, `console errors during boot:\n${errors.join('\n')}`).toEqual([]);
   });
-}
+
+  test('the control hint is visible — it shipped hidden once', async ({ page }) => {
+    await bootToRun(page);
+    // #hud-hint was emitted with class="hidden" and nothing ever removed it, so
+    // the only pointer to the only controls surface was invisible for a release.
+    await expect(page.locator('#hud-hint')).toBeVisible();
+    await page.keyboard.press('?');
+    await expect(page.locator('#hud-help')).toBeVisible();
+  });
+
+  test('only one panel is open at a time and Escape closes it', async ({ page }) => {
+    await bootToRun(page);
+    // Five panels used to stack, each holding its own pause token, and the
+    // elevator picker rendered above the pause menu with no way out.
+    for (const key of ['KeyP', 'KeyI', 'KeyK']) await page.keyboard.press(key.replace('Key', ''));
+    const open = await page.evaluate(() => ({
+      overlays: document.querySelectorAll('#overlay > *').length,
+      pauseReasons: [...window.__ncld.app.loop.pauseReasons],
+    }));
+    expect(open.overlays).toBe(1);
+    expect(open.pauseReasons.length).toBe(1);
+
+    await page.keyboard.press('Escape');
+    const closed = await page.evaluate(() => ({
+      overlays: document.querySelectorAll('#overlay > *').length,
+      pauseReasons: [...window.__ncld.app.loop.pauseReasons],
+    }));
+    expect(closed.overlays).toBe(0);
+    expect(closed.pauseReasons).toEqual([]);
+  });
+
+  test('a save round-trips through a slot', async ({ page }) => {
+    await bootToRun(page);
+    const result = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      app.run.resources.food = 42;
+      app.cast.lola.stats.trust = 71;
+      window.__ncld.debug.save(3);
+      app.run.resources.food = 1;
+      app.cast.lola.stats.trust = 5;
+      window.__ncld.debug.load(3);
+      await new Promise((r) => setTimeout(r, 500));
+      return { food: app.run.resources.food, trust: Math.round(app.cast.lola.stats.trust) };
+    });
+    expect(result.food).toBe(42);
+    expect(result.trust).toBe(71);
+  });
+
+  test('every floor is reachable and renders', async ({ page }) => {
+    await bootToRun(page);
+    const floors = ['rooftop', 'fl40', 'fl27', 'fl12', 'ground', 'basement', 'penthouse'];
+    for (const f of floors) {
+      const state = await page.evaluate(async (floor) => {
+        window.__ncld.app.setFloor(floor);
+        await new Promise((r) => setTimeout(r, 300));
+        const app = window.__ncld.app;
+        let meshes = 0;
+        app.stage.scene.traverseVisible((o) => { if (o.isMesh) meshes++; });
+        return {
+          active: app.world.activeFloor,
+          meshes,
+          // the light kit must FOLLOW the floor, not stay 1200 units behind it
+          lightOffset: Math.round(app.lighting.key.position.x),
+          markerX: Math.round(app.playerMarker.position.x),
+        };
+      }, f);
+      expect(state.active, `setFloor('${f}')`).toBe(f);
+      expect(state.meshes, `${f} should render geometry`).toBeGreaterThan(20);
+      expect(Math.abs(state.lightOffset - state.markerX), `${f}: light kit should be near the player`).toBeLessThan(40);
+    }
+  });
+
+  test('the minigames are reachable from inside a run', async ({ page }) => {
+    await bootToRun(page);
+    // 39 bed actions, 42 ToD prompts, the card game and three mystery cases were
+    // openable only from the new-run screen or the debug panel.
+    const opened = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const out = {};
+      for (const [name, game] of [['cards', 'cards'], ['tod', 'tod'], ['mystery', 'mystery:dead_drop']]) {
+        window.__ncld.app.gamesPanel.close();
+        const { emit } = await import('/src/core/bus.js');
+        emit('game.requested', { game });
+        await new Promise((r) => setTimeout(r, 400));
+        out[name] = app.gamesPanel.mode;
+      }
+      app.gamesPanel.close();
+      return out;
+    });
+    expect(opened.cards).toBe('cards');
+    expect(opened.tod).toBe('tod');
+    expect(opened.mystery).toBe('mystery');
+  });
+
+  test('half rations do not kill a fed cast', async ({ page }) => {
+    await bootToRun(page);
+    // Regression guard for a shipped bug: a flat tension nudge on half rations
+    // tagged the cause as 'rations', which dealt 6hp/hour regardless of whether
+    // there was any actual shortfall. Every NPC died in ~17 game-hours with a
+    // full pantry.
+    const after = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      app.run.resources.food = 500;
+      app.run.resources.water = 500;
+      app.run.rationPolicy.food = 'half';
+      app.run.rationPolicy.water = 'half';
+      const { hourlyTick } = await import('/src/sim/survival.js');
+      const cast = Object.values(app.cast).filter((c) => c.persona?.corporeal !== false);
+      for (let i = 0; i < 24; i++) hourlyTick(app.run, cast);
+      return cast.map((c) => ({ id: c.id, alive: c.alive, health: Math.round(c.health) }));
+    });
+    for (const c of after) {
+      expect(c.alive, `${c.id} should survive 24h of half rations with a full pantry`).toBe(true);
+      expect(c.health, `${c.id} health`).toBeGreaterThan(50);
+    }
+  });
+
+  test('death ends the run and records it', async ({ page }) => {
+    await bootToRun(page);
+    const result = await page.evaluate(async () => {
+      window.__ncld.debug.kill();
+      await new Promise((r) => setTimeout(r, 1200));
+      return {
+        screen: !!document.querySelector('.screen'),
+        text: document.body.innerText.slice(0, 400),
+        runsRecorded: JSON.parse(localStorage.getItem('ncld.meta') || '{}').runs?.length ?? 0,
+      };
+    });
+    expect(result.screen).toBe(true);
+    expect(result.runsRecorded).toBeGreaterThan(0);
+  });
+});
