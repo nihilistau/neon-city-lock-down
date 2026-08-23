@@ -425,14 +425,30 @@ export class App {
       if (dest && dest.floor !== this.world.activeFloor) {
         emit('hud.alert', { text: `Heading to ${dest.label}…`, kind: 'info' });
         await this.elevatorUI.ride(dest.floor);
+        // ride() returns silently when the car is locked, offline, or already in
+        // motion. Without this check the job ran anyway — you "foraged the
+        // rooftop garden" and "ran the range" from the penthouse, and the
+        // interrupt roll (themed as being exposed on the roof) fired too.
+        if (this.world.activeFloor !== dest.floor) {
+          const msg = `You can't reach ${dest.label} right now.`;
+          emit('hud.alert', { text: msg, kind: 'warn' });
+          return { ok: false, msg };
+        }
       }
       const rng = this.rng.stream('dayplan');
       if (interruptChance(this.run, id, rng)) {
-        spendAp(this.run, id);
-        this.eventRunner.fire('forage_scare');
-        const msg = 'Shots on the roof. You drop the harvest and get down.';
-        emit('hud.alert', { text: msg, kind: 'warn' });
-        return { ok: false, msg };
+        // Only take the AP if the interrupting event can actually run.
+        // fire() is async, so its early-return when a script is already running
+        // (including one stalled on waitMinutes) is invisible to the caller — the
+        // AP was spent regardless and the player got no event, no choice, no food.
+        if (this.eventRunner.canFire('forage_scare')) {
+          spendAp(this.run, id);
+          this.eventRunner.fire('forage_scare');
+          const msg = 'Shots on the roof. You drop the harvest and get down.';
+          emit('hud.alert', { text: msg, kind: 'warn' });
+          return { ok: false, msg };
+        }
+        // couldn't interrupt — fall through and let the job resolve normally
       }
       const r = performAction(this.run, id, rng);
       if (r.ok) {

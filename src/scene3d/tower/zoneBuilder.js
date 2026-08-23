@@ -76,6 +76,11 @@ export class World3D {
       this.collidersByFloor[floor.id] = [];
       this[`_build_${floor.shell}`](group, floor);
       this._buildElevatorDoor(group, floor);
+      // v0.4 added ~100 architecture meshes — dais, cages, server columns, lobby
+      // columns, basement pillars, HVAC, the ramp — and registered NONE of them
+      // as colliders, so the player walked straight through the lot. Anything
+      // tagged `userData.solid` is picked up automatically from here on.
+      this._collectSolids(group, floor.id);
       stage.scene.add(group);
     }
     this._buildFurniture();
@@ -84,6 +89,15 @@ export class World3D {
   }
 
   // ── shared helpers ──────────────────────────────────────────────
+  /**
+   * A floor slab. `y` is the slab CENTRE, so a 0.2-thick slab at the default
+   * -0.1 has its walkable top at exactly 0 — which is where actors stand
+   * (Actor3D.snapTo pins root.y = 0) and where the FP eye height is measured
+   * from. Anything that raises this top buries every character by the
+   * difference; v0.4 shipped three such surfaces (fl27 +0.08, ground +0.04,
+   * the fl40 dais +0.14 — past the ankle). There is no step-up logic anywhere,
+   * so floor FINISHES must stay flush and only the base may sit lower.
+   */
   _slab(group, rect, tex, y = -0.1) {
     const w = rect.x[1] - rect.x[0], d = rect.z[1] - rect.z[0];
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, d), tex);
@@ -91,6 +105,20 @@ export class World3D {
     m.receiveShadow = true;
     group.add(m);
     return m;
+  }
+
+  /**
+   * Register every mesh tagged `userData.solid` on this floor as a world-space
+   * collider. Tag at construction (`mesh.userData.solid = true`) and it is
+   * picked up here — no second list to keep in sync.
+   * @param {THREE.Group} group @param {string} floorId
+   */
+  _collectSolids(group, floorId) {
+    group.updateMatrixWorld(true);
+    group.traverse((o) => {
+      if (!(/** @type {any} */ (o).isMesh) || !o.userData?.solid) return;
+      this.collidersByFloor[floorId].push(new THREE.Box3().setFromObject(o));
+    });
   }
 
   _ceiling(group, rect, y, color = 0x0c0f18) {
@@ -354,6 +382,7 @@ export class World3D {
     // flood lights
     for (const [x, z] of [[-9.2, -7.2], [9.2, -7.2], [9.2, 7.2]]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), mullionMat());
+      pole.userData.solid = true;
       pole.position.set(x, 1.2, z);
       group.add(pole);
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.2),
@@ -366,6 +395,7 @@ export class World3D {
       const hvac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.1),
         new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a3038'), 1.1, 0.3), metalness: 0.55, roughness: 0.45 }));
       hvac.position.set(x, 0.4, z);
+      hvac.userData.solid = true;
       group.add(hvac);
     }
     this._practical(group, 4.5, 2.8, 0, PALETTE.neonAmber, 20, 12);
@@ -383,9 +413,12 @@ export class World3D {
     walls = ['solid', 'solid', 'solid', 'solid'],
     floorMat = null,
   } = {}) {
+    // base sits 2cm below the nominal top so a floor's own finish layer can be
+    // laid flush at 0 without z-fighting; where no finish covers it the 2cm is
+    // imperceptible and still walkable.
     this._slab(group, rect, floorMat || new THREE.MeshStandardMaterial({
       ...surfaced(concreteTex(floorTint), 1.6, 0.8), roughness: 0.82,
-    }));
+    }), -0.12);
     this._ceiling(group, rect, ceilH, ceilColor);
     const wall = wallMatOf(tint);
     const glass = glassMat();
@@ -436,9 +469,11 @@ export class World3D {
     port.position.set(0, 1.85, 3.2);
     group.add(port);
     // security dais (west)
-    const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.18, 10.4),
+    // Reads as a distinct deck via material, not height: at 0.18 thick centred
+    // on +0.05 its top was +0.14 and everyone standing on it sank past the ankle.
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 10.4),
       new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a1520'), 1.1, 0.4), metalness: 0.35, roughness: 0.5 }));
-    dais.position.set(-5.2, 0.05, 0);
+    dais.position.set(-5.2, -0.02, 0);
     group.add(dais);
     // monitor alcove hood
     const hood = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 1.4),
@@ -457,6 +492,7 @@ export class World3D {
     const backstop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.6, 2.4),
       new THREE.MeshStandardMaterial({ color: 0x2a1818, roughness: 0.9 }));
     backstop.position.set(9.3, 0.85, -3.5);
+    backstop.userData.solid = true;
     group.add(backstop);
     neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7 });
     neonRun(group, { x: -5, y: ceilH - 0.12, z: 0, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.025, intensity: 1.2 });
@@ -489,7 +525,7 @@ export class World3D {
     });
     // raised access floor (server tiles)
     const tile = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#15202c'), 1.4, 0.35), metalness: 0.45, roughness: 0.4 });
-    this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile, -0.02);
+    this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile);   // flush: top = 0
     // concentric ring
     const ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.7, 32),
       new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonCyan, emissiveIntensity: 0.7, side: THREE.DoubleSide }));
@@ -517,6 +553,7 @@ export class World3D {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.32, 2.9, 0.32),
         new THREE.MeshStandardMaterial({ color: 0x0c141c, metalness: 0.55, roughness: 0.32, emissive: PALETTE.neonCyan, emissiveIntensity: 0.14 }));
       col.position.set(Math.cos(a) * 5.2, 1.45, Math.sin(a) * 5.2);
+      col.userData.solid = true;
       group.add(col);
     }
     // floor vents
@@ -576,7 +613,7 @@ export class World3D {
       walls: ['glass', 'solid', 'solid', 'solid'],
     });
     const marble = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.22, metalness: 0.18 });
-    this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble, -0.06);
+    this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble);   // flush: top = 0
     this._neonTrim(group, 0, 3.7, R.z[0] + 0.16, 16, PALETTE.neonCyan);
     this._neonTrim(group, 0, 4.15, R.z[1] - 0.2, 16, PALETTE.neonMagenta);
     // mezzanine strip along -Z
@@ -593,6 +630,7 @@ export class World3D {
     for (const x of [-6.5, 0, 6.5]) {
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, ceilH, 12), colMat);
       col.position.set(x, ceilH / 2, 2.4);
+      col.userData.solid = true;
       group.add(col);
     }
     const sign = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.85, 0.1),
@@ -621,6 +659,7 @@ export class World3D {
       new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c22'), 1.4, 0.7), roughness: 0.9 }));
     ramp.rotation.z = -0.12;
     ramp.position.set(11.2, 0.35, 4);
+    ramp.userData.solid = true;
     group.add(ramp);
     for (let i = 0; i < 7; i++) {
       const stain = new THREE.Mesh(new THREE.CircleGeometry(0.45 + this.rng.next() * 0.9, 12),
@@ -652,6 +691,7 @@ export class World3D {
       for (const z of [-4, 4]) {
         const col = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, ceilH, 10), colM);
         col.position.set(x, ceilH / 2, z);
+        col.userData.solid = true;
         group.add(col);
       }
     }

@@ -83,6 +83,8 @@ export class Combat {
     this.mag = 0;          // rounds in the current magazine (reserve = resources.ammo)
     this.magSize = 12;
     this._spawnAt = [0, 0];
+    /** bumped per fight so a stale cleanup timer can't wipe a newer wave */
+    this._generation = 0;
   }
 
   _colliders() { return this.d.colliders ? this.d.colliders() : []; }
@@ -444,12 +446,30 @@ export class Combat {
   }
 
   /** the building fights back while the defence grid is up */
+  /**
+   * Is this hostile on the same floor as the turret itself?
+   * @param {{actor:{root:{position:{x:number}}}}} h
+   */
+  _onTurretFloor(h) {
+    const def = this.d.defences?.();
+    const turretX = def?.turret?.group?.position?.x;
+    if (turretX == null) return true;
+    const world = new THREE.Vector3();
+    def.turret.group.getWorldPosition(world);
+    return Math.abs(h.actor.root.position.x - world.x) < 100;
+  }
+
   _turretFire(dt) {
     const run = this.d.run();
     const def = this.d.defences?.();
     const grid = run.systems.defence;
     if (!def || !grid.online || grid.hp <= 5) return;
-    const alive = this.hostiles.filter((h) => h.hp > 0);
+    // The turret is a penthouse fixture, but nothing checked that the fight was
+    // on its floor. Floors sit 200 world-units apart on X, so a basement breach
+    // had the ceiling gun firing at ~1200m for a floored 3% hit chance while
+    // wearing the defence grid down ~14hp/min. Same bug the v0.3.0 pass fixed
+    // for _castFire; the turret was missed.
+    const alive = this.hostiles.filter((h) => h.hp > 0 && this._onTurretFloor(h));
     if (!alive.length) return;
 
     // yoke tracks the closest hostile continuously
@@ -625,11 +645,20 @@ export class Combat {
     } else {
       feed('You are down. The tower has fallen.', 'combat');
     }
-    setTimeout(() => this._cleanup(), 14000);
+    // Tag the corpses THIS fight owns. A queued event can start a new fight ~5
+    // real seconds later (tick.js re-queues blocked events at +5 game-min), well
+    // inside this window — and the stale timer then disposed the NEW wave's
+    // actors and emptied `hostiles`, so update() saw no one alive and resolved
+    // the fresh breach as an instant phantom victory.
+    const generation = ++this._generation;
+    setTimeout(() => this._cleanup(generation), 14000);
     this._onResolve?.(win);
   }
 
-  _cleanup() {
+  /** @param {number} [generation] only clean up if no new fight has started */
+  _cleanup(generation) {
+    if (generation != null && generation !== this._generation) return;
+    if (this.active) return;   // a new fight owns the field now
     for (const h of this.hostiles) {
       if (h.hp <= 0 && !h.looted) this._lootBody(h);
       this.d.stage.scene.remove(h.actor.root);
