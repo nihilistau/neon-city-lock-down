@@ -11,6 +11,52 @@ let root = null;
 
 const RES_KEYS = ['food', 'water', 'meds', 'ammo', 'cells', 'parts', 'luxury'];
 
+/**
+ * Keep the left column from colliding with itself.
+ *
+ * `#hud-floor`, `#statbars` and `#chat` all live on the left edge, and the rail
+ * and the chat log BOTH take pointer events — so any overlap makes clicks land
+ * ambiguously. This has now regressed twice from hard-coded constants: a flat
+ * `56vh`, then `calc(62vh - 150px)` which was calibrated against wrap-row reply
+ * chips before v0.4 restacked them vertically (measured: 108px of overlap).
+ *
+ * So stop guessing. Measure what the neighbours actually occupy and publish the
+ * result as CSS custom properties, recomputed on resize and whenever the chat
+ * or the floor chip changes size.
+ */
+function layoutLeftColumn() {
+  const floorEl = document.getElementById('hud-floor');
+  const railEl = document.getElementById('statbars');
+  const chatEl = document.getElementById('chat');
+
+  const apply = () => {
+    if (!railEl) return;
+    const gap = 8;
+    const floorBottom = floorEl ? floorEl.getBoundingClientRect().bottom : 46;
+    const railTop = Math.round(floorBottom + gap);
+    // chat may not exist yet (it mounts with the run) — fall back to a sane share
+    const chatTop = chatEl && chatEl.offsetParent !== null
+      ? chatEl.getBoundingClientRect().top
+      : window.innerHeight * 0.62;
+    const railMax = Math.max(120, Math.round(chatTop - railTop - gap));
+    railEl.style.setProperty('--rail-top', `${railTop}px`);
+    railEl.style.setProperty('--rail-max', `${railMax}px`);
+  };
+
+  apply();
+  window.addEventListener('resize', apply);
+  // the chat grows as chips stack and the log fills; the floor chip wraps on
+  // long labels. Re-measure whenever either actually changes size.
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(apply);
+    if (chatEl) ro.observe(chatEl);
+    if (floorEl) ro.observe(floorEl);
+  }
+  // chat mounts after the HUD, so re-measure once the run is up
+  on('game.entered', () => setTimeout(apply, 0));
+  on('chat.reply', () => apply());
+}
+
 export function initHud() {
   root = document.getElementById('hud');
   root.innerHTML = `
@@ -23,11 +69,13 @@ export function initHud() {
       <span class="th-track"><span class="th-fill"></span></span>
       <span class="th-val">0</span>
     </div>
-    <div id="hud-hint" class="hud-chip hidden">Press ? for controls</div>
+    <div id="hud-hint" class="hud-chip">Press <b>?</b> for controls</div>
     <div id="hud-help" class="hidden"></div>
     <div id="hud-prompt"></div>
     <div id="hud-alert"></div>
     <div id="hud-choice"></div>`;
+
+  layoutLeftColumn();
 
   const resEl = root.querySelector('#hud-resources');
   let playerHealth = 100;
@@ -122,11 +170,14 @@ export function initHud() {
   const helpEl = root.querySelector('#hud-help');
   const CAM_HELP = {
     auto: 'C camera · E/click interact',
-    thirdPerson: 'C camera · WASD move · mouse aim · LMB fire · R reload · Ctrl cover · E interact',
-    firstPerson: 'C camera · WASD move · mouselook · LMB fire · R reload · Ctrl cover · E interact',
+    thirdPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouse aim · LMB fire · R reload · E interact',
+    firstPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouselook · LMB fire · R reload · E interact',
     director: 'C camera · drag orbit · F focus cast · click interact',
   };
-  const KEY_HELP = 'P plan · I inventory · K codex · ` director · G kit · L llm · V voice · Esc menu';
+  // Shift (run) and Ctrl (crouch/cover) were missing entirely, and so was `?`
+  // itself — which mattered because the on-screen hint pointing at this overlay
+  // was shipped hidden, making the whole control surface undiscoverable.
+  const KEY_HELP = 'P plan · I inventory · K codex · ` director · G kit · L llm · V voice · Esc menu · Space skip/act · ? this help';
   let camMode = 'director';
   const renderHelp = () => {
     helpEl.innerHTML =
@@ -137,8 +188,11 @@ export function initHud() {
   };
   on('camera.mode', ({ mode }) => { camMode = mode; if (!helpEl.classList.contains('hidden')) renderHelp(); });
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Slash' && e.key !== '?') return;
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // `?` only — e.code === 'Slash' is also true for an unshifted `/`, which
+    // meant a bare slash anywhere opened the overlay.
+    if (e.key !== '?') return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+      || e.target instanceof HTMLSelectElement) return;
     e.preventDefault();
     helpEl.classList.toggle('hidden');
     if (!helpEl.classList.contains('hidden')) renderHelp();

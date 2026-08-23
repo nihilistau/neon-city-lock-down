@@ -93,6 +93,8 @@ import { LOADOUTS } from '../../data/items.js';
 import { buildRefugee } from '../../data/cast/refugee.js';
 import { registerRefugeeTopics } from '../../data/dialogue/refugee.js';
 import { showMainMenu } from '../ui/mainMenu.js';
+import { showGate18 } from '../ui/gate18.js';
+import { initModalStack } from '../ui/modalStack.js';
 import { addCodex } from '../sim/meta.js';
 import { applyScenario } from '../sim/scenario.js';
 import { jobDest, interruptChance } from '../sim/jobs.js';
@@ -138,8 +140,14 @@ export class App {
 
   async start() {
     this.loop.start();
+    initModalStack();   // one panel at a time; Escape is a universal "back"
     const unlock = () => audio.unlock();
     document.addEventListener('pointerdown', unlock, { once: true });
+    // 18+ gate first. v0.4 dropped it while README/package.json/docs still
+    // advertised one, and the game ships explicit adult content. The click is
+    // also the autoplay gesture the audio bus needs.
+    await showGate18();
+    audio.unlock();
     const choice = await showMainMenu(this);   // boot scene renders behind the menu
     audio.unlock();
     emit('game.entered', {});

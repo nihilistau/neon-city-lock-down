@@ -92,7 +92,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
               radial-gradient(ellipse at 50% -20%, rgba(57, 230, 255, 0.08), transparent 60%),
               var(--ink);
   pointer-events: auto;
-  z-index: 50;
+  z-index: var(--z-screen);
 }
 .screen .panel {
   background: var(--panel);
@@ -120,7 +120,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 #titlecard {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 10px;
-  opacity: 0; transition: opacity 0.8s ease; pointer-events: none; z-index: 42;
+  opacity: 0; transition: opacity 0.8s ease; pointer-events: none; z-index: var(--z-titlecard);
 }
 #titlecard.visible { opacity: 1; }
 #titlecard .tc-main { font-size: 54px; }
@@ -142,6 +142,37 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .mm-big { font-size: 16px; padding: 14px 20px; text-align: left; }
 .mm-big .mm-sub { color: var(--text-dim); font-size: 12px; text-transform: none; letter-spacing: 0; }
 .mm-foot { font-size: 11px; color: var(--text-dim); margin-top: 10px; }
+
+/* ── z-index scale ────────────────────────────────────────────────────────
+   Every layer was a magic number, and the ordering was wrong in a way that
+   soft-locked the game: .elev-picker (55) rendered ABOVE .screen (50), so the
+   pause menu opened behind an elevator card that had no Esc and no backdrop
+   dismissal. Layers are declared here, once, in the order they must stack. */
+:root {
+  --z-world:      12;   /* stat rail, weapon chip — in-world chrome */
+  --z-chat:       14;   /* chat, combat hud */
+  --z-reticle:    15;
+  --z-hitmark:    16;
+  --z-drawer:     19;   /* director drawer + its toggle */
+  --z-drawer-top: 20;
+  --z-cinema:     40;   /* letterbox + help overlay */
+  --z-titlecard:  42;
+  --z-panel:      45;   /* side drawers: plan, inventory */
+  --z-games:      46;
+  --z-picker:     47;   /* transient pickers (elevator) — BELOW full screens, so
+                           the pause menu can always be reached over one */
+  --z-transition: 48;   /* elevator fade */
+  --z-screen:     50;   /* full-screen panels: menu, save, codex, kit, gate */
+  --z-choice:     60;   /* a blocking event choice outranks everything */
+}
+
+/* 18+ gate — same language as the main menu, one question, no identity fields */
+.gate-panel { max-width: 560px; }
+.gate-panel .gate-body { font-size: 13.5px; line-height: 1.6; color: var(--text-dim); margin: 10px 0; }
+.gate-panel .gate-age { color: var(--cyan); }
+.gate-panel .mm-buttons { margin-top: 22px; }
+.gate-panel .mm-big.danger { color: var(--red); border-color: rgba(255, 71, 87, 0.45); }
+.gate-panel .mm-big.danger:hover { border-color: var(--red); background: rgba(255, 71, 87, 0.08); box-shadow: 0 0 12px rgba(255, 71, 87, 0.25); }
 .mm-newgame { min-width: 560px; max-width: 680px; max-height: 84vh; overflow-y: auto; }
 .mm-scen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
 .mm-scen { border: 1px solid var(--panel-edge); padding: 8px 12px; cursor: pointer; transition: all 0.12s; border-left: 2px solid var(--cyan-dim); }

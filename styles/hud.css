@@ -16,7 +16,7 @@
 #hud-hint { bottom: 12px; left: 14px; display: flex; flex-direction: column; gap: 2px; }
 #hud-help {
   position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start;
-  padding: 18px; pointer-events: none; z-index: 40;
+  padding: 18px; pointer-events: none; z-index: var(--z-cinema);
 }
 #hud-help.hidden { display: none; }
 .help-box {
@@ -62,7 +62,7 @@
    an open panel, or its promise is unreachable and the run soft-locks. */
 #hud-choice {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  pointer-events: none; z-index: 60;
+  pointer-events: none; z-index: var(--z-choice);
 }
 .choice-box {
   background: var(--panel); border: 1px solid var(--amber);
@@ -101,16 +101,17 @@
 
 /* stat-bar rail */
 #statbars {
-  position: absolute; top: 52px; left: 12px;
+  position: absolute; left: 12px;
   display: flex; flex-direction: column; gap: 6px;
   width: 186px; overflow-y: auto; padding-right: 2px;
-  pointer-events: auto; z-index: 12;
+  pointer-events: auto; z-index: var(--z-world);
   scrollbar-width: thin;
-  /* The rail and the chat log both sit on the left edge and BOTH take pointer
-     events, so any overlap makes clicks land ambiguously. A flat 56vh overlapped
-     the chat by ~80px at 900px tall. Derive the cap from what chat actually
-     occupies instead: 44px offset + ~46px input row + 38vh log. */
-  max-height: min(56vh, calc(62vh - 150px));
+  /* Position and cap are MEASURED at runtime by layoutLeftColumn() in
+     src/ui/hud.js — see the comment there. Two hard-coded constants have already
+     gone stale here and reintroduced a click-eating overlap with the chat log.
+     The fallbacks below only apply before the first measurement. */
+  top: var(--rail-top, 80px);
+  max-height: var(--rail-max, 44vh);
 }
 .sb-card {
   background: rgba(6, 8, 14, 0.72);
@@ -148,7 +149,7 @@
 #chat {
   position: absolute; left: 12px; bottom: 44px;
   width: 380px; max-width: 42vw; display: flex; flex-direction: column; gap: 6px;
-  z-index: 14;
+  z-index: var(--z-chat);
 }
 #chat-log {
   display: flex; flex-direction: column; gap: 5px;
@@ -185,7 +186,7 @@
 /* games panel */
 #games-panel {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(3, 4, 8, 0.92); z-index: 46;
+  background: rgba(3, 4, 8, 0.92); z-index: var(--z-games);
   backdrop-filter: blur(3px);
 }
 .game-box { width: 560px; max-width: 92vw; max-height: 84vh; overflow-y: auto;
@@ -229,7 +230,7 @@
 #weapon-chip {
   position: absolute; bottom: 44px; right: 14px;
   background: rgba(6,8,14,0.78); border: 1px solid var(--panel-edge);
-  padding: 6px 12px; font-size: 12px; color: var(--amber); letter-spacing: 0.05em; z-index: 12;
+  padding: 6px 12px; font-size: 12px; color: var(--amber); letter-spacing: 0.05em; z-index: var(--z-world);
   display: flex; align-items: center; gap: 8px;
   backdrop-filter: blur(8px);
   clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
@@ -258,7 +259,7 @@
   text-shadow: 0 0 12px rgba(57,230,255,0.7);
 }
 .elev-picker {
-  position: absolute; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0; z-index: var(--z-picker); display: flex; align-items: center; justify-content: center;
   background: rgba(4,5,9,0.55);
 }
 .elev-card {
@@ -277,14 +278,14 @@
 .elev-card button.here { opacity: 0.45; }
 .elev-cancel { margin-top: 8px; color: var(--text-dim); border-color: var(--panel-edge); }
 
-.letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: 40; }
+.letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: var(--z-cinema); }
 .letterbox.top { top: 0; } .letterbox.bottom { bottom: 0; }
 .letterbox.active { height: 11vh; }
 
 /* ── combat HUD ── */
 #combat-hud {
   position: absolute; top: 54px; left: 50%; transform: translateX(-50%);
-  width: 380px; z-index: 14; pointer-events: none;
+  width: 380px; z-index: var(--z-chat); pointer-events: none;
   font-size: 12px; letter-spacing: 0.06em; text-align: center;
 }
 #combat-hud .ch-top span {
@@ -322,7 +323,7 @@
 
 #hit-mark {
   position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
-  margin: -9px 0 0 -9px; pointer-events: none; z-index: 16; opacity: 0;
+  margin: -9px 0 0 -9px; pointer-events: none; z-index: var(--z-hitmark); opacity: 0;
   border: 2px solid var(--red); transform: rotate(45deg);
   box-shadow: 0 0 10px rgba(255,71,87,0.8);
   transition: opacity 0.08s;
@@ -335,7 +336,7 @@
 #games-panel.bed-hud {
   position: absolute; top: 0; right: 0; bottom: 0; left: auto;
   width: 300px; display: flex; align-items: flex-end; justify-content: flex-end;
-  padding: 12px; background: none; pointer-events: none; z-index: 20;
+  padding: 12px; background: none; pointer-events: none; z-index: var(--z-drawer-top);
 }
 #games-panel.bed-hud .bed-box {
   pointer-events: auto; width: 276px; max-height: 92vh; overflow-y: auto;
@@ -358,7 +359,7 @@
 /* ── FPS/TPS reticle + ammo readout ── */
 #reticle {
   position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
-  transform: translate(-50%, -50%); pointer-events: none; z-index: 15;
+  transform: translate(-50%, -50%); pointer-events: none; z-index: var(--z-reticle);
 }
 #reticle span {
   position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px rgba(0,0,0,0.7);
@@ -372,7 +373,7 @@
 #reticle.hidden { display: none; }
 #ammo-readout {
   position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%);
-  font-size: 15px; color: var(--amber); letter-spacing: 0.06em; z-index: 15; pointer-events: none;
+  font-size: 15px; color: var(--amber); letter-spacing: 0.06em; z-index: var(--z-reticle); pointer-events: none;
   text-shadow: 0 0 5px rgba(0,0,0,0.8);
   display: flex; align-items: center; gap: 6px;
 }
@@ -381,7 +382,7 @@
 #ammo-readout.hidden { display: none; }
 
 /* ── day-plan drawer (P) ── */
-.plan-wrap { position: absolute; inset: 0; z-index: 45; pointer-events: none; }
+.plan-wrap { position: absolute; inset: 0; z-index: var(--z-panel); pointer-events: none; }
 .plan-scrim { position: absolute; inset: 0 360px 0 0; pointer-events: auto; }
 .plan-drawer {
   position: absolute; top: 0; right: 0; bottom: 0; width: 360px;

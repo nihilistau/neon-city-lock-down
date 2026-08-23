@@ -8,6 +8,7 @@ import { objectiveState } from '../sim/objectives.js';
 import { on, emit } from '../core/bus.js';
 import { h } from './widgets.js';
 import { iconUrl } from './icons.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class PlanPanel {
   /** @param {import('../core/app.js').App} app */
@@ -27,8 +28,8 @@ export class PlanPanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('plan'); }
-  show() { this.open = true; this.app.loop.pause('plan'); this._render(); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('plan'); closeModal('plan'); }
+  show() { this.open = true; this.app.loop.pause('plan'); openModal('plan', () => this.close()); this._render(); }
 
   async _act(id) {
     this.close();

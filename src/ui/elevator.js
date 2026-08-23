@@ -5,6 +5,7 @@ import { FLOORS } from '../../data/zones.js';
 import { elevatorPos, travelMinutes } from '../sim/actors/nav.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class ElevatorUI {
   /** @param {import('../core/app.js').App} app */
@@ -46,10 +47,17 @@ export class ElevatorUI {
     overlay.appendChild(el);
     this._picker = el;
     app.loop.pause('elevator');
+    // The picker used to be a trap: it out-stacked the pause menu, had no Esc
+    // handler, and its click handler required a <button> — so a backdrop click
+    // was a no-op too. Its ONLY exits were its own buttons.
+    openModal('elevator', () => this._closePicker());
     el.addEventListener('click', (e) => {
-      const btn = /** @type {HTMLElement} */ (e.target.closest('button'));
+      const target = /** @type {HTMLElement} */ (e.target);
+      // click outside the card dismisses
+      if (!target.closest('.elev-card')) { closeModal('elevator'); return; }
+      const btn = /** @type {HTMLElement} */ (target.closest('button'));
       if (!btn || btn.disabled) return;
-      this._closePicker();
+      closeModal('elevator');
       if (btn.dataset.cancel != null) return;
       if (btn.dataset.id) this.ride(btn.dataset.id);
     });
@@ -59,6 +67,7 @@ export class ElevatorUI {
     this._picker?.remove();
     this._picker = null;
     this.app.loop.resume('elevator');
+    closeModal('elevator');   // no-op when called from the stack's own teardown
   }
 
   /** @param {string} destFloor */

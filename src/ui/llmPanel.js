@@ -7,6 +7,7 @@
 import { settings, setSetting } from '../core/settings.js';
 import { cfg, saveConfigFile } from '../core/config.js';
 import { h } from './widgets.js';
+import { openModal, closeModal } from './modalStack.js';
 
 const CHARS = [
   { id: 'lola', name: 'Lola Voss' },
@@ -35,11 +36,11 @@ export class LLMPanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('llm'); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('llm'); closeModal('llm'); }
 
   async show() {
     this.open = true;
-    this.app.loop.pause('llm');
+    this.app.loop.pause('llm'); openModal('llm', () => this.close());
     this._render(true);
     // load models + status live
     const [models, info] = await Promise.all([this.app.agent.engine.models(), this.app.agent.info(true)]);

@@ -11,6 +11,7 @@ import { EVENTS } from '../../data/events.js';
 import { ZONES } from '../../data/zones.js';
 import { registerUserItem, userCutscenes } from '../core/userContent.js';
 import { launchScenario } from './director/tabScenario.js';
+import { openModal, closeModal } from './modalStack.js';
 
 const CATS = ['scenarios', 'events', 'cutscenes', 'dialogue'];
 
@@ -66,11 +67,11 @@ export class KitPanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('kit'); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('kit'); closeModal('kit'); }
 
   async show() {
     this.open = true;
-    this.app.loop.pause('kit');
+    this.app.loop.pause('kit'); openModal('kit', () => this.close());
     await this._loadIndex();
     if (this.open) this._render();   // a fast re-toggle during the await may have closed us
   }

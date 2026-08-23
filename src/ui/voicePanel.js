@@ -5,6 +5,7 @@
 // cloning. Falls back gracefully when the voice server or cloner isn't running.
 import { h } from './widgets.js';
 import { cfg, saveConfigFile } from '../core/config.js';
+import { openModal, closeModal } from './modalStack.js';
 
 const CHARS = [
   { id: 'lola', name: 'Lola Voss' },
@@ -33,11 +34,11 @@ export class VoicePanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this._audio.pause(); if (this._playUrl) { URL.revokeObjectURL(this._playUrl); this._playUrl = null; } this.el?.remove(); this.el = null; this.app.loop.resume('voice'); }
+  close() { this.open = false; this._audio.pause(); if (this._playUrl) { URL.revokeObjectURL(this._playUrl); this._playUrl = null; } this.el?.remove(); this.el = null; this.app.loop.resume('voice'); closeModal('voice'); }
 
   async show() {
     this.open = true;
-    this.app.loop.pause('voice');
+    this.app.loop.pause('voice'); openModal('voice', () => this.close());
     this._render(true);
     await this.app.sidecar.probe();
     const [voices, lib] = await Promise.all([this.app.sidecar.listVoices(), this.app.sidecar.library()]);

@@ -2,6 +2,8 @@
 // Save/load menu (Esc). Three slots + autosave restore + export/import.
 import { saveToSlot, readSlot, applySave, listSlots, exportSave, importSave } from '../core/save.js';
 import { feed } from '../core/log.js';
+import { escapeHtml } from './widgets.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class SaveMenu {
   /** @param {import('../core/app.js').App} app */
@@ -27,19 +29,19 @@ export class SaveMenu {
     this.open = false;
     this.el?.remove();
     this.el = null;
-    this.app.loop.resume('menu');
+    this.app.loop.resume('menu'); closeModal('menu');
   }
 
   show() {
     this.open = true;
-    this.app.loop.pause('menu');
+    this.app.loop.pause('menu'); openModal('menu', () => this.close());
     const overlay = document.getElementById('overlay');
     const el = document.createElement('div');
     el.className = 'screen';
     el.style.background = 'rgba(4,5,9,0.82)';
     const rows = listSlots().map(({ slot, meta }) => `
       <div class="ds-row save-slot" data-slot="${slot}">
-        <span>${slot === 'auto' ? 'Autosave' : `Slot ${slot}`} — ${meta ? `${meta.label} (${meta.playerName})` : 'empty'}</span>
+        <span>${slot === 'auto' ? 'Autosave' : `Slot ${slot}`} — ${meta ? `${escapeHtml(meta.label)} (${escapeHtml(meta.playerName)})` : 'empty'}</span>
         <span>
           ${slot !== 'auto' ? `<button data-act="save" data-slot="${slot}">Save</button>` : ''}
           ${meta ? `<button data-act="load" data-slot="${slot}">Load</button>` : ''}

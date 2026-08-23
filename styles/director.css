@@ -3,7 +3,7 @@
 #dir-toggle {
   position: absolute; top: 88px; right: 12px;
   width: 36px; height: 36px; padding: 0; font-size: 16px;
-  z-index: 20;
+  z-index: var(--z-drawer-top);
   background: rgba(8, 10, 18, 0.8);
   border-color: var(--panel-edge);
 }
@@ -12,7 +12,7 @@
   background: rgba(8, 10, 18, 0.92);
   border-left: 1px solid var(--panel-edge);
   display: flex; flex-direction: column;
-  z-index: 19; padding-top: 8px;
+  z-index: var(--z-drawer); padding-top: 8px;
   backdrop-filter: blur(10px);
 }
 #dir-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 8px; }
