@@ -2,6 +2,7 @@
 // Save/load menu (Esc). Three slots + autosave restore + export/import.
 import { saveToSlot, readSlot, applySave, listSlots, exportSave, importSave } from '../core/save.js';
 import { feed } from '../core/log.js';
+import { emit } from '../core/bus.js';
 import { escapeHtml } from './widgets.js';
 import { openModal, closeModal } from './modalStack.js';
 
@@ -114,8 +115,18 @@ export class SaveMenu {
       if (act === 'load') {
         const data = readSlot(btn.dataset.slot === 'auto' ? 'auto' : btn.dataset.slot);
         if (data) {
-          applySave(this.app, data);
-          feed('Save restored.', 'system');
+          // applySave throws on a version mismatch. Uncaught, the exception left
+          // the handler before close(), so the menu stayed open still holding its
+          // pause token and the player got no message at all. importSave already
+          // wrapped the identical call — this path just never did.
+          try {
+            applySave(this.app, data);
+            feed('Save restored.', 'system');
+          } catch (err) {
+            const why = err instanceof Error ? err.message : 'unknown error';
+            feed(`Could not load that save — ${why}.`, 'warn');
+            emit('hud.alert', { text: 'Load failed', kind: 'danger' });
+          }
         }
         this.close();
       }

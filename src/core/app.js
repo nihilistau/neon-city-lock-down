@@ -819,7 +819,7 @@ export class App {
               if (idx >= damaged.length) return;
               const [name, sys] = damaged[idx];
               this.run.resources.parts -= 1;
-              this.clock.skip(45, (c) => this.worldTick.minute(c));
+              this.clock.skip(45);   // clock.skip emits world.minute; worldTick subscribes
               sys.hp = Math.min(100, sys.hp + 60);
               sys.online = true;
               if (name === 'power') emit('power.changed', { online: true });
@@ -991,8 +991,12 @@ export class App {
   }
 
   /** A named guest at reception. Counted as a corporeal mouth via the cast. */
-  spawnRefugee() {
-    const idx = Math.max(0, (this.run.refugees || 1) - 1);
+  /**
+   * @param {number} [forceIdx] explicit template index — used by save restore,
+   *   which must reproduce a specific refugee rather than the "next" one.
+   */
+  spawnRefugee(forceIdx) {
+    const idx = forceIdx != null ? forceIdx : Math.max(0, (this.run.refugees || 1) - 1);
     const persona = buildRefugee(idx);
     if (this.cast[persona.id]) return this.cast[persona.id];
     registerRefugeeTopics(persona.id);
@@ -1016,6 +1020,19 @@ export class App {
     feed(`${c.name} is in reception — another mouth, another story.`, 'system');
     emit('hud.alert', { text: `${c.name} made it inside`, kind: 'info' });
     return c;
+  }
+
+  /**
+   * Respawn a specific refugee by persona id — save restore only. Refugees are
+   * created at runtime, so a loaded save had entries in `characters` with no
+   * `cast[id]` to restore into and they were silently dropped.
+   * @param {string} id
+   */
+  spawnRefugeeById(id) {
+    for (let i = 0; i < 8; i++) {
+      if (buildRefugee(i).id === id) return this.spawnRefugee(i);
+    }
+    return null;
   }
 
   /** Send an NPC away (they leave the room/tower). Reversible. VOX can't leave. */
@@ -1180,7 +1197,7 @@ export class App {
       debug: {
         fps: () => this.loop.fps(),
         snapshot: () => ({ mode: this.mode, clock: this.clock.serialize() }),
-        advanceMinutes: (n) => this.clock.skip(n, (c) => emit('world.minute', { clock: c })),
+        advanceMinutes: (n) => this.clock.skip(n),
         goto: (id, zone, wp) => this.cast[id]?.queue.goto(zone, wp),
         sit: (id, socket) => this.cast[id]?.queue.sit(socket),
         clip: (id, clip) => this.cast[id]?.queue.playClip(clip, 0.3),

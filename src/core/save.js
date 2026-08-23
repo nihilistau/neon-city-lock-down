@@ -3,6 +3,10 @@
 // run state, characters (stats/gates/memory/position/wardrobe/brain), lighting.
 // Autosave is deleted on death — perma-death is real.
 
+import { FLOORS } from '../../data/zones.js';
+import { elevatorPos } from '../sim/actors/nav.js';
+import { emit } from './bus.js';
+
 const VERSION = 1;
 const SLOT_PREFIX = 'ncld.slot.';
 export const AUTOSAVE_KEY = 'ncld.autosave';
@@ -26,6 +30,10 @@ export function buildSave(app, label = '') {
     scheduler: app.scheduler.serialize(),
     inventory: app.inventory?.serialize(),
     lighting: app.lighting.presetId,
+    // Which floor the player is standing on. Omitting this meant an autosave on
+    // the rooftop resumed in the penthouse — and every floor-scoped thing
+    // (lighting look, ambience, colliders) came back wrong with it.
+    activeFloor: app.world?.activeFloor,
     characters: Object.fromEntries(Object.values(app.cast).map((c) => [c.id, {
       ...c.serialize(),
       wardrobe: c.wardrobe?.serialize(),
@@ -66,6 +74,37 @@ export function applySave(app, save) {
     if (data.brain) app.brains[id]?.deserialize(data.brain);
     if (!c.alive) c.actor.setDowned(true);
     else c.actor.playClip(c.persona.personality.idleClip || 'idle_stand', 0.01);
+  }
+
+  // Restore the floor BEFORE anything spatial reads it.
+  const floor = save.activeFloor;
+  if (floor && app.world?.floorGroups?.[floor] && floor !== app.world.activeFloor) {
+    app.world.setActiveFloor(floor);
+    app.lighting.setFloorOffset(FLOORS[floor].offsetX);
+    app.lighting.setFloorLook?.(floor);
+    const [ex, ez] = elevatorPos(floor);
+    app.playerActor?.root.position.set(ex, 0, ez + 0.6);
+    app.playerMarker?.position.set(ex, 1.1, ez + 0.6);
+    app.cameraRig?.fp.pos.set(ex, 1.62, ez + 0.6);
+    app.setAmbienceForFloor?.(floor);
+    emit('floor.changed', { floor, from: floor });
+  }
+
+  // Refugees are spawned into the cast at runtime, so `save.characters` has
+  // entries with no `app.cast[id]` to restore into and the loop above skipped
+  // them — they vanished from the world. But `run.refugees` DID restore and kept
+  // suppressing the refugee event (events.js gates on `- refugees * 4`), so the
+  // guest was gone from the tower, gone from the pantry maths, and still
+  // blocking their own replacement. Respawn them, then restore their state.
+  for (const [id, data] of Object.entries(save.characters)) {
+    if (app.cast[id] || !id.startsWith('refugee')) continue;
+    const c = app.spawnRefugeeById?.(id);
+    if (!c) continue;
+    c.queue.clear();
+    c.restore(data);
+    if (data.wardrobe) c.wardrobe?.deserialize(data.wardrobe);
+    if (data.brain) app.brains[id]?.deserialize(data.brain);
+    if (!c.alive) c.actor.setDowned(true);
   }
 }
 

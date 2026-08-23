@@ -61,6 +61,7 @@ export const CONFIG_SCHEMA = {
       hungerHealthAt: num(0, 100), hungerHealthLoss: num(0, 50), thirstHealthAt: num(0, 100), thirstHealthLoss: num(0, 50),
       moraleFoodDrain: num(0, 20), moraleWaterDrain: num(0, 20), moraleRecover: num(0, 20),
       castFoodShortAt: num(0, 1), castWaterShortAt: num(0, 1), warnFoodAt: num(0, 100), warnWaterAt: num(0, 100),
+      castStarveAt: num(0, 1), castStarveLoss: num(0, 100), castThirstLoss: num(0, 100), castRegen: num(0, 50),
     },
     systems: {
       degrade: { map: num(0, 100) }, offlineHp: num(0, 100), cellDrainPer30: num(0, 100),

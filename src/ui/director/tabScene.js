@@ -48,7 +48,7 @@ export function tabScene(el, app) {
       el.querySelectorAll('[data-speed]').forEach((b) => b.classList.toggle('active', b === btn));
     }
     if (btn.dataset?.skip) {
-      app.clock.skip(Number(btn.dataset.skip), (c) => app.worldTick.minute(c));
+      app.clock.skip(Number(btn.dataset.skip));
       el.querySelector('#ts-clock').textContent = app.clock.label;
     }
     if (btn.dataset?.cam) app.cameraRig.setMode(/** @type {any} */(btn.dataset.cam));

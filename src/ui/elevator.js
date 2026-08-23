@@ -99,7 +99,7 @@ export class ElevatorUI {
     app.audioFacade().sfx('elevator_ding');
 
     // clock advances for the ride; world keeps simulating
-    app.clock.skip(mins, (c) => app.worldTick.minute(c));
+    app.clock.skip(mins);   // emits world.minute, so event scripts keep running
 
     // relocate player + camera
     const [ex, ez] = elevatorPos(destFloor);

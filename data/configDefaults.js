@@ -118,6 +118,12 @@ export const CONFIG_DEFAULTS = {
       moraleFoodDrain: 1.2, moraleWaterDrain: 1.5, moraleRecover: 0.25,
       castFoodShortAt: 0.3, castWaterShortAt: 0.3,
       warnFoodAt: 6, warnWaterAt: 8,
+      // NPC mortality from deprivation — graded, not binary. Loss ramps from 0
+      // at `castStarveAt` to the full rate at a total shortfall.
+      castStarveAt: 0.25,        // shortfall fraction below which nobody is harmed
+      castStarveLoss: 6,         // max hp/hour from hunger, at a total food shortfall
+      castThirstLoss: 8,         // max hp/hour from thirst (outpaces hunger)
+      castRegen: 1.5,            // hp/hour regained when fed and watered
     },
     systems: {
       degrade: { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 }, // per-day HP loss

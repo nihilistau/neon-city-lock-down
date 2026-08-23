@@ -50,6 +50,12 @@ export function hourlyTick(run, cast) {
       if (waterShort > (s.castWaterShortAt ?? 0.3)) { deltas.tension = (deltas.tension || 0) + 2.5 * waterShort; }
       if (run.rationPolicy.food === 'half') deltas.tension = (deltas.tension || 0) + 0.4;
       if (Object.keys(deltas).length) c.applyStats(deltas, 'rations');
+      // Health is now driven by the ACTUAL shortfall, not inferred from the
+      // presence of a 'rations'-tagged stat delta. That inference meant the flat
+      // half-ration tension nudge above killed the whole cast with a full pantry.
+      if (c.applyDeprivation(foodShort, waterShort, 1)) {
+        notes.push(`${c.name} did not survive the shortage.`);
+      }
     }
     c.tickMinutes(60);
   }
