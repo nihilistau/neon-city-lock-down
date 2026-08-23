@@ -245,7 +245,7 @@ export class App {
         this.run.flags.day3Queued = true;
         const minutesToDusk = Math.max(5, 18.5 * 60 - this.clock.minuteOfDay);
         setTimeoutGameSafe(this, minutesToDusk, async () => {
-          if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+          if (!this._beatPlayable()) return;   // penthouse-authored; see _beatPlayable
           const { DAY3_CUTSCENE } = await import('../../data/cutscenes/day3.js');
           this.cutscene.play(DAY3_CUTSCENE);
         });
@@ -272,7 +272,7 @@ export class App {
     // a named companion falling is a scene, not a feed line
     const playFallen = (name) => {
       import('../../data/cutscenes/fallen.js').then(({ fallenCutscene }) => {
-        if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+        if (!this._beatPlayable()) { feed(`Word reaches you: ${name} is gone.`, 'combat'); return; }
         this.cutscene.play(fallenCutscene(name));
       });
     };
@@ -618,9 +618,9 @@ export class App {
       }
       if (this.mode === 'run' && clock.minuteOfDay === DINNER_MINUTE && shouldDinner(this.run, clock)) {
         markDinner(this.run, clock);
-        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+        if (this._beatPlayable('dinner')) {
           import('../../data/cutscenes/dinner.js').then(({ dinnerCutscene }) => {
-            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            if (!this._beatPlayable()) return;
             this.cutscene.play(dinnerCutscene(clock.day));
           });
         }
@@ -628,9 +628,9 @@ export class App {
       if (this.mode === 'run' && clock.minuteOfDay === SLEEP_MINUTE && shouldSleep(this.run, clock)) {
         markSleep(this.run, clock);
         this._castOutfitHour('sleepwear');
-        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+        if (this._beatPlayable('sleep')) {
           import('../../data/cutscenes/sleep.js').then(({ sleepCutscene }) => {
-            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            if (!this._beatPlayable()) return;
             this.cutscene.play(sleepCutscene(clock.day));
           });
         }
@@ -1007,6 +1007,28 @@ export class App {
   }
 
   /** A named guest at reception. Counted as a corporeal mouth via the cast. */
+  /**
+   * Can a scripted daily beat play right now?
+   *
+   * The dinner/sleep/stay/fallen cutscenes are authored in PENTHOUSE-local
+   * coordinates, and only one floor group is ever visible
+   * (World3D.setActiveFloor). Firing one while the player is on the rooftop or
+   * in the basement flew the camera into a hidden group and teleported the cast
+   * to bar stools nobody could see. Being elsewhere is now a narrative outcome
+   * instead of a broken scene.
+   *
+   * @param {string} [announce] beat id — feeds a line when the player misses it
+   */
+  _beatPlayable(announce) {
+    if (this.mode !== 'run' || this.combat.active || this.cutscene.playing || this.run.activeEventId) return false;
+    if (this.world?.activeFloor !== 'penthouse') {
+      if (announce === 'dinner') feed('Somewhere above you, the others sit down to eat without you.', 'system');
+      if (announce === 'sleep') feed('The tower goes quiet upstairs. You are still out here.', 'system');
+      return false;
+    }
+    return true;
+  }
+
   /**
    * @param {number} [forceIdx] explicit template index — used by save restore,
    *   which must reproduce a specific refugee rather than the "next" one.

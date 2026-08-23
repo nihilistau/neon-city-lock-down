@@ -5,6 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { on } from '../../src/core/bus.js';
+import { findPath } from '../../src/sim/actors/nav.js';
+import { FLOORS } from '../../data/zones.js';
 import { applyStim, tickBuffs, STIM_DURATION } from '../../src/sim/buffs.js';
 import { GameClock } from '../../src/core/clock.js';
 import { newRunState } from '../../src/sim/world.js';
@@ -364,4 +366,31 @@ test('clock.skip still rolls the day over', () => {
   clock.skip(1440);
   off();
   assert.equal(clock.day, startDay + 1);
+});
+
+test('cross-floor routing goes via the elevator, not through the void', () => {
+  // findPath inserts a {transit} marker for cross-floor journeys. `gotoSocket`
+  // used to skip findPath entirely and emit a single straight-line approach
+  // point — and sockets live in one flat global map, so a character on fl40
+  // asked to sit on the penthouse couch walked 400+ world units through empty
+  // space (~5.5 real minutes); a refugee in reception took ~14.
+  const fromGround = { x: FLOORS.ground.offsetX, z: 0 };
+  const path = findPath(fromGround, 'lounge');
+  const hasTransit = path.some((p) => p && !Array.isArray(p) && p.transit);
+  assert.ok(hasTransit, 'a cross-floor route must include an elevator transit');
+
+  // and a same-floor route must NOT pay for one
+  const samePath = findPath({ x: 0, z: 0 }, 'lounge');
+  assert.ok(!samePath.some((p) => p && !Array.isArray(p) && p.transit));
+});
+
+test('every floor has colliders registered, not just the penthouse', () => {
+  // v0.4 added ~100 architecture meshes and registered none as colliders, so the
+  // player walked through columns, pillars, cages, HVAC and the ramp. This is a
+  // source-level guard: the auto-collector must still be wired into the build.
+  const src = readFileSync(new URL('../../src/scene3d/tower/zoneBuilder.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('_collectSolids('), 'the solid-collector must exist');
+  assert.match(src, /_collectSolids\(group, floor\.id\)/, 'and run for every floor at build time');
+  const tagged = (src.match(/userData\.solid = true/g) || []).length;
+  assert.ok(tagged >= 5, `only ${tagged} meshes tagged solid — the new architecture is walk-through`);
 });
