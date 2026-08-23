@@ -40,6 +40,13 @@ export const FACE_PATCH = {
   eyeRadius: 0.0130,
 };
 
+/**
+ * Personas that ship a face underpaint under assets/chars/<id>/face.jpg.
+ * Anything not listed here uses the purely procedural face — which is every
+ * hostile, every refugee, and VOX.
+ */
+export const FACE_ASSETS = new Set(['lola', 'aria', 'kai', 'player-f', 'player-m']);
+
 // canvas-space layout (fractions of the 256² face patch). Canvas-left is the
 // character's RIGHT (we look at the face from +Z), so LAYOUT.eyeL drives bone eyeR.
 export const LAYOUT = {
@@ -50,6 +57,43 @@ export const LAYOUT = {
   mouth: { x: 0.5, y: 0.725 },
   noseY: 0.615,
 };
+
+/**
+ * Soft skin-toned wash over the bands where the identity underpaint paints its
+ * OWN brows and mouth.
+ *
+ * The underpaint is a photo/render of a whole face, so it arrives with features
+ * already on it. The procedural layer then draws brows, a nose and lips on top —
+ * and those are the ANIMATED ones (visemes, blinks, expressions). Drawn together
+ * you get two mouths and two sets of eyebrows, one of them frozen; that is the
+ * first thing a viewer sees. Suppressing the procedural set instead is not an
+ * option — the face would stop emoting entirely.
+ *
+ * So the underpaint keeps what it is good at (skin tone, cheekbones, jaw shading,
+ * identity) and gives up the two regions the rig animates.
+ * @param {CanvasRenderingContext2D} ctx @param {number} W @param {any} colors
+ */
+export function maskUnderFeatures(ctx, W, colors) {
+  const wash = (cx, cy, rx, ry, alpha) => {
+    const r = Math.max(rx, ry);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, colors.skin);
+    g.addColorStop(0.6, colors.skin);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx, cy);
+    ctx.scale(1, ry / r);
+    ctx.translate(-cx, -cy);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  wash(W * 0.5, LAYOUT.browY * W + 2, W * 0.30, W * 0.055, 0.92);   // brow band
+  wash(LAYOUT.mouth.x * W, LAYOUT.mouth.y * W, W * 0.17, W * 0.075, 0.94);  // mouth band
+}
 
 /** canvas (u,v) → patch surface point, in height fractions, relative to body origin */
 export function patchSurface(u, v, out = new THREE.Vector3()) {
@@ -153,8 +197,13 @@ export class FaceRig {
     this._sinceDraw = 0;
     this._redrawHz = cfg('humanoid.face.redrawHz', 15);
     this._under = null;
-    if (typeof Image !== 'undefined') {
-      const underUrl = persona.faceAsset || `/assets/chars/${persona.id}/face.jpg`;
+    // Only fetch art we actually ship. Hostile ids are generated at spawn
+    // (`hostile_0_4732`), refugees are `refugee`/`refugee2`, VOX is bodiless —
+    // every one of them fired a 404, i.e. one per hostile per combat wave, on
+    // the spawn hot path.
+    const underUrl = persona.faceAsset
+      || (FACE_ASSETS.has(persona.id) ? `/assets/chars/${persona.id}/face.jpg` : null);
+    if (typeof Image !== 'undefined' && underUrl) {
       const img = new Image();
       img.onload = () => { this._under = img; this._dirty = true; };
       img.onerror = () => { this._under = null; };
@@ -423,6 +472,7 @@ export class FaceRig {
       ctx.globalAlpha = 0.88;
       ctx.drawImage(this._under, W * -0.06, W * -0.08, W * 1.12, W * 1.16);
       ctx.globalAlpha = 1;
+      maskUnderFeatures(ctx, W, colors);
     }
 
     // blush

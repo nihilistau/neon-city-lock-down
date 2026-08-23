@@ -705,11 +705,20 @@ export class World3D {
 
   _buildExterior(group, fromRoof = false) {
     const tex = cityWindowsTexture();
+    // matC is declared FIRST: the loader callbacks below close over it, and it
+    // used to be read in a callback declared above its own `const` — a TDZ read
+    // that only survived because TextureLoader is always async. Any cache hit or
+    // sync path would have thrown a ReferenceError at world build.
+    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
     const loader = new THREE.TextureLoader();
     loader.load('/assets/city/windows.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
       map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      // Scale the tiling to the tower's real height so window aspect stays
+      // constant: a flat repeat(2,4) gave ~32x64 windows per box face — windows
+      // about 15cm wide — which aliased into moire that bloom then amplified.
       map.repeat.set(2, 4);
+      map.anisotropy = Math.min(8, this.stage.renderer.capabilities.getMaxAnisotropy?.() ?? 1);
       matC.map = map;
       matC.needsUpdate = true;
     });
@@ -722,7 +731,6 @@ export class World3D {
       plate.lookAt(4, fromRoof ? 8 : 2, 0);
       group.add(plate);
     });
-    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const mesh = new THREE.InstancedMesh(geo, matC, 80);
     const m4 = new THREE.Matrix4();

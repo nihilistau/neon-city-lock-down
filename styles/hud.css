@@ -13,7 +13,10 @@
 }
 #hud-clock { top: 14px; left: 14px; color: var(--cyan) !important; font-family: var(--mono); }
 #hud-floor { top: 46px; left: 14px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; max-width: 280px; }
-#hud-hint { bottom: 12px; left: 14px; display: flex; flex-direction: column; gap: 2px; }
+/* Single inline line. `flex-direction: column` here was written for an older
+   two-element hint and stacked the inline <b> onto its own row. */
+#hud-hint { bottom: 12px; left: 14px; white-space: nowrap; }
+#hud-hint b { color: var(--cyan); font-weight: 700; }
 #hud-help {
   position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start;
   padding: 18px; pointer-events: none; z-index: var(--z-cinema);

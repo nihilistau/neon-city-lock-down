@@ -2,6 +2,11 @@
 // Renderer + root scene + main camera + resize plumbing.
 import * as THREE from 'three';
 
+// _buildExterior runs twice (penthouse + rooftop) with its own TextureLoader
+// each time, and three's loader cache is OFF by default — so the skyline and
+// window textures were fetched, decoded and uploaded to the GPU twice.
+THREE.Cache.enabled = true;
+
 export class Stage {
   /** @param {HTMLCanvasElement} canvas */
   constructor(canvas) {
