@@ -79,15 +79,7 @@ export function applySave(app, save) {
   // Restore the floor BEFORE anything spatial reads it.
   const floor = save.activeFloor;
   if (floor && app.world?.floorGroups?.[floor] && floor !== app.world.activeFloor) {
-    app.world.setActiveFloor(floor);
-    app.lighting.setFloorOffset(FLOORS[floor].offsetX);
-    app.lighting.setFloorLook?.(floor);
-    const [ex, ez] = elevatorPos(floor);
-    app.playerActor?.root.position.set(ex, 0, ez + 0.6);
-    app.playerMarker?.position.set(ex, 1.1, ez + 0.6);
-    app.cameraRig?.fp.pos.set(ex, 1.62, ez + 0.6);
-    app.setAmbienceForFloor?.(floor);
-    emit('floor.changed', { floor, from: floor });
+    app.setFloor(floor, { from: floor });   // one call, all six steps
   }
 
   // Refugees are spawned into the cast at runtime, so `save.characters` has

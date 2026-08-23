@@ -77,7 +77,7 @@ import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
-import { zoneAt, waypointPos } from '../sim/actors/nav.js';
+import { zoneAt, waypointPos, elevatorPos } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
@@ -962,6 +962,44 @@ export class App {
   }
 
   /** floor → ambience bed */
+  /**
+   * Make `floorId` the live floor. THE one place that does it.
+   *
+   * A floor change is not one call, it is six: swap the visible group, shift the
+   * light kit to that floor's world offset, apply its fog bias, re-key the
+   * ambience bed, move the player body AND the marker (combat spawn checks, cast
+   * gaze and the director camera all read the marker, not the camera), and
+   * announce it so the HUD chip and anything else listening can follow.
+   *
+   * The elevator and the save loader each open-coded the whole sequence, and
+   * enterBedScene() open-coded ONE step of it — `setActiveFloor('penthouse')` on
+   * its own — which left the lighting rig, the fog, `world.activeFloor` and the
+   * HUD all still pointing at the floor the player had just left, up to 1200
+   * world units away. Three copies of a ritual is how a step goes missing.
+   *
+   * @param {string} floorId
+   * @param {{movePlayer?: boolean, from?: string}} [opts]
+   *   movePlayer: place the player at that floor's elevator (default true).
+   *   Pass false when the caller positions the player itself.
+   */
+  setFloor(floorId, opts = {}) {
+    const floor = FLOORS[floorId];
+    if (!floor || !this.world?.floorGroups?.[floorId]) return false;
+    const from = opts.from ?? this.world.activeFloor;
+    this.world.setActiveFloor(floorId);
+    this.lighting.setFloorOffset(floor.offsetX);
+    this.lighting.setFloorLook(floorId);
+    if (opts.movePlayer !== false) {
+      const [ex, ez] = elevatorPos(floorId);
+      this.playerActor?.root.position.set(ex, 0, ez + 0.6);
+      this.playerMarker?.position.set(ex, 1.1, ez + 0.6);
+      this.cameraRig?.fp.pos.set(ex, 1.62, ez + 0.6);
+    }
+    this.setAmbienceForFloor(floorId);
+    emit('floor.changed', { floor: floorId, from });
+    return true;
+  }
+
   setAmbienceForFloor(floorId) {
     const map = {
       penthouse: 'apartment', rooftop: 'balcony', fl40: 'server', fl27: 'server',
@@ -1115,7 +1153,9 @@ export class App {
   enterBedScene(partner) {
     if (!partner) return;
     // make sure the alcove floor is active so the bed + partner are visible
-    if (this.world.activeFloor !== 'penthouse') this.world.setActiveFloor?.('penthouse');
+    // the bed lives in the penthouse alcove; setFloor does the WHOLE move,
+    // and movePlayer:false because the bedside eye position is computed below
+    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false });
     const bed = this.world.getSocket('bed.lie_center');
     const bedPos = bed ? bed.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
     this._bedReturn = { camMode: this.cameraRig.mode, lighting: this.lighting.presetId };
@@ -1135,6 +1175,12 @@ export class App {
     this.cameraRig.setMode('firstPerson');
     this.cameraRig.fp.placeAt(eyeX, eyeZ, yaw, -0.12);
     this.playerMarker.position.set(eyeX, 1.4, eyeZ);
+    // The BODY too, not just the eye and the marker. Entering the bed scene from
+    // any floor but the penthouse moved the camera and the marker to the bedside
+    // and left the avatar standing where it was — measured 1190 world units away,
+    // in the basement, still ticking its animator and still what the partner's
+    // gaze and every proximity check resolve against.
+    this.playerActor?.snapTo(eyeX, eyeZ, yaw);
   }
 
   /** Tear down the bed scene and restore the camera + lighting. */
