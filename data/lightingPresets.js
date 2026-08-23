@@ -14,12 +14,19 @@
 
 /** @type {Record<string, LightPreset>} */
 export const LIGHTING_PRESETS = {
+  // The baseline. `warm` used to run at 95 against cool 34 and accent 42, and
+  // it sits lower and closer to the action than either — so a hue census of the
+  // finished frame (8 camera angles, penthouse) came back 61.8% warm amber,
+  // 3.8% cyan, 1.7% magenta. The neon-noir game rendered as a brown room. The
+  // amber is a practical lamp and should read as one: a warm pool you walk
+  // through, not the key light. Cyan and magenta now carry the room, backed by
+  // real spill from the visible neon runs (see zoneBuilder `light:` opts).
   neon_night: {
     hemi: { sky: 0x2a4a8a, ground: 0x141020, intensity: 1.1 },
     key: { color: 0xbfd8ff, intensity: 1.1, pos: [6, 10, 10] },
-    warm: { color: 0xffb347, intensity: 95 },
-    cool: { color: 0x39e6ff, intensity: 34 },
-    accent: { color: 0xff3fa4, intensity: 42 },
+    warm: { color: 0xffb347, intensity: 34 },
+    cool: { color: 0x39e6ff, intensity: 46 },
+    accent: { color: 0xff3fa4, intensity: 58 },
     fog: { color: 0x06070c, density: 0.012 },
     exposure: 1.1,
   },

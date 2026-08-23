@@ -264,14 +264,22 @@ export class World3D {
       post.position.set(F.x[1], ceil / 2, mz);
       group.add(post);
     }
-    // ceiling light strips + neon trim. These were 2cm-thick slabs — the same
+    // Ceiling light strips + neon trim. These were 2cm-thick slabs — the same
     // sub-pixel shimmer problem as the old trim, three times across the ceiling.
-    // No lights on these: the ceiling wash is already the `cool` point light in
-    // the fixed kit, and three more would be pure shader cost for no new look.
+    //
+    // These runs now CAST. They used to be pure emissive geometry on the theory
+    // that the fixed kit's `cool` point light covered the ceiling wash. It did
+    // not: a hue census of the finished frame, averaged over eight camera angles
+    // in this room, came back 61.8% warm amber against 3.8% cyan and 1.7%
+    // magenta — in the game whose entire identity is cyan and magenta. The three
+    // brightest objects in the penthouse lit nothing at all. Spilling from the
+    // visible tube is also better-motivated than an invisible point light doing
+    // it from somewhere else.
     for (const lx of [-11, -4, 4]) {
       neonRun(group, {
         x: lx, y: ceil - 0.04, z: 0, length: 8, axis: 'z',
         color: PALETTE.neonCyan, radius: 0.028, intensity: 2.0,
+        light: { distance: 7.5, power: 14 },
       });
     }
     this._neonTrim(group, (F.x[0] + F.x[1]) / 2, 2.4, F.z[0] + 0.03, F.x[1] - F.x[0]);
@@ -494,7 +502,7 @@ export class World3D {
     backstop.position.set(9.3, 0.85, -3.5);
     backstop.userData.solid = true;
     group.add(backstop);
-    neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7 });
+    neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7, light: { distance: 8, power: 16 } });
     neonRun(group, { x: -5, y: ceilH - 0.12, z: 0, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.025, intensity: 1.2 });
     const cage = new THREE.MeshStandardMaterial({ color: 0x1a1520, metalness: 0.55, roughness: 0.4 });
     for (const z of [-4.4, -0.2, 4.0]) {
@@ -546,7 +554,7 @@ export class World3D {
       new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2430'), 1.2, 0.4), metalness: 0.55, roughness: 0.4 }));
     dais.position.set(0, 0.12, 1.4);
     group.add(dais);
-    neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0 });
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0, light: { distance: 9, power: 20 } });
     // hex of server columns
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
@@ -594,7 +602,7 @@ export class World3D {
       lamp.position.set(x, ceilH - 0.08, -2.2);
       group.add(lamp);
     }
-    neonRun(group, { x: 0, y: ceilH - 0.1, z: -5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.5 });
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: -5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.5, light: { distance: 8, power: 14 } });
     neonRun(group, { x: 0, y: ceilH - 0.1, z: 5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.1 });
     // cabinet glow strip
     const glow = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.08),
@@ -637,7 +645,7 @@ export class World3D {
       new THREE.MeshStandardMaterial({ color: 0x0a0c12, emissive: PALETTE.neonCyan, emissiveIntensity: 1.05 }));
     sign.position.set(0, 3.55, -7.85);
     group.add(sign);
-    neonRun(group, { x: 0, y: ceilH - 0.12, z: 0, length: 16, axis: 'x', color: PALETTE.neonCyan, radius: 0.045, intensity: 2.4 });
+    neonRun(group, { x: 0, y: ceilH - 0.12, z: 0, length: 16, axis: 'x', color: PALETTE.neonCyan, radius: 0.045, intensity: 2.4, light: { distance: 10, power: 24 } });
     // vestibule mats
     const mat = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.04, 1.8),
       new THREE.MeshStandardMaterial({ color: 0x1a1020, roughness: 0.9 }));
@@ -699,7 +707,7 @@ export class World3D {
       new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xffb347, emissiveIntensity: 2.0 }));
     sodium.position.set(0, ceilH - 0.08, 0);
     group.add(sodium);
-    neonRun(group, { x: 0, y: 0.04, z: 8.8, length: 20, axis: 'x', color: 0xffb347, radius: 0.02, intensity: 0.6 });
+    neonRun(group, { x: 0, y: 0.04, z: 8.8, length: 20, axis: 'x', color: 0xffb347, radius: 0.02, intensity: 0.6, light: { distance: 5, power: 6 } });
     this._practical(group, 0, 2.1, 0, 0xffb347, 22, 10);
   }
 
@@ -845,6 +853,33 @@ export class World3D {
         if (/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) this.animated.push(o);
       });
     }
+  }
+
+  /**
+   * Compile every floor's shaders up front, while a loading screen is up.
+   *
+   * A forward renderer bakes the scene's LIGHT COUNT into each material's
+   * program, and the floors deliberately differ (measured: 8 to 12 lights), so
+   * arriving somewhere new meant compiling a fresh variant of every material on
+   * it. Measured across one visit to all seven floors, the program count climbed
+   * 41 -> 77 — seventy-odd link steps, each landing as a stall the moment the
+   * elevator doors opened. Programs are cached by the renderer, so paying for
+   * all of them here means the ride is the only thing the player waits on.
+   *
+   * Best-effort: a driver that chokes on this must not take the boot with it.
+   * @param {THREE.WebGLRenderer} renderer @param {THREE.Camera} camera
+   */
+  precompile(renderer, camera) {
+    const wasActive = this.activeFloor;
+    try {
+      for (const id of Object.keys(this.floorGroups)) {
+        this.setActiveFloor(id);
+        renderer.compile(this.stage.scene, camera);
+      }
+    } catch (err) {
+      console.warn('[world] shader precompile skipped', err);
+    }
+    if (wasActive) this.setActiveFloor(wasActive);
   }
 
   /** @param {string} floorId */

@@ -174,6 +174,9 @@ export class App {
     this.mode = 'run';
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
+    // Pay for every floor's shader variants now, behind the loading screen,
+    // rather than as a stall each time an elevator door opens.
+    this.world.precompile(this.stage.renderer, this.stage.camera);
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
     // world.particles(kind, pos) hook used by stage directions.
     this.combatFx = new CombatFx(this.stage.scene);
