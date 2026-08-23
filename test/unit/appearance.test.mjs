@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildPlayerPersona, SKIN_TONES, HAIR_COLORS, HAIR_STYLES } from '../../data/cast/player.js';
 import { fabricForPiece } from '../../src/humanoid/outfitBuilder.js';
 import { EVENTS } from '../../data/events.js';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STAY_CUTSCENE } from '../../data/cutscenes/stay.js';
@@ -23,22 +23,36 @@ test('appearance overrides skin, hair, height, build, style', () => {
   assert.equal(p.hairStyle, 'long');
   assert.equal(p.body.height, 1.81);
   assert.equal(p.body.build, 1.12);
-  assert.ok(p.faceAsset.includes('player-f'));
+  // The player deliberately has NO face asset: a fixed face texture contradicts
+  // the 6 skin tones x 6 hair colours x 7 styles offered right above.
+  assert.equal(p.faceAsset, undefined);
 });
 
-test('male appearance picks the male face asset and short default hair', () => {
+test('the player has no fixed face asset, and defaults to short hair', () => {
   const p = buildPlayerPersona('Rex', 'he', {});
-  assert.ok(p.faceAsset.includes('player-m'));
+  assert.equal(p.faceAsset, undefined, 'a fixed face fights the appearance editor');
   assert.equal(p.hairStyle, 'short');
   assert.ok(HAIR_STYLES.includes(p.hairStyle));
   assert.ok(SKIN_TONES.length >= 5);
   assert.ok(HAIR_COLORS.length >= 5);
 });
 
-test('jackets use leather and dresses use silk', () => {
+test('every garment piece maps to a fabric that actually ships', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   assert.equal(fabricForPiece('jacket'), 'leather');
   assert.equal(fabricForPiece('dress'), 'silk');
-  assert.equal(fabricForPiece('shorts'), 'cotton');
+  assert.equal(fabricForPiece('top'), 'cotton');
+  // Every mapped fabric must exist on disk, and every shipped fabric must be
+  // mapped — v0.4 shipped velvet.jpg and metal.jpg that nothing referenced.
+  const pieces = ['jacket', 'dress', 'robe', 'top', 'shorts', 'leggings', 'towel'];
+  const used = new Set(pieces.map(fabricForPiece).filter(Boolean));
+  for (const kind of used) {
+    assert.ok(existsSync(join(root, 'assets/fabrics', `${kind}.jpg`)), `${kind}.jpg missing`);
+  }
+  const onDisk = readdirSync(join(root, 'assets/fabrics')).map((f) => f.replace(/\.jpg$/, ''));
+  for (const kind of onDisk) {
+    assert.ok(used.has(kind), `${kind}.jpg ships but no piece uses it`);
+  }
 });
 
 test('extraction offer has stay, solo extract, and companion extract', () => {

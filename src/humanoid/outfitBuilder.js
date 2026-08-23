@@ -291,8 +291,8 @@ export function buildOutfit(persona, rig, recipe) {
 }
 
 const FABRIC_FOR = {
-  jacket: 'leather', dress: 'silk', robe: 'silk',
-  top: 'cotton', shorts: 'cotton', leggings: 'cotton', towel: 'cotton',
+  jacket: 'leather', dress: 'silk', robe: 'velvet',
+  top: 'cotton', shorts: 'denim', leggings: 'denim', towel: 'cotton',
 };
 
 /** @param {string} piece */
@@ -301,15 +301,56 @@ export function fabricForPiece(piece) {
 }
 
 /** @param {THREE.MeshPhysicalMaterial} mat @param {string} piece */
+/**
+ * Per-fabric texture cache.
+ *
+ * bindFabric used to build a NEW TextureLoader and a NEW THREE.Texture per
+ * garment piece, per actor, per outfit state — and Wardrobe.layers caches every
+ * outfit set forever, so those accumulated and were never freed. Five characters
+ * across four outfits is ~50 textures of the same five images.
+ * @type {Map<string, THREE.Texture>}
+ */
+const fabricTextures = new Map();
+let fabricLoader = null;
+
+/** @param {string} kind @returns {THREE.Texture|null} */
+function fabricTexture(kind) {
+  if (typeof Image === 'undefined') return null;
+  let tex = fabricTextures.get(kind);
+  if (!tex) {
+    fabricLoader = fabricLoader || new THREE.TextureLoader();
+    tex = fabricLoader.load(`/assets/fabrics/${kind}.jpg`);
+    // NOT SRGBColorSpace: this drives roughness and normal, which are data
+    // channels, not colour. Tagging them sRGB gamma-decodes the values.
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2.2, 2.2);
+    fabricTextures.set(kind, tex);
+  }
+  return tex;
+}
+
+/**
+ * Give a garment its weave.
+ *
+ * This used to assign the fabric photo to `mat.map` — the ALBEDO slot — while
+ * `mat.color` kept the recipe colour. Three multiplies the two, so a #15222c
+ * jacket times a dark-brown leather photo came out effectively black, and every
+ * garment in the game lost its hue. The sources also aren't tileable and the UVs
+ * are normalised per-piece, so the weave scale differed between a top and a pair
+ * of leggings.
+ *
+ * Fabric is SURFACE, not colour: it drives roughness (where the weave catches
+ * light) and a normal map (the relief). `mat.color` stays the authored colour.
+ * @param {THREE.MeshPhysicalMaterial} mat @param {string} piece
+ */
 function bindFabric(mat, piece) {
   const kind = fabricForPiece(piece);
-  if (!kind || typeof Image === 'undefined') return;
-  const loader = new THREE.TextureLoader();
-  loader.load(`/assets/fabrics/${kind}.jpg`, (map) => {
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(2.2, 2.2);
-    mat.map = map;
-    mat.needsUpdate = true;
-  });
+  if (!kind) return;
+  const tex = fabricTexture(kind);
+  if (!tex) return;
+  mat.roughnessMap = tex;
+  mat.bumpMap = tex;
+  mat.bumpScale = 0.012;
+  mat.needsUpdate = true;
 }

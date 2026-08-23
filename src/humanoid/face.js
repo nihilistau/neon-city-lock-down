@@ -42,10 +42,11 @@ export const FACE_PATCH = {
 
 /**
  * Personas that ship a face underpaint under assets/chars/<id>/face.jpg.
- * Anything not listed here uses the purely procedural face — which is every
- * hostile, every refugee, and VOX.
+ * Anything not listed uses the purely procedural face: every hostile, every
+ * refugee, VOX — and the PLAYER, deliberately, because a fixed face texture
+ * contradicts the appearance editor's 6 skin tones x 7 hair styles.
  */
-export const FACE_ASSETS = new Set(['lola', 'aria', 'kai', 'player-f', 'player-m']);
+export const FACE_ASSETS = new Set(['lola', 'aria', 'kai']);
 
 // canvas-space layout (fractions of the 256² face patch). Canvas-left is the
 // character's RIGHT (we look at the face from +Z), so LAYOUT.eyeL drives bone eyeR.

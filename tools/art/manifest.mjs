@@ -28,6 +28,16 @@ const ICON_STYLE =
 /** @param {string} subject @param {string} colour */
 const icon = (subject, colour) => `${subject}, solid ${colour} colour, ${ICON_STYLE}`;
 
+const FACE_STYLE =
+  'Rendered in a single consistent style: smooth matte clay sculpt, soft even '
+  + 'surface planes, semi-realistic human proportions, no cel shading, no anime, '
+  + 'no photorealism, no wrinkles, no pores. Front view, symmetrical, looking '
+  + 'straight at the camera, head filling the frame from forehead to chin. '
+  + 'Completely FLAT even studio light: no cast shadows, no rim light, no ambient '
+  + 'occlusion, no specular highlights. Bald with no hair and no hairline. '
+  + 'No eyebrows, no facial hair, neutral closed lips. Plain flat mid-grey '
+  + 'background. No clothing, jewellery, tattoos, makeup or text.';
+
 const FABRIC_STYLE =
   'seamless tileable texture, flat orthographic top-down view, evenly lit, '
   + 'no shadows, no highlights, no vignette, no perspective, no objects, '
@@ -77,6 +87,36 @@ export const ART = [
     id: `fabric-${id}`, kind: 'fabric', size: 512,
     out: `assets/fabrics/${id}.jpg`,
     prompt: `${subject}, ${FABRIC_STYLE}, greyscale, mid-grey average brightness`,
+  })),
+
+  // ── faces: identity underpaint for the 256px face decal ────────────────
+  // NOTE there is deliberately no player face. The appearance editor offers
+  // 6 skin tones x 6 hair colours x 7 styles, and a fixed face texture fights it
+  // directly — v0.4's player-f carried cyan pixie hair, a face tattoo and an
+  // earring painted in, so choosing dark skin and blonde hair gave you a
+  // dark-skinned body with a light-skinned tattooed face under blonde strands.
+  // The player uses the purely procedural face, which derives from their choice.
+  // These supply IDENTITY ONLY — skin tone, cheekbones, jaw, eye colour. The rig
+  // draws the brows, nose and lips itself because those are animated (visemes,
+  // blinks, expressions), and face.js washes those two bands out of the
+  // underpaint so there is exactly one of each. So: no hair (3D strands render
+  // over the top), no background, and above all FLAT LIGHTING — v0.4's faces
+  // carried baked ambient occlusion and a rim light that fought the scene key.
+  ...[
+    ['lola', 'a woman aged 32, feminine face, warm tan skin, high strong cheekbones, '
+      + 'square jaw, direct level gaze, magenta-brown eyes'],
+    ['aria', 'a woman aged 23, feminine face, light warm skin, soft rounded cheeks, '
+      + 'small delicate chin, wide open violet eyes'],
+    ['kai', 'a man aged 35, masculine face, medium brown skin, lean but healthy cheeks, '
+      + 'straight nose, calm half-lidded gold-amber eyes'],
+  ].map(([id, subject]) => /** @type {ArtSpec} */ ({
+    id: `face-${id}`, kind: 'face', size: 512,
+    out: `assets/chars/${id}/face.jpg`,
+    // One rigid style anchor shared by all five. The first pass varied the style
+    // per character (one cel-shaded, one doll-like, one gaunt) which is exactly
+    // the inconsistency this set exists to remove — v0.4 had Kai photoreal beside
+    // four stylised heads, in the same shot.
+    prompt: `${subject}. ${FACE_STYLE}`,
   })),
 
   // ── city ───────────────────────────────────────────────────────────────

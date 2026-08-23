@@ -43,7 +43,12 @@ export function buildPlayerPersona(name = 'Cipher', pronouns = 'she', look = {})
       brows: 'rgba(18,12,16,0.9)',
     },
     hairStyle,
-    faceAsset: male ? '/assets/chars/player-m/face.jpg' : '/assets/chars/player-f/face.jpg',
+    // No faceAsset, deliberately. The player picks from 6 skin tones, 6 hair
+    // colours and 7 styles above; a fixed face texture contradicts every one of
+    // those choices. v0.4's player-f had cyan pixie hair, a face tattoo and a
+    // hoop earring painted into it, so choosing dark skin and long blonde hair
+    // produced a dark-skinned body wearing a light-skinned tattooed face under
+    // blonde strands. The procedural face derives from `colors` instead.
     face: { browWeight: male ? 1.3 : 1.0 },
     body: male
       ? { height, shoulderW: 0.46 * scale, hipW: 0.36 * scale, bust: 0, waist: 1.0, hips: 0.92, build }
