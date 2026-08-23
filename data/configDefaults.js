@@ -134,7 +134,12 @@ export const CONFIG_DEFAULTS = {
       apPerDay: 4,             // action points per day
       repair: { ap: 1, cost: 1, amount: 35 },
       fortify: { ap: 1, cost: 1, defence: 20, threatDrop: 8 },
-      forage: { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35 },
+      forage: { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35,
+                blightMul: 0.4 },   // multiplier once the rooftop garden is blighted
+      // Refugees earn their keep, so taking one in is a bet rather than a
+      // slow-motion death sentence: a mouth today, a pair of hands tomorrow.
+      refugeeWork: { ap: 1, foodPer: 3 },
+      refugeeRelease: { ap: 0, morale: 10 },   // the cost of asking them to leave
       train: { ap: 1, gain: 7, cap: 92 },
       rest: { ap: 1, health: 16, morale: 12 },
       deal: { ap: 2, cost: 3, threatDrop: 20 },
