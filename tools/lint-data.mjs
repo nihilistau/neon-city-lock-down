@@ -26,17 +26,28 @@ async function main() {
   const { intentRegistry } = await import('../src/dialogue/parser/intents.js');
   ok(`intents: ${intentRegistry.size} registered`);
 
-  await import('../data/dialogue/lola/fallbacks.js');
-  await import('../data/dialogue/lola/core.js');
-  await import('../data/dialogue/lola/depth.js');
-  await import('../data/dialogue/aria/core.js');
-  await import('../data/dialogue/aria/depth.js');
-  await import('../data/dialogue/kai/core.js');
-  await import('../data/dialogue/kai/depth.js');
-  await import('../data/dialogue/vox/core.js');
-  await import('../data/dialogue/vox/depth.js');
+  // DISCOVERED, not listed. This was nine hand-written import lines, so a new
+  // dialogue pack was simply never linted — and since compileLine() throws on an
+  // unknown stage tag at registration, "never imported" means "never checked".
+  // A pack with a typo'd [[tag]] passed the linter and then killed the boot.
+  // refugee.js is skipped deliberately: it exports a register function bound to
+  // a runtime-assigned id rather than registering at import.
+  const dlgDir = join(ROOT, 'data', 'dialogue');
+  const packs = [];
+  for (const entry of await readdir(dlgDir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      for (const f of (await readdir(join(dlgDir, entry.name))).filter((n) => n.endsWith('.js'))) {
+        packs.push(join(dlgDir, entry.name, f));
+      }
+    } else if (entry.name.endsWith('.js') && entry.name !== 'intents.js' && entry.name !== 'refugee.js') {
+      packs.push(join(dlgDir, entry.name));
+    }
+  }
+  // fallbacks first — they register a different registry and must not be shadowed
+  packs.sort((a, b) => (b.includes('fallbacks') ? 1 : 0) - (a.includes('fallbacks') ? 1 : 0));
+  for (const f of packs) await import(pathToFileURL(f).href);
   const { topicRegistry, topicsFor } = await import('../src/dialogue/topics.js');
-  ok(`topics: ${topicRegistry.size} registered`);
+  ok(`topics: ${topicRegistry.size} registered from ${packs.length} packs`);
 
   // content that must at least parse + self-reference cleanly
   const { SCENARIOS } = await import('../data/scenarios.js');

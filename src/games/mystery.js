@@ -11,6 +11,7 @@ export class Mystery {
   /**
    * @param {Object} deps
    * @param {() => Record<string, import('../chars/character.js').Character>} deps.cast
+   * @param {() => any} [deps.run] run state, for recording closed cases
    */
   constructor(deps) {
     this.d = deps;
@@ -79,6 +80,12 @@ export class Mystery {
       feed(c.resolution.wrong, 'event');
       for (const ch of Object.values(this.d.cast())) ch.applyStats({ trust: -3, tension: 2 }, 'false_accusation');
     }
+    // Record it on the RUN, not just this instance — the VOX terminal's case
+    // board lists what is still open, and a case survives the panel being closed.
+    // Closed either way: accusing wrongly closes the file too, and living with
+    // that is the point of only getting one accusation.
+    const run = this.d.run?.();
+    if (run) (run.flags.solvedCases ||= []).push(c.id);
     emit('mystery.solved', { caseId: c.id, correct, culprit: c.culprit });
     return { correct, culprit: c.culprit };
   }

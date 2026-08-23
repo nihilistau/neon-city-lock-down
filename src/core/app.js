@@ -13,6 +13,7 @@ import '../../data/dialogue/kai/core.js';
 import '../../data/dialogue/kai/depth.js';
 import '../../data/dialogue/vox/core.js';
 import '../../data/dialogue/vox/depth.js';
+import '../../data/dialogue/games.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -77,6 +78,7 @@ import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
+import { MYSTERY_CASES } from '../../data/games/mysteryCases.js';
 import { zoneAt, waypointPos, elevatorPos } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
@@ -109,6 +111,14 @@ function setTimeoutGameSafe(app, minutes, fn) {
     if (app.clock.totalMinutes >= target) { off(); fn(); }
   });
 }
+
+/** VOX's idle terminal chatter. Hoisted: it was rebuilt on every interaction. */
+const VOX_TERMINAL_LINES = [
+  'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
+  'I have counted the rioters. You do not want the number.',
+  'My cameras miss nothing. Except floor thirteen. There is no floor thirteen.',
+  'Query logged. Curiosity noted. Approval pending.',
+];
 
 export class App {
   constructor() {
@@ -225,6 +235,23 @@ export class App {
     // music matrix: combat and intimacy override the baseline mood
     on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
     on('combat.resolved', () => { this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = false; });
+    // ── minigames, reachable from inside a run ────────────────────────────
+    // Emitted by a topic's `effects.game` (src/dialogue/effects.js) and by
+    // scenario payloads, so there is ONE place that opens a game rather than
+    // one per entry point.
+    on('game.requested', ({ game, charId }) => {
+      if (!this.gamesPanel || !game) return;
+      if (game === 'cards') this.gamesPanel.cards();
+      else if (game === 'tod') this.gamesPanel.tod();
+      // `bed` carrying a charId came from a DIALOGUE topic and means "with the
+      // person you just asked" — the only reading that makes sense mid-
+      // conversation. Without one it came from a scenario, so offer the picker.
+      else if (game === 'bed') {
+        if (charId) this.gamesPanel.bed(charId); else this.gamesPanel.bedPick();
+      } else if (game.startsWith('bed:')) this.gamesPanel.bed(game.slice(4));
+      else if (game.startsWith('mystery:')) this.gamesPanel.mystery(game.slice(8));
+    });
+
     // ── arrivals ──────────────────────────────────────────────────────────
     // ActorQueue has emitted `zone.entered` every time an actor crosses a zone
     // boundary since the day it was written, and NOTHING has ever subscribed —
@@ -598,7 +625,7 @@ export class App {
       rng: this.rng.stream('gambits'),
       playerSkill: () => this.run.player.skill ?? 60,
     });
-    this.mystery = new Mystery({ cast: () => this.cast });
+    this.mystery = new Mystery({ cast: () => this.cast, run: () => this.run });
     this.cards = new Cards({
       rng: this.rng.stream('cards'),
       kaiDominance: () => this.cast.kai?.stats.dominance ?? 50,
@@ -854,15 +881,39 @@ export class App {
         break;
       }
       case prop.id === 'vox_terminal': {
-        // repairs first: any damaged systems can be fixed here (parts + time)
-        const damaged = Object.entries(this.run.systems)
-          .filter(([, s]) => s.hp < 70 || !s.online);
-        if (damaged.length && this.run.resources.parts >= 1) {
-          emit('event.choice', {
-            prompt: `VOX diagnostics list damaged systems. Repairs cost 1 part + 45 minutes each. Parts: ${Math.floor(this.run.resources.parts)}.`,
-            options: [...damaged.map(([name, s]) => `Repair ${name} (${Math.round(s.hp)}%)`), 'Not now'],
-            pick: (idx) => {
-              if (idx >= damaged.length) return;
+        // ONE menu: repairs and open case files together.
+        //
+        // Repairs used to be a separate early-return, so as long as any system
+        // was damaged and you held a part — which is most of a run — the branch
+        // below was unreachable. That matters because it is the case board:
+        // three mystery cases shipped openable ONLY by picking a scenario at the
+        // new-run screen or through the debug Director panel, so a player who
+        // started any other scenario could never open one, and the clue props
+        // scattered across six floors had nothing to feed. VOX keeping files on
+        // things that do not resolve is also just what VOX would do.
+        const damaged = this.run.resources.parts >= 1
+          ? Object.entries(this.run.systems).filter(([, sys]) => sys.hp < 70 || !sys.online)
+          : [];
+        const openCases = Object.values(MYSTERY_CASES)
+          .filter((c) => !this.run.flags.solvedCases?.includes(c.id));
+        addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+
+        if (!damaged.length && !openCases.length) {
+          this.vox.say(this.rng.stream('vox_lines').pick(VOX_TERMINAL_LINES));
+          break;
+        }
+        const prompt = damaged.length
+          ? `VOX diagnostics. Repairs cost 1 part + 45 minutes each. Parts: ${Math.floor(this.run.resources.parts)}.`
+          : 'VOX: "I keep files on things that do not resolve. I would like someone to read one."';
+        emit('event.choice', {
+          prompt,
+          options: [
+            ...damaged.map(([name, sys]) => `Repair ${name} (${Math.round(sys.hp)}%)`),
+            ...openCases.map((c) => `Case file: ${c.title}`),
+            'Just diagnostics',
+          ],
+          pick: (idx) => {
+            if (idx < damaged.length) {
               const [name, sys] = damaged[idx];
               this.run.resources.parts -= 1;
               this.clock.skip(45);   // clock.skip emits world.minute; worldTick subscribes
@@ -873,18 +924,16 @@ export class App {
               emit('resources.changed', this.run.resources);
               this.vox.say(`${name} restored. The tower thanks you. I thank you. We are the same thing, but the sentiment doubles.`);
               feed(`Repaired ${name}.`, 'system');
-            },
-          });
-          break;
-        }
-        const lines = [
-          'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
-          'I have counted the rioters. You do not want the number.',
-          'My cameras miss nothing. Except floor thirteen. There is no floor thirteen.',
-          'Query logged. Curiosity noted. Approval pending.',
-        ];
-        this.vox.say(this.rng.stream('vox_lines').pick(lines));
-        addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+              return;
+            }
+            const caseIdx = idx - damaged.length;
+            if (caseIdx < openCases.length) {
+              emit('game.requested', { game: `mystery:${openCases[caseIdx].id}` });
+              return;
+            }
+            this.vox.say(this.rng.stream('vox_lines').pick(VOX_TERMINAL_LINES));
+          },
+        });
         break;
       }
       case prop.id === 'gurney0' || prop.id === 'gurney1': {

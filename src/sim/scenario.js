@@ -4,6 +4,7 @@
 // Kit's Play/Test. Previously startRun had its own partial copy that applied
 // lighting/moods/placements but silently dropped `fireEvent` and `game` — so 7
 // of the 16 shipped scenarios did nothing when picked from the main menu.
+import { emit } from '../core/bus.js';
 
 /**
  * @param {import('../core/app.js').App} app
@@ -36,11 +37,9 @@ export async function applyScenario(app, s, opts = {}) {
 
   try {
     if (s.fireEvent) await app.eventRunner.fire(s.fireEvent);
-    if (s.game === 'tod') app.gamesPanel.tod();
-    else if (s.game === 'bed') app.gamesPanel.bedPick();
-    else if (s.game?.startsWith('bed:')) app.gamesPanel.bed(s.game.slice(4));
-    else if (s.game === 'cards') app.gamesPanel.cards();
-    else if (s.game?.startsWith('mystery:')) app.gamesPanel.mystery(s.game.slice(8));
+    // through the same door as a dialogue request, so there is exactly one
+    // place that decides how a game gets opened
+    if (s.game) emit('game.requested', { game: s.game });
   } catch (err) {
     console.error('[scenario] payload failed', s.id, err);
   }

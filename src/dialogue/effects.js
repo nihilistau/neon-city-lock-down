@@ -26,6 +26,18 @@ export function applyLineEffects(char, line, topic, ctx) {
       // eff.gate = { tier, action }
       char.gate(eff.gate.tier, eff.gate.action, ctx.nowMinute);
     }
+    // eff.game = 'cards' | 'tod' | 'bed' | 'mystery:<caseId>'
+    //
+    // The minigames were the single largest pool of unreachable content in the
+    // repo: 39 bed actions, 42 truth-or-dare prompts, a full card game and three
+    // mystery cases, all openable ONLY by picking a scenario at the new-run
+    // screen or through the debug Director panel. Nothing in a live run could
+    // reach any of it. Asking someone to play is how a person would actually
+    // start a game, so that is now the door.
+    //
+    // Emitted rather than called: this module is pure over (char, line, topic)
+    // and has no App handle. src/core/app.js owns the consent checks.
+    if (eff.game) emit('game.requested', { game: eff.game, charId: char.id });
   }
 
   // 3. tone side-effects — hostile/affectionate tone bleeds into stats
