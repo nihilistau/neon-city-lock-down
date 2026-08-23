@@ -12,6 +12,7 @@ import { SHUTTLE_CUTSCENE } from '../../data/cutscenes/shuttle.js';
 import { LOUNGE_SETTLE } from '../../data/cutscenes/settle.js';
 import { fallenCutscene } from '../../data/cutscenes/fallen.js';
 import { EventRunner } from '../../src/sim/eventRunner.js';
+import { ICON_IDS } from '../../src/ui/icons.js';
 
 test('appearance overrides skin, hair, height, build, style', () => {
   const p = buildPlayerPersona('Nyx', 'she', {
@@ -104,9 +105,22 @@ test('itemIconSrc maps fists and medkit onto HUD art', async () => {
   assert.equal(itemIconSrc('sidearm'), null);
 });
 
-test('extra HUD icons are on disk', () => {
+test('every HUD icon ships as a PNG with a real alpha channel', () => {
+  // v0.4 shipped these as 1024px JPEGs — a format with NO alpha — and keyed them
+  // to transparency in a canvas on every page load. Checking only that a file
+  // exists would still pass against that. Check the format and the alpha too.
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-  for (const id of ['threat', 'plan', 'whisper', 'inventory', 'fists']) {
-    assert.ok(existsSync(join(root, 'assets/ui/icons', `${id}.jpg`)), id);
+  for (const id of ICON_IDS) {
+    const file = join(root, 'assets/ui/icons', `${id}.png`);
+    assert.ok(existsSync(file), `${id}.png missing`);
+    const buf = readFileSync(file);
+    assert.equal(buf.slice(1, 4).toString('ascii'), 'PNG', `${id} is not a PNG`);
+    // IHDR colour type: 6 = RGBA, 4 = grey+alpha. Byte 25 of a PNG header.
+    assert.ok([4, 6].includes(buf[25]), `${id} has no alpha channel (colourType ${buf[25]})`);
+    assert.ok(buf.length < 32 * 1024, `${id} is ${(buf.length / 1024) | 0}KB — it renders at 16px`);
+  }
+  // and the superseded JPEGs are gone, not shipped alongside
+  for (const id of ICON_IDS) {
+    assert.ok(!existsSync(join(root, 'assets/ui/icons', `${id}.jpg`)), `${id}.jpg still shipped`);
   }
 });
