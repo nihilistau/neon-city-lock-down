@@ -16,7 +16,9 @@ export function hourlyTick(run, cast) {
   // Only corporeal characters eat and drink. VOX is the tower itself and used to
   // be counted as a fifth mouth, over-consuming food and water by ~25% all run.
   const eaters = cast.filter((c) => c.persona?.corporeal !== false);
-  const heads = eaters.length + 1 + run.refugees; // corporeal NPCs + player + refugees
+  // mouths = corporeal NPCs (including spawned refugees) + player.
+  // `run.refugees` is a history counter; a body in the cast is the actual mouth.
+  const heads = eaters.length + 1;
   const p = run.player;
 
   // eat/drink on 6-hour cadence equivalents: spread as fractional hourly draw
@@ -33,7 +35,8 @@ export function hourlyTick(run, cast) {
 
   // player biology
   p.hunger = clamp(p.hunger + (s.hungerRate ?? 1.4) * (0.4 + foodShort) - (1 - foodShort) * (s.hungerRelief ?? 1.6));
-  p.thirst = clamp(p.thirst + (s.thirstRate ?? 2.0) * (0.4 + waterShort) - (1 - waterShort) * (s.thirstRelief ?? 2.4));
+  const sickMul = run.flags.sick ? 1.45 : 1;
+  p.thirst = clamp(p.thirst + (s.thirstRate ?? 2.0) * sickMul * (0.4 + waterShort) - (1 - waterShort) * (s.thirstRelief ?? 2.4));
   if (p.hunger > (s.hungerHealthAt ?? 80)) { p.health = clamp(p.health - (s.hungerHealthLoss ?? 1)); notes.push('Hunger is eating at you.'); }
   if (p.thirst > (s.thirstHealthAt ?? 75)) { p.health = clamp(p.health - (s.thirstHealthLoss ?? 2)); notes.push('Dehydration is setting in.'); }
   p.morale = clamp(p.morale - foodShort * (s.moraleFoodDrain ?? 1.2) - waterShort * (s.moraleWaterDrain ?? 1.5) + (s.moraleRecover ?? 0.25));

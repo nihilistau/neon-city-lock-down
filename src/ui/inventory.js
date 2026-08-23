@@ -4,6 +4,7 @@
 import { ITEMS } from '../../data/items.js';
 import { on } from '../core/bus.js';
 import { h } from './widgets.js';
+import { iconUrl, itemIconSrc } from './icons.js';
 
 export class InventoryUI {
   /** @param {import('../core/app.js').App} app */
@@ -31,7 +32,11 @@ export class InventoryUI {
   }
 
   _renderChip(def) {
-    this.chip.innerHTML = `<span class="wc-icon">${def.icon}</span> ${def.name}`;
+    const src = itemIconSrc(def.id);
+    const ico = src
+      ? `<img class="wc-ico" alt="" src="${src}">`
+      : `<span class="wc-icon">${def.icon}</span>`;
+    this.chip.innerHTML = `${ico} ${def.name}`;
   }
 
   toggle() { this.open ? this.close() : this.show(); }
@@ -52,8 +57,12 @@ export class InventoryUI {
     const cards = rows.map(({ id, qty }) => {
       const def = ITEMS[id];
       const equipped = inv.equipped === id;
+      const src = itemIconSrc(id);
+      const ico = src
+        ? h('img', { class: 'inv-ico', src, alt: '' })
+        : h('div', { class: 'inv-icon' }, [def.icon]);
       return h('div', { class: `inv-item type-${def.type} ${equipped ? 'equipped' : ''}` }, [
-        h('div', { class: 'inv-icon' }, [def.icon]),
+        ico,
         h('div', { class: 'inv-meta' }, [
           h('div', { class: 'inv-name' }, [def.name + (qty > 1 ? ` ×${qty}` : ''), equipped ? h('span', { class: 'inv-eq' }, [' equipped']) : '']),
           h('div', { class: 'inv-desc' }, [def.desc]),
@@ -65,12 +74,18 @@ export class InventoryUI {
       ]);
     });
 
-    const el = h('div', { class: 'screen', style: 'background:rgba(4,5,9,0.9)' }, [
-      h('div', { class: 'panel', style: 'min-width:480px;max-width:560px;max-height:82vh;overflow-y:auto' }, [
-        h('h1', { class: 'neon-title', style: 'font-size:24px' }, ['INVENTORY']),
-        h('h2', {}, [`equipped: ${ITEMS[inv.equipped].name} · press I to close`]),
+    const el = h('div', { class: 'plan-wrap' }, [
+      h('div', { class: 'plan-scrim', onclick: () => this.close() }),
+      h('div', { class: 'plan-drawer clickable inv-drawer' }, [
+        h('div', { class: 'game-head' }, [
+          h('h1', { class: 'neon-title plan-title' }, [
+            h('img', { class: 'chip-ico', src: iconUrl('inventory'), alt: '' }),
+            ' INVENTORY',
+          ]),
+          h('button', { onclick: () => this.close() }, ['Close (I)']),
+        ]),
+        h('h2', {}, [`equipped: ${ITEMS[inv.equipped].name}`]),
         h('div', { class: 'inv-grid' }, cards.length > 1 || inv.items.length ? cards : [h('p', {}, ['Empty. Loot crates, the armoury, and fallen hostiles for gear.'])]),
-        h('div', { class: 'actions' }, [h('button', { onclick: () => this.close() }, ['Close (I)'])]),
       ]),
     ]);
     overlay.appendChild(el);

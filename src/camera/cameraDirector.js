@@ -47,7 +47,11 @@ export class CameraDirector {
   _subscribe() {
     const sp = (t) => cfg(`camera.director.shots.${t}.priority`, { dialogue: 3, action: 6, event: 4 }[t]);
     const st = (t) => cfg(`camera.director.shots.${t}.ttl`, { dialogue: 4.5, action: 1e9, event: 4 }[t]);
-    on('chat.reply', ({ speaker }) => this._push('dialogue', sp('dialogue'), st('dialogue'), { speaker }));
+    on('chat.reply', ({ speaker }) => this._push('dialogue', sp('dialogue'), 30, { speaker }));
+    on('chat.idle', () => {
+      const d = this.shots.find((s) => s.type === 'dialogue');
+      if (d) d.expiry = this._t + 2;
+    });
     on('combat.started', () => this._push('action', sp('action'), st('action'), {}));
     on('combat.resolved', () => { this._pop('action'); this._shake = 0; });
     on('player.health', () => { if (this._top()?.type === 'action') this._shake = cfg('camera.director.shakeOnHit', 0.5); });

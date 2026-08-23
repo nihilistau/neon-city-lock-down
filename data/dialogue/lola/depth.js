@@ -82,4 +82,14 @@ registerTopics([
         fx: { tension: 3, dominance: 2 } },
     ],
   }),
+
+  topic('lola.mem.job', {
+    char: 'lola', priority: 6, cooldownMin: 200,
+    triggers: [onIntent('ask_plan', 0.3), onIntent('trust', 0.3)],
+    cond: { flag: 'lola_job' },
+    lines: [
+      { text: "[[face:smirk]] [[look:player]] The collection paid. Don't look at Kai like that — ricochets happen. [[face:neutral]] You wanted to see how I work. That's how I work.",
+        fx: { dominance: 3, trust: 2 } },
+    ],
+  }),
 ]);

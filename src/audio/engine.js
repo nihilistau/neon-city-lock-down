@@ -12,7 +12,7 @@ export class AudioEngine {
     this._duck = 1;
   }
 
-  /** Call from a user gesture (the 18+ gate click). Idempotent. */
+  /** Call from a user gesture (first click on the menu). Idempotent. */
   unlock() {
     if (this.ctx) { this.ctx.resume(); return; }
     this.ctx = new AudioContext();

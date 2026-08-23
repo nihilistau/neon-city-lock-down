@@ -59,6 +59,8 @@ export class Lighting {
     this._from = null;
     this._t = 0;
     this._floorOffset = 0;
+    this._floorFogMul = 1;
+    this._floorFogHex = null;
     this._basePositions = {
       key: this.key.position.clone(),
       warm: this.warm.position.clone(),
@@ -112,6 +114,25 @@ export class Lighting {
       // IBL is an enhancement, never a boot blocker
       console.warn('[lighting] env map build failed', err);
     }
+  }
+
+  /**
+   * Per-floor fog bias. Applied after preset/ToD so a basement reads denser
+   * than the penthouse without rewriting lighting.yaml.
+   * @param {string} floorId
+   */
+  setFloorLook(floorId) {
+    const look = {
+      penthouse: { mul: 1, hex: null },
+      rooftop: { mul: 0.72, hex: 0x1a1024 },
+      fl40: { mul: 1.28, hex: 0x1a080c },
+      fl27: { mul: 1.18, hex: 0x061018 },
+      fl12: { mul: 1.08, hex: 0x101820 },
+      ground: { mul: 0.9, hex: 0x0a1018 },
+      basement: { mul: 1.7, hex: 0x08070a },
+    }[floorId] || { mul: 1, hex: null };
+    this._floorFogMul = look.mul;
+    this._floorFogHex = look.hex;
   }
 
   /** shift the light kit to another floor's world offset */
@@ -170,7 +191,7 @@ export class Lighting {
         this[name].intensity = THREE.MathUtils.lerp(a[name].intensity, b[name].intensity, k);
       }
       this.stage.scene.fog.color.setHex(a.fog.color).lerp(_lerpTo.setHex(b.fog.color), k);
-      this.stage.scene.fog.density = THREE.MathUtils.lerp(a.fog.density, b.fog.density, k);
+      this.stage.scene.fog.density = THREE.MathUtils.lerp(a.fog.density, b.fog.density, k) * this._floorFogMul;
       this.stage.renderer.toneMappingExposure = THREE.MathUtils.lerp(a.exposure, b.exposure, k);
     }
     // time-of-day modulation (only the tod-aware baseline preset)
@@ -206,6 +227,12 @@ export class Lighting {
         this[pulse.light].intensity =
           base * (1 - depth + depth * Math.abs(Math.sin(this._t * pulse.speed)));
       }
+    }
+
+    if (this._fadeT >= 1 && this.stage.scene.fog) {
+      const base = this._target.fog?.density ?? this.stage.scene.fog.density;
+      this.stage.scene.fog.density = base * this._floorFogMul;
+      if (this._floorFogHex != null) this.stage.scene.fog.color.setHex(this._floorFogHex);
     }
   }
 }

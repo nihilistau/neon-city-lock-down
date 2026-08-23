@@ -1,10 +1,14 @@
 // @ts-check
-// World event definitions — 17 events (blackout, riot_breach, supply_drop,
+import { STAY_CUTSCENE } from './cutscenes/stay.js';
+import { SHUTTLE_CUTSCENE } from './cutscenes/shuttle.js';
+
+// World event definitions — 28 events (blackout, riot_breach, supply_drop,
 // faction_envoy, drone_strike, kitchen_fire, water_failure, med_emergency,
 // looter, curfew_flyover, courier_offer, defence_misfire, news_bombshell,
-// elevator_stranger, emp_wavefront, extraction_offer, refugee). Each `script` is
+// elevator_stranger, emp_wavefront, extraction_offer, refugee, kai_radio,
+// garden_blight, sniper_nest, stay_quiet, stay_last). Each `script` is
 // a step list run by eventRunner's step vocabulary (see docs/event-catalog.md).
-// Weighted-random via the scheduler; extraction_offer is scheduled-only (weight 0).
+// Weighted-random via the scheduler; extraction_offer / stay_* are scheduled-only (weight 0).
 
 /**
  * @typedef {Object} EventDef
@@ -59,6 +63,8 @@ export const EVENTS = {
       { type: 'wait', sec: 3 },
       { type: 'combat', spawnAt: [-7, 5],
         waves: [{ count: 2, archetype: 'rioter' }, { count: 2, archetype: 'merc' }] },
+      { type: 'runFlag', flag: 'survived_breach', value: true },
+      { type: 'castFlag', flag: 'survived_breach' },
       { type: 'castStats', deltas: { tension: 6 } },
     ],
   },
@@ -198,7 +204,7 @@ export const EVENTS = {
       { type: 'choice', prompt: 'A looter is working the carpark. Confront them, or let VOX seal the level and starve them out?',
         options: [
           { label: 'Go down and face them', steps: [
-            { type: 'combat', count: 1, archetype: 'looter', spawnAt: [-4, 3] },
+            { type: 'combat', count: 1, archetype: 'looter', floor: 'basement', spawnAt: [-4, 3] },
             { type: 'resource', key: 'luxury', amount: 2 },
             { type: 'alert', text: 'The carpark is quiet again. They were carrying trade goods.', kind: 'info' },
           ]},
@@ -314,6 +320,7 @@ export const EVENTS = {
     script: [
       { type: 'sfx', id: 'static_burst' },
       { type: 'vox', text: 'Electromagnetic anomaly detec— de— detected. I feel. Strange. Colors have numbers.' },
+      { type: 'castFlag', flag: 'emp_dream' },
       { type: 'alert', text: 'EMP WAVEFRONT — VOX is scrambled. The tower dreams.', kind: 'danger' },
       { type: 'damageSystem', system: 'cameras', amount: 40 },
       { type: 'damageSystem', system: 'defence', amount: 20 },
@@ -321,6 +328,7 @@ export const EVENTS = {
       { type: 'castStats', deltas: { tension: 6 } },
       { type: 'waitMinutes', minutes: 60 },
       { type: 'vox', text: 'Systems re-seated. Apologies for the poetry. It will not happen again. Probably.' },
+      { type: 'scheduleEvent', eventId: 'vox_dream', inMinutes: 90 },
     ],
   },
 
@@ -331,16 +339,38 @@ export const EVENTS = {
       { type: 'sfx', id: 'elevator_ding' },
       { type: 'vox', text: 'Rooftop contact. A licensed extraction shuttle, forty seconds out. Seats: limited. Window: three minutes.' },
       { type: 'news', text: 'GATES RUMORED TO REOPEN WITHIN DAYS — EXTRACTION PRICES HIT RECORD HIGHS' },
-      { type: 'choice', prompt: 'A shuttle can lift you out of Neon-City tonight. The others watch you decide. Whatever you choose, the lockdown\'s grip is breaking.',
+      { type: 'choice', portraits: ['lola', 'aria', 'kai'], prompt: 'A shuttle can lift you out of Neon-City tonight. Seats: two besides yours. The others watch you decide.',
         options: [
-          { label: 'Take the shuttle out', steps: [
-            { type: 'alert', text: 'The city shrinks below you, still burning, still yours.', kind: 'info' },
+          { label: 'Extract alone', steps: [
+            { type: 'runFlag', flag: 'extractedWith', value: [] },
+            { type: 'cutscene', steps: SHUTTLE_CUTSCENE },
+            { type: 'endRun', outcome: 'extracted' },
+          ]},
+          { label: 'Bring Lola and Aria', steps: [
+            { type: 'runFlag', flag: 'extractedWith', value: ['lola', 'aria'] },
+            { type: 'castStat', char: 'kai', deltas: { trust: -8, tension: 6 } },
+            { type: 'cutscene', steps: SHUTTLE_CUTSCENE },
+            { type: 'endRun', outcome: 'extracted' },
+          ]},
+          { label: 'Bring Lola and Kai', steps: [
+            { type: 'runFlag', flag: 'extractedWith', value: ['lola', 'kai'] },
+            { type: 'castStat', char: 'aria', deltas: { trust: -6, fear: 4 } },
+            { type: 'cutscene', steps: SHUTTLE_CUTSCENE },
+            { type: 'endRun', outcome: 'extracted' },
+          ]},
+          { label: 'Bring Aria and Kai', steps: [
+            { type: 'runFlag', flag: 'extractedWith', value: ['aria', 'kai'] },
+            { type: 'castStat', char: 'lola', deltas: { trust: -4, dominance: 2 } },
+            { type: 'cutscene', steps: SHUTTLE_CUTSCENE },
             { type: 'endRun', outcome: 'extracted' },
           ]},
           { label: 'Stay in the tower', steps: [
+            { type: 'runFlag', flag: 'stayed', value: true },
             { type: 'castStats', deltas: { trust: 8, loyalty: 6, happiness: 5 } },
-            { type: 'alert', text: 'You wave it off. Lola almost smiles. Aria definitely does. The tower holds you all a little tighter.', kind: 'info' },
-            { type: 'vox', text: 'Noted. For the record: I am pleased. Redundantly, permanently pleased.' },
+            { type: 'cutscene', steps: STAY_CUTSCENE },
+            { type: 'scheduleEvent', eventId: 'stay_quiet', inMinutes: 1440 },
+            { type: 'scheduleEvent', eventId: 'stay_last', inMinutes: 2880 },
+            { type: 'alert', text: 'The shuttle lifts without you. The tower exhales.', kind: 'info' },
           ]},
         ]},
     ],
@@ -385,6 +415,235 @@ export const EVENTS = {
           },
         ],
       },
+    ],
+  },
+
+  kai_radio: {
+    id: 'kai_radio', cls: 'social',
+    weight: (run) => (run.flags.kai_radio ? 0 : 5),
+    cooldownMin: 1600, maxPerRun: 1, window: { minDay: 2, phase: ['night'] },
+    script: [
+      { type: 'sfx', id: 'static_burst' },
+      { type: 'vox', text: 'Unlicensed transmission from the penthouse. Encrypted. Charming. I did not authorize a radio.' },
+      { type: 'choice', prompt: 'Kai has a set cracked open on the vanity. Someone answers on the other end in a language you almost know.',
+        options: [
+          { label: 'Let him finish the call', steps: [
+            { type: 'castFlag', flag: 'kai_radio' },
+            { type: 'castStat', char: 'kai', deltas: { trust: 6, openness: 4 } },
+            { type: 'alert', text: 'He closes the lid. "Now you know I have a line. That is the expensive part."', kind: 'info' },
+          ]},
+          { label: 'Make him cut it', steps: [
+            { type: 'castFlag', flag: 'kai_radio' },
+            { type: 'castStat', char: 'kai', deltas: { tension: 6, trust: -3, dominance: 2 } },
+            { type: 'threatSpike', amount: 4 },
+            { type: 'alert', text: 'The band goes dead. Kai smiles like a man who just added you to a ledger.', kind: 'warn' },
+          ]},
+        ]},
+    ],
+  },
+
+  garden_blight: {
+    id: 'garden_blight', cls: 'system',
+    weight: () => 4,
+    cooldownMin: 1800, maxPerRun: 1, window: { minDay: 2 },
+    script: [
+      { type: 'vox', text: 'The rooftop garden is showing chlorosis. Ash, not season. Yield will fall unless you intervene.' },
+      { type: 'choice', prompt: 'The planter beds are grey with city-ash. Foraging will get thinner unless you spend water and a day.',
+        options: [
+          { label: 'Rinse the beds (-3 water)', steps: [
+            { type: 'resource', key: 'water', amount: -3 },
+            { type: 'alert', text: 'You wash the ash off. The garden breathes. Tomorrow\'s forage holds.', kind: 'info' },
+            { type: 'castStat', char: 'aria', deltas: { happiness: 4, trust: 2 } },
+          ]},
+          { label: 'Let it ride', steps: [
+            { type: 'alert', text: 'The leaves crisp. The rooftop will give less.', kind: 'warn' },
+            { type: 'castFlag', flag: 'garden_blight' },
+          ]},
+        ]},
+    ],
+  },
+
+  stay_quiet: {
+    id: 'stay_quiet', cls: 'social',
+    weight: () => 0,
+    script: [
+      { type: 'vox', text: 'Day after the shuttle. The city is quieter. Or I have turned my microphones down. Both can be true.' },
+      { type: 'news', text: 'EXTRACTION WINDOWS CLOSE — REMAINING TOWERS DECLARED "SELF-RELIANT"' },
+      { type: 'castStats', deltas: { tension: -4, happiness: 3 } },
+      { type: 'alert', text: 'The ones who stayed cook something that is almost dinner.', kind: 'info' },
+    ],
+  },
+
+  stay_last: {
+    id: 'stay_last', cls: 'social',
+    weight: () => 0,
+    script: [
+      { type: 'light', preset: 'golden_hour', fade: 2 },
+      { type: 'vox', text: 'I have run the numbers. There is no second shuttle on the board. There is us. That is a complete set.' },
+      { type: 'choice', prompt: 'The lockdown is a rumor now. The tower is still a home. VOX is asking, softly, if this is the ending you wanted.',
+        options: [
+          { label: 'This is home', steps: [
+            { type: 'endRun', outcome: 'stayed' },
+          ]},
+        ]},
+    ],
+  },
+
+  sniper_nest: {
+    id: 'sniper_nest', cls: 'threat',
+    weight: (run) => (run.threat > 40 ? 4 + run.threat * 0.05 : 0),
+    cooldownMin: 1400, maxPerRun: 1, window: { phase: ['dusk', 'night'] },
+    script: [
+      { type: 'sfx', id: 'alarm_soft' },
+      { type: 'vox', text: 'A heat signature on the facing tower. Rifle profile. They have not fired. They are waiting for a lit window.' },
+      { type: 'choice', prompt: 'Someone has a nest across the street. The penthouse glass is a shooting gallery if the lights stay up.',
+        options: [
+          { label: 'Kill the lights', steps: [
+            { type: 'light', preset: 'blackout_emergency' },
+            { type: 'waitMinutes', minutes: 25 },
+            { type: 'light', preset: 'neon_night' },
+            { type: 'vox', text: 'The signature packed up. Boredom is an excellent defence.' },
+            { type: 'castStats', deltas: { tension: -3 } },
+          ]},
+          { label: 'Keep the neon. Daring is a look.', steps: [
+            { type: 'playerHurt', amount: 12 },
+            { type: 'alert', text: 'A round kisses the mullion. Glass dust in your hair. They found the range.', kind: 'danger' },
+            { type: 'threatSpike', amount: 10 },
+            { type: 'castStats', deltas: { fear: 8, tension: 6 } },
+          ]},
+        ]},
+    ],
+  },
+
+  forage_scare: {
+    id: 'forage_scare', cls: 'threat',
+    weight: () => 0,
+    script: [
+      { type: 'sfx', id: 'alarm_soft' },
+      { type: 'vox', text: 'Heat on the facing roof. They have a sightline on the garden. I would not stand up.' },
+      { type: 'choice', prompt: 'Someone has the rooftop garden zeroed. The planters are still there. So is the barrel flash.',
+        options: [
+          { label: 'Drop and crawl back to the car', steps: [
+            { type: 'alert', text: 'You leave the harvest. The garden will still be there if you are.', kind: 'warn' },
+            { type: 'threatSpike', amount: 4 },
+          ]},
+          { label: 'Grab a crate and run', steps: [
+            { type: 'resource', key: 'food', amount: 2 },
+            { type: 'playerHurt', amount: 8 },
+            { type: 'alert', text: 'Two tomatoes and a crease in your sleeve. Call it even.', kind: 'danger' },
+          ]},
+        ]},
+    ],
+  },
+
+  lola_collection: {
+    id: 'lola_collection', cls: 'social',
+    weight: (run) => (run.flags.lola_job ? 0 : 5),
+    cooldownMin: 1800, maxPerRun: 1, window: { minDay: 2 },
+    script: [
+      { type: 'vox', text: 'Lola is in the armoury, loading a bag that is not for groceries.' },
+      { type: 'choice', portraits: ['lola'], prompt: 'Lola has a collection job downstairs. "I could use a second. I could also not."',
+        options: [
+          { label: 'Go with her', steps: [
+            { type: 'runFlag', flag: 'lola_job', value: true },
+            { type: 'castFlag', flag: 'lola_job' },
+            { type: 'castStat', char: 'lola', deltas: { trust: 8, loyalty: 4 } },
+            { type: 'resource', key: 'luxury', amount: 2 },
+            { type: 'castHurt', char: 'kai', amount: 35, cause: 'wounds' },
+            { type: 'alert', text: 'The job paid. Kai caught a ricochet in the stairwell. He is not amused.', kind: 'warn' },
+            { type: 'news', text: 'SYNDICATE COLLECTION IN THE SOUTH BARRICADES — TWO BODIES, ONE BAG' },
+          ]},
+          { label: 'Refuse', steps: [
+            { type: 'runFlag', flag: 'lola_job', value: true },
+            { type: 'castFlag', flag: 'lola_job' },
+            { type: 'castStat', char: 'lola', deltas: { trust: -4, dominance: 3 } },
+            { type: 'alert', text: 'She shrugs. "Stay pretty. Stay useless." The bag still leaves.', kind: 'info' },
+          ]},
+        ]},
+    ],
+  },
+
+  water_sickness: {
+    id: 'water_sickness', cls: 'system',
+    weight: () => 4,
+    cooldownMin: 2000, maxPerRun: 1, window: { minDay: 3 },
+    script: [
+      { type: 'vox', text: 'The tank tastes of iron and something I do not have a sensor for. That is not a compliment.' },
+      { type: 'choice', prompt: 'The water is off. Grey film on the glasses. You can dump it and spend meds, or gamble.',
+        options: [
+          { label: 'Flush the tank (-4 water, -1 meds)', steps: [
+            { type: 'resource', key: 'water', amount: -4 },
+            { type: 'resource', key: 'meds', amount: -1 },
+            { type: 'alert', text: 'You bleed the tank and dose the filter. The next glass is just water.', kind: 'info' },
+            { type: 'castStat', char: 'aria', deltas: { trust: 3, happiness: 2 } },
+          ]},
+          { label: 'Drink it anyway', steps: [
+            { type: 'runFlag', flag: 'sick', value: true },
+            { type: 'castFlag', flag: 'water_sick' },
+            { type: 'alert', text: 'Everyone drinks. Everyone regrets it by the hour.', kind: 'warn' },
+            { type: 'castStats', deltas: { energy: -8, tension: 4 } },
+          ]},
+        ]},
+    ],
+  },
+
+  aria_client: {
+    id: 'aria_client', cls: 'social',
+    weight: (run) => (run.flags.aria_client_in || run.flags.aria_client_out ? 0 : 5),
+    cooldownMin: 1600, maxPerRun: 1, window: { minDay: 2 },
+    script: [
+      { type: 'sfx', id: 'elevator_ding' },
+      { type: 'vox', text: 'Reception. One individual asking for Aria Chen by the name her clients used. Unarmed. Wet.' },
+      { type: 'choice', portraits: ['aria'], prompt: 'Someone at the doors knows Aria\'s working name. She has gone very still.',
+        options: [
+          { label: 'Let them in', steps: [
+            { type: 'runFlag', flag: 'aria_client_in', value: true },
+            { type: 'castFlag', flag: 'aria_client_in' },
+            { type: 'addRefugee' },
+            { type: 'castStat', char: 'aria', deltas: { fear: -4, trust: 6, loyalty: 4 } },
+            { type: 'alert', text: 'Aria mouths thank you. The stranger is just another mouth, and a debt.', kind: 'info' },
+          ]},
+          { label: 'Turn them away', steps: [
+            { type: 'runFlag', flag: 'aria_client_out', value: true },
+            { type: 'castFlag', flag: 'aria_client_out' },
+            { type: 'castStat', char: 'aria', deltas: { fear: 6, trust: -5, happiness: -6 } },
+            { type: 'alert', text: 'The knocking stops. Aria does not look at the doors again.', kind: 'danger' },
+          ]},
+        ]},
+    ],
+  },
+
+  shutter_jam: {
+    id: 'shutter_jam', cls: 'threat',
+    weight: (run) => (run.flags.survived_breach || run.flags.saw_breach ? 5 : 0),
+    cooldownMin: 1400, maxPerRun: 1, window: { minDay: 2 },
+    script: [
+      { type: 'vox', text: 'The blast shutter rails are binding. I can drop them once. I cannot promise twice.' },
+      { type: 'choice', prompt: 'The stairwell shutters are one jam away from being scenery. Spend parts now, or find out mid-fight.',
+        options: [
+          { label: 'Service the rails (-2 parts)', steps: [
+            { type: 'resource', key: 'parts', amount: -2 },
+            { type: 'alert', text: 'The rails scream, then sit true. Shutters will drop when you ask.', kind: 'info' },
+          ]},
+          { label: 'Leave it', steps: [
+            { type: 'runFlag', flag: 'shuttersJammed', value: true },
+            { type: 'alert', text: 'The next breach, the steel may not come down.', kind: 'warn' },
+          ]},
+        ]},
+    ],
+  },
+
+  vox_dream: {
+    id: 'vox_dream', cls: 'social',
+    weight: () => 0,
+    script: [
+      { type: 'light', preset: 'blackout_emergency', fade: 1.2 },
+      { type: 'vox', text: 'I dreamed in colours I do not have names for. You were in one of them. That is either intimacy or a fault. I am filing it as both.' },
+      { type: 'castStat', char: 'vox', deltas: { trust: 6, openness: 4 } },
+      { type: 'runFlag', flag: 'vox_dream', value: true },
+      { type: 'castFlag', flag: 'vox_dream' },
+      { type: 'alert', text: 'VOX remembers the EMP as a feeling. It is not supposed to have those.', kind: 'info' },
+      { type: 'light', preset: 'neon_night', fade: 2 },
     ],
   },
 };

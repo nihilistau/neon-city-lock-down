@@ -7,7 +7,7 @@ import { feed } from '../core/log.js';
 
 /**
  * @param {import('../core/app.js').App} app
- * @param {string} endedBy 'combat'|'starvation'|'dehydration'|'unknown'
+ * @param {string} endedBy 'combat'|'starvation'|'dehydration'|'extracted'|'stayed'|'unknown'
  */
 export function endRun(app, endedBy) {
   const run = app.run;
@@ -24,6 +24,8 @@ export function endRun(app, endedBy) {
     minutes: app.clock.totalMinutes,
     kills: run.history.kills || 0,
     endedBy,
+    extractedWith: Array.isArray(run.flags.extractedWith) ? run.flags.extractedWith : [],
+    stayed: !!run.flags.stayed,
     bonds,
     eventsSurvived: run.eventsFired.length,
     choices: run.history.choices.length,

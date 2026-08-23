@@ -37,7 +37,7 @@ export const CONFIG_DEFAULTS = {
     },
     director: {
       shots: {
-        dialogue: { priority: 3, ttl: 4.5 },
+        dialogue: { priority: 3, ttl: 8 },
         action: { priority: 6, ttl: 1e9 },
         event: { priority: 4, ttl: 4 },
       },
@@ -64,13 +64,14 @@ export const CONFIG_DEFAULTS = {
       smg: { id: 'smg', damage: [8, 14], accuracy: 0.6, range: 7 },
       pipe: { id: 'pipe', damage: [6, 12], accuracy: 0.85, range: 1.2 },
       shiv: { id: 'shiv', damage: [5, 10], accuracy: 0.8, range: 1 },
+      fists: { id: 'fists', damage: [3, 6], accuracy: 0.88, range: 0.9 },
     },
     hostileArchetypes: {
       rioter: { hp: 45, skill: 30, weapon: 'pipe', speed: 1.5, aggression: 0.8 },
       looter: { hp: 35, skill: 25, weapon: 'shiv', speed: 1.7, aggression: 0.5 },
       merc: { hp: 70, skill: 65, weapon: 'smg', speed: 1.3, aggression: 0.95 },
     },
-    magSize: { sidearm: 12, smg: 25, pipe: 1, shiv: 1 },
+    magSize: { sidearm: 12, smg: 25, pipe: 1, shiv: 1, fists: 1 },
     turretPeriod: 2.6,         // seconds between turret shots
     waveDelay: 6,              // seconds between breach waves
     cover: {

@@ -15,21 +15,50 @@ export class ElevatorUI {
     this.fade = document.createElement('div');
     this.fade.id = 'elevator-fade';
     this.fade.style.cssText =
-      'position:absolute;inset:0;background:#000;opacity:0;transition:opacity 0.5s;pointer-events:none;z-index:48';
+      'position:absolute;inset:0;background:#000;opacity:0;transition:opacity 0.5s;pointer-events:none;z-index:48;display:flex;align-items:center;justify-content:center';
+    this.fade.innerHTML = '<div class="elev-label"></div>';
     document.getElementById('ui').appendChild(this.fade);
   }
 
   /** open the floor picker (called by the elevator prop interaction) */
   openPicker() {
-    if (this.riding) return;
+    if (this.riding || this._picker) return;
     const app = this.app;
     const current = app.world.activeFloor;
-    const options = Object.values(FLOORS).filter((f) => f.id !== current);
-    emit('event.choice', {
-      prompt: `Elevator — currently on ${FLOORS[current].label}. Where to?`,
-      options: options.map((f) => f.label),
-      pick: (idx) => this.ride(options[idx].id),
+    const options = Object.values(FLOORS);
+    const overlay = document.getElementById('overlay');
+    const el = document.createElement('div');
+    el.className = 'elev-picker clickable';
+    el.innerHTML = `
+      <div class="elev-card">
+        <div class="elev-kicker">ELEVATOR</div>
+        <div class="elev-now">now · ${FLOORS[current].label}</div>
+        ${options.map((f) => {
+          const here = f.id === current;
+          const mins = travelMinutes(current, f.id);
+          return `<button data-id="${f.id}" class="${here ? 'here' : ''}" ${here ? 'disabled' : ''}>
+            <span>${f.label}</span>
+            <em>${here ? 'you are here' : `${mins} min`}</em>
+          </button>`;
+        }).join('')}
+        <button data-cancel class="elev-cancel">Stay</button>
+      </div>`;
+    overlay.appendChild(el);
+    this._picker = el;
+    app.loop.pause('elevator');
+    el.addEventListener('click', (e) => {
+      const btn = /** @type {HTMLElement} */ (e.target.closest('button'));
+      if (!btn || btn.disabled) return;
+      this._closePicker();
+      if (btn.dataset.cancel != null) return;
+      if (btn.dataset.id) this.ride(btn.dataset.id);
     });
+  }
+
+  _closePicker() {
+    this._picker?.remove();
+    this._picker = null;
+    this.app.loop.resume('elevator');
   }
 
   /** @param {string} destFloor */
@@ -52,6 +81,8 @@ export class ElevatorUI {
     const fromFloor = app.world.activeFloor;
     const mins = travelMinutes(fromFloor, destFloor);
 
+    const lab = this.fade.querySelector('.elev-label');
+    if (lab) lab.textContent = FLOORS[destFloor].label;
     this.fade.style.pointerEvents = 'auto';
     this.fade.style.opacity = '1';
     app.audioFacade().sfx('door_servo');
@@ -65,6 +96,7 @@ export class ElevatorUI {
     const [ex, ez] = elevatorPos(destFloor);
     app.world.setActiveFloor(destFloor);
     app.lighting.setFloorOffset(FLOORS[destFloor].offsetX);
+    app.lighting.setFloorLook(destFloor);
     app.cameraRig.fp.pos.set(ex, 1.62, ez + 0.6);
     app.cameraRig.fp.yaw = Math.PI;
     app.cameraRig.orbit.target.set(ex, 1.1, ez + 1.5);

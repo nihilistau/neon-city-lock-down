@@ -20,6 +20,19 @@ export class CombatHud {
     on('combat.waveIncoming', ({ inSec }) => { this._waveIncoming = inSec; });
     on('combat.wave', () => { this._waveIncoming = 0; });
     on('combat.shutters', () => this._render());
+    on('combat.hit', ({ crit, glancing }) => this._hitMark(crit, glancing));
+  }
+
+  _hitMark(crit, glancing) {
+    let el = document.getElementById('hit-mark');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'hit-mark';
+      document.getElementById('hud')?.appendChild(el);
+    }
+    el.className = `visible ${crit ? 'crit' : glancing ? 'glance' : ''}`;
+    clearTimeout(this._hitT);
+    this._hitT = setTimeout(() => el.classList.remove('visible'), crit ? 220 : 120);
   }
 
   _show() {
@@ -64,14 +77,14 @@ export class CombatHud {
     this.el.innerHTML = `
       <div class="ch-top">
         <span class="ch-wave">WAVE ${combat.wave}/${combat.totalWaves}</span>
-        ${cover > 0 ? `<span class="ch-cover">🛡 IN COVER −${Math.round(cover * 100)}%</span>`
-                    : '<span class="ch-cover exposed">⚠ EXPOSED</span>'}
-        <span class="ch-turret ${grid.online && grid.hp > 5 ? '' : 'off'}">⌖ TURRET ${grid.online && grid.hp > 5 ? Math.round(grid.hp) + '%' : 'OFFLINE'}</span>
+        ${cover > 0 ? `<span class="ch-cover">IN COVER −${Math.round(cover * 100)}%</span>`
+                    : '<span class="ch-cover exposed">EXPOSED</span>'}
+        <span class="ch-turret ${grid.online && grid.hp > 5 ? '' : 'off'}">TURRET ${grid.online && grid.hp > 5 ? Math.round(grid.hp) + '%' : 'OFFLINE'}</span>
       </div>
       ${incoming}
       <div class="ch-hostiles">${hostileBars}</div>
       <button class="ch-shutter ${shutterDown ? 'down' : ''}" ${canDrop || shutterDown ? '' : 'disabled'}>
-        ${shutterDown ? 'SHUTTERS SEALED' : 'DROP SHUTTERS (2⚡)'}
+        ${shutterDown ? 'SHUTTERS SEALED' : 'DROP SHUTTERS — 2 CELLS'}
       </button>`;
 
     const btn = this.el.querySelector('.ch-shutter');

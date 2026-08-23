@@ -184,6 +184,73 @@ export class GamesPanel {
   }
   _todAuto() { this.app.truthOrDare.autoTurn(); this._renderTod(); }
 
+  /** Partner picker for the `bed` scenario (no char id baked in). */
+  bedPick() {
+    const partners = Object.values(this.app.cast)
+      .filter((c) => c.alive && c.id !== 'vox' && c.present !== false);
+    if (!partners.length) {
+      this.app.toast?.('No one is here for that.');
+      return;
+    }
+    this.mode = 'bedpick';
+    this.root.className = 'clickable';
+    this.root.innerHTML = '';
+    this.root.appendChild(h('div', { class: 'panel game-box' }, [
+      h('div', { class: 'game-head' }, [
+        h('span', { class: 'neon-title', style: 'font-size:18px' }, ['Who stays?']),
+        h('button', { onclick: () => this.close() }, ['Not tonight']),
+      ]),
+      h('p', { class: 'mys-intro' }, ['A door left open. Pick who you walk toward.']),
+      h('div', { class: 'game-row' }, partners.map((c) =>
+        h('button', { onclick: () => this.bed(c.id) }, [c.name]))),
+    ]));
+  }
+
+  cards() {
+    this.app.cards.start();
+    this.mode = 'cards';
+    this._open();
+    this._renderCards();
+  }
+
+  _renderCards() {
+    const s = this.app.cards.state();
+    this.root.innerHTML = '';
+    const last = s.last;
+    const lastLine = last
+      ? `You ${last.call} · yours ${last.yours} · Kai ${last.his}${last.cheated ? ' (his sleeve)' : ''} — ${last.win ? 'your trick' : 'his trick'}`
+      : 'Five tricks. Call high or low. He is already counting the tells.';
+    const body = s.active
+      ? h('div', { class: 'game-row' }, [
+          h('button', { onclick: () => this._cardPlay('high') }, ['High — mine is bigger']),
+          h('button', { onclick: () => this._cardPlay('low') }, ['Low — mine is smaller']),
+        ])
+      : h('div', { class: 'bg-hint' }, [
+          s.winner === 'player' ? 'You take the night. He almost looks pleased.'
+            : s.winner === 'kai' ? 'He gathers the cards. "Again, whenever you want to lose with more style."'
+              : 'A split. He offers you a drink as if that were the real stake.',
+        ]);
+    this.root.appendChild(h('div', { class: 'panel game-box' }, [
+      h('div', { class: 'game-head' }, [
+        h('span', { class: 'neon-title', style: 'font-size:18px' }, ["Kai's game"]),
+        h('button', { onclick: () => this.close() }, ['Walk away']),
+      ]),
+      h('div', { class: 'tod-who' }, [`Tricks ${s.round}/${s.total} — you ${s.playerTricks} · Kai ${s.kaiTricks}`]),
+      h('div', { class: 'bg-line' }, [lastLine]),
+      body,
+    ]));
+  }
+
+  _cardPlay(call) {
+    const r = this.app.cards.play(call);
+    if (r?.winner === 'player') {
+      this.app.cast.kai?.applyStats({ trust: 4, happiness: 3, openness: 2 }, 'cards');
+    } else if (r?.winner === 'kai') {
+      this.app.cast.kai?.applyStats({ dominance: 3, happiness: 2 }, 'cards');
+    }
+    this._renderCards();
+  }
+
   // ── Mystery ───────────────────────────────────────────────
   mystery(caseId) {
     this.app.mystery.start(caseId);

@@ -58,7 +58,7 @@ export class Inventory {
   /** the resolver-ready weapon key + whether it needs ammo */
   equippedWeapon() {
     const def = ITEMS[this.equipped] || ITEMS.fists;
-    return { key: def.weaponKey || 'shiv', ranged: !!def.ranged, name: def.name };
+    return { key: def.weaponKey || 'fists', ranged: !!def.ranged, name: def.name };
   }
 
   /** @param {string} itemId */

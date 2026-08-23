@@ -66,4 +66,23 @@ registerTopics([
         fx: { trust: 5, fear: -4, loyalty: 2 } },
     ],
   }),
+
+  topic('aria.mem.client_in', {
+    char: 'aria', priority: 6, cooldownMin: 180,
+    triggers: [onIntent('trust', 0.35), onIntent('howareyou', 0.25)],
+    cond: { flag: 'aria_client_in' },
+    lines: [
+      { text: "[[face:smile:0.3]] [[look:player]] You let them in. I thought I was going to have to listen to that knocking until I broke. [[face:blush:0.2]] Thank you is still too small. I'm using it anyway.",
+        fx: { trust: 6, loyalty: 4, fear: -3 } },
+    ],
+  }),
+  topic('aria.mem.client_out', {
+    char: 'aria', priority: 6, cooldownMin: 180,
+    triggers: [onIntent('trust', 0.3), onIntent('ask_lockdown', 0.2)],
+    cond: { flag: 'aria_client_out' },
+    lines: [
+      { text: "[[face:frown]] I keep hearing the knocking even though it stopped. [[look:player]] I know why you sealed it. I just wish I didn't recognize the voice.",
+        fx: { fear: 3, trust: -2 } },
+    ],
+  }),
 ]);

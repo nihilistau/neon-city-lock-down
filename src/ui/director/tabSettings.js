@@ -1,6 +1,7 @@
 // @ts-check
 // Settings tab: explicitness cap, audio volumes, LLM adapter, TTS sidecar.
 import { settings, setSetting } from '../../core/settings.js';
+import { appearanceBlock } from '../appearance.js';
 
 /** @param {HTMLElement} el @param {import('../../core/app.js').App} app */
 export function tabSettings(el, app) {
@@ -48,6 +49,14 @@ export function tabSettings(el, app) {
       </div>
       <p class="dir-hint">run: node tools/sidecar.mjs — voices dynamic lines through voxtral</p>
     </div>`;
+
+  const look = appearanceBlock({ live: true });
+  look.el.classList.add('dir-section');
+  const lookHint = document.createElement('p');
+  lookHint.className = 'dir-hint';
+  lookHint.textContent = 'Look applies on the next New Run.';
+  look.el.appendChild(lookHint);
+  el.insertBefore(look.el, el.firstChild);
 
   el.querySelector('#st-exp').addEventListener('click', (e) => {
     const btn = /** @type {HTMLElement} */ (e.target);

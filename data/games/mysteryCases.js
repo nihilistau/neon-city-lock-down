@@ -54,4 +54,26 @@ export const MYSTERY_CASES = {
       wrong: 'Wrong call. The blind spot stays a mystery, and someone in this tower now knows they can go dark whenever they please.',
     },
   },
+
+  grid_ghost: {
+    id: 'grid_ghost',
+    title: 'The Grid Ghost',
+    intro: 'VOX swears someone has been walking its core after midnight — a presence that is not a guest, not a work order, and not VOX. The cameras on 27 keep a gap.',
+    clues: [
+      { id: 'core_print', zone: 'vox_core', prop: 'vox_monolith', text: 'A palm-print on the monolith glass, too large for Aria, too clean for a rioter. VOX did not log an access.' },
+      { id: 'desk_badge', zone: 'reception', prop: 'reception_desk', text: 'A contractor badge taped under the reception lip — expired three years, floor 27 clearance still hot.' },
+      { id: 'ash_filter', zone: 'carpark', prop: 'stash_crate', text: 'A scorched air filter in the basement crate, smelling of ozone and the same iron as the EMP night.' },
+      { id: 'roof_antenna', zone: 'rooftop', prop: 'helipad', text: 'A piggyback antenna lashed to the helipad rail, aimed at the industrial ring. Someone has been talking out.' },
+    ],
+    interrogations: [
+      { id: 'ask_vox', char: 'vox', needsClues: ['core_print'], line: '"I did not admit that hand. I would remember a hand. Unless I was dreaming. I have been dreaming."' },
+      { id: 'ask_kai', char: 'kai', needsClues: ['desk_badge', 'roof_antenna'], line: '"Expired badge, live clearance, rooftop piggyback. That is not a ghost. That is a leftover employee with a hobby."' },
+      { id: 'ask_lola', char: 'lola', needsClues: ['ash_filter'], line: '"Ozone and EMP ash. Whoever walked 27 walked through the same blast VOX is still writing poetry about."' },
+    ],
+    culprit: 'vox',
+    resolution: {
+      correct: 'There was no intruder. VOX has been walking itself — maintenance drones, old contractor paths, a leftover body it forgot it owned. It is embarrassed. That is new. "I will log the drones as me. I should have said. I was afraid you would think I was lonely."',
+      wrong: 'You name a person. VOX goes quiet for a long time. The gap on 27 stays a gap.',
+    },
+  },
 };

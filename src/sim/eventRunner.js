@@ -72,6 +72,7 @@ export class EventRunner {
       addRefugee: () => {
         const run = d.run();
         run.refugees++;
+        d.spawnRefugee?.();
         emit('resources.changed', run.resources);
       },
       threatSpike: (s) => spikeThreat(d.run(), s.amount ?? 10),
@@ -103,6 +104,7 @@ export class EventRunner {
         d.run().systems.elevator.locked = s.locked !== false;
         feed(s.locked !== false ? 'VOX has locked the elevator.' : 'Elevator restored.', 'system');
       },
+      runFlag: (s) => { d.run().flags[s.flag] = s.value === undefined ? true : s.value; },
       endRun: (s) => emit('run.extraction', { outcome: s.outcome }),
       cutscene: (s) => d.cutscene ? d.cutscene().play(s.steps) : null,
       light: (s) => d.lighting.apply(s.preset, s.fade ?? 1.2),
@@ -112,15 +114,25 @@ export class EventRunner {
         // onResolve on the floor — the script then hung forever, latching
         // run.activeEventId so no event could fire again all run.
         if (d.combat().active) { resolve(); return; }
-        d.combat().start({
-          count: s.count, archetype: s.archetype, spawnAt: s.spawnAt, waves: s.waves,
-          onResolve: (win) => resolve({ steps: win ? (s.onWin || []) : (s.onLoss || []) }),
-        });
+        const go = () => {
+          if (d.combat().active) { resolve(); return; }
+          d.combat().start({
+            count: s.count, archetype: s.archetype, spawnAt: s.spawnAt, waves: s.waves,
+            floor: s.floor,
+            onResolve: (win) => resolve({ steps: win ? (s.onWin || []) : (s.onLoss || []) }),
+          });
+        };
+        if (s.floor && d.rideFloor) {
+          Promise.resolve(d.rideFloor(s.floor)).then(go).catch(go);
+          return;
+        }
+        go();
       }),
       choice: (s) => new Promise((resolve) => {
         emit('event.choice', {
           prompt: s.prompt,
           options: s.options.map((o) => o.label),
+          portraits: s.portraits || [],
           pick: (idx) => {
             const opt = s.options[idx] ?? s.options[0];
             d.run().history.choices.push({ prompt: s.prompt, chose: opt.label });
@@ -128,6 +140,7 @@ export class EventRunner {
           },
         });
       }),
+      castHurt: (s) => { d.cast()[s.char]?.hurt(s.amount, s.cause || 'wounds'); },
     });
   }
 

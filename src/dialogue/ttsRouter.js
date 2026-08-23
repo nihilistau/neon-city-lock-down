@@ -6,6 +6,8 @@
 //   4. subtitle-only + a soft prosodic mouth flutter (never fake human speech)
 import { audio } from '../audio/engine.js';
 import { emit } from '../core/bus.js';
+import { settings } from '../core/settings.js';
+import { TALK_PROFILES, sayTalk } from '../audio/talkSynth.js';
 
 export class TtsRouter {
   /**
@@ -36,20 +38,31 @@ export class TtsRouter {
       const ok = await this.voice.speakLine(char, compiled, lineKey);
       if (ok) return;
     }
-    // 3. synthetic characters get procedural voice (before sidecar — it's their identity)
+    // 2. VOX is a synth identity, not a human take
     if (char.id === 'vox' && this.vox) {
       audio.duckStart();
       const dur = this.vox.say(text);
       setTimeout(() => audio.duckEnd(), dur * 1000);
       return;
     }
-    // 2. live sidecar for human characters
-    if (this.sidecar?.healthy) {
+    // 3. optional live sidecar (off by default — the vendored engine fades out)
+    if (settings.tts?.useSidecar && this.sidecar?.healthy) {
       const voice = this.voiceCast[char.id] || 'casual_female';
       const buf = await this.sidecar.synth(text, voice);
       if (buf) { this._playBuffer(char, buf); return; }
     }
-    // 4. subtitle-only + soft mouth flutter
+    // 4. procedural formant talk — always-on fallback so unbaked lines have a voice
+    const profile = TALK_PROFILES[char.id] || TALK_PROFILES.player;
+    const pitched = { ...profile };
+    if (char.id === 'player' && settings.playerPronouns === 'he') pitched.pitch = 112;
+    audio.duckStart();
+    const dur = sayTalk(audio, pitched, text, char.actor?.face, char.id);
+    if (dur > 0) {
+      setTimeout(() => audio.duckEnd(), dur * 1000);
+      return;
+    }
+    audio.duckEnd();
+    // 5. subtitle-only + soft mouth flutter if audio isn't up yet
     this._flutter(char, text.length);
   }
 

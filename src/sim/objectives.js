@@ -45,6 +45,23 @@ export const OBJECTIVES = [
     done: (run) => (run.player.skill ?? 60) >= 85,
     reward: (run) => { run.resources.ammo += 20; return '+20 rounds from the armoury'; },
   },
+  {
+    id: 'keep_alive', title: 'Keep them alive',
+    desc: 'Reach day 6 with Lola, Aria, and Kai still standing.',
+    progress: (run, clock) => {
+      if (run.flags.lostCast) return Math.min(0.99, (clock.day || 1) / 6);
+      return Math.min(1, (clock.day || 1) / 6);
+    },
+    done: (run, clock) => clock.day >= 6 && !run.flags.lostCast,
+    reward: (run) => { run.player.morale = Math.min(100, run.player.morale + 10); return 'everyone is still here (+morale)'; },
+  },
+  {
+    id: 'vox_fondness', title: 'VOX is listening',
+    desc: 'Talk to VOX until it flags you as more than a work order.',
+    progress: (run) => Math.min(1, (run.flags.voxTalks || 0) / 8),
+    done: (run) => (run.flags.voxTalks || 0) >= 8,
+    reward: (run) => { run.resources.cells += 2; return 'VOX opens a spare cell locker (+2 cells)'; },
+  },
 ];
 
 /** Ensure run.objectives bookkeeping exists. */

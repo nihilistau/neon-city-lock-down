@@ -37,7 +37,9 @@ export async function applyScenario(app, s, opts = {}) {
   try {
     if (s.fireEvent) await app.eventRunner.fire(s.fireEvent);
     if (s.game === 'tod') app.gamesPanel.tod();
+    else if (s.game === 'bed') app.gamesPanel.bedPick();
     else if (s.game?.startsWith('bed:')) app.gamesPanel.bed(s.game.slice(4));
+    else if (s.game === 'cards') app.gamesPanel.cards();
     else if (s.game?.startsWith('mystery:')) app.gamesPanel.mystery(s.game.slice(8));
   } catch (err) {
     console.error('[scenario] payload failed', s.id, err);

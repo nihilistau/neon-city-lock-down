@@ -538,6 +538,10 @@ const HAIR_STYLES = {
   short: { strands: 52, fall: 0.010, width: 0.030, layers: 2 },
   bob: { strands: 62, fall: 0.075, width: 0.028, layers: 2 },
   long: { strands: 72, fall: 0.190, width: 0.026, layers: 3 },
+  undercut: { strands: 40, fall: 0.006, width: 0.022, layers: 1 },
+  ponytail: { strands: 70, fall: 0.220, width: 0.024, layers: 3 },
+  slick: { strands: 48, fall: 0.022, width: 0.032, layers: 2 },
+  pixie: { strands: 56, fall: 0.038, width: 0.026, layers: 2 },
 };
 
 /**

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Oxanium:wght@500;700;800&display=swap');
+
 /* Neon-City: Lock-Down — base styles + palette */
 :root {
   /* neon-noir palette */
@@ -15,8 +17,9 @@
   --violet: #9d6bff;
   --text: #cfe3ec;
   --text-dim: #7d93a3;
-  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "Cascadia Code", "Consolas", monospace;
+  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --display: "Oxanium", "Segoe UI", system-ui, sans-serif;
+  --mono: "Oxanium", "Cascadia Code", "Consolas", monospace;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,12 +66,23 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 ::-webkit-scrollbar-thumb:hover { background: var(--cyan-dim); }
 
 .neon-title {
+  font-family: var(--display);
   font-weight: 800;
   letter-spacing: 0.18em;
   color: var(--cyan);
   text-shadow: 0 0 6px rgba(57, 230, 255, 0.8), 0 0 24px rgba(57, 230, 255, 0.35);
 }
 .neon-title .hot { color: var(--magenta); text-shadow: 0 0 6px rgba(255, 63, 164, 0.8), 0 0 24px rgba(255, 63, 164, 0.35); }
+
+.wordmark { text-align: center; margin: 0 0 8px; }
+.wm-title { font-size: 42px; line-height: 1.05; margin: 0; }
+.wm-title.hot { color: var(--magenta); text-shadow: 0 0 8px rgba(255, 63, 164, 0.85), 0 0 28px rgba(255, 63, 164, 0.4); font-size: 36px; letter-spacing: 0.28em; }
+.wm-rule {
+  height: 1px; margin: 10px auto; width: 72%;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  box-shadow: 0 0 8px rgba(57, 230, 255, 0.45);
+}
+.wm-rule.mag { background: linear-gradient(90deg, transparent, var(--magenta), transparent); box-shadow: 0 0 8px rgba(255, 63, 164, 0.4); }
 
 /* full-screen overlay screens (gate, death, menus) */
 .screen {
@@ -130,7 +144,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .mm-foot { font-size: 11px; color: var(--text-dim); margin-top: 10px; }
 .mm-newgame { min-width: 560px; max-width: 680px; max-height: 84vh; overflow-y: auto; }
 .mm-scen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-.mm-scen { border: 1px solid var(--panel-edge); padding: 7px 10px; cursor: pointer; transition: all 0.12s; }
+.mm-scen { border: 1px solid var(--panel-edge); padding: 8px 12px; cursor: pointer; transition: all 0.12s; border-left: 2px solid var(--cyan-dim); }
 .mm-scen:hover { border-color: var(--cyan-dim); }
 .mm-scen.sel { border-color: var(--cyan); background: rgba(57,230,255,0.07); }
 .mm-scen-title { font-size: 12.5px; color: var(--cyan); }
@@ -142,3 +156,26 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .mm-load-name { font-size: 12.5px; color: var(--magenta); margin-bottom: 3px; }
 .mm-load-desc { font-size: 10px; color: var(--text-dim); line-height: 1.35; }
 .mm-begin { color: var(--green); border-color: var(--green); }
+
+/* appearance editor (New Run + Settings) */
+.look-block { margin: 4px 0 10px; }
+.look-block h2 {
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim); margin: 10px 0 8px;
+}
+.look-block .row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.look-block .row label {
+  width: 64px; flex-shrink: 0; font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.look-swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.look-swatch {
+  width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.18); cursor: pointer;
+}
+.look-swatch.sel { border-color: var(--cyan); box-shadow: 0 0 8px rgba(57,230,255,0.55); }
+.look-styles { display: flex; gap: 6px; flex-wrap: wrap; }
+.look-styles button { font-size: 11px; padding: 4px 10px; }
+.look-styles button.active { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
+.look-slider { flex: 1; accent-color: var(--cyan); }
+.look-val { min-width: 72px; font-size: 11px; color: var(--cyan); }

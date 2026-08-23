@@ -7,6 +7,7 @@ import { buildSkeleton } from './skeleton.js';
 import { buildBody } from './bodyBuilder.js';
 import { FaceRig } from './face.js';
 import { Animator } from './animator.js';
+import { attachAccessories } from './accessories.js';
 
 /** Material texture slots an actor can own; all must be disposed with the body. */
 const TEXTURE_SLOTS = [
@@ -46,6 +47,7 @@ export class Actor3D {
     this.rim = new THREE.PointLight(new THREE.Color(persona.accent), 0, 2.6, 2);
     this.rim.position.set(0, persona.body.height * 0.92, -0.95);
     this.root.add(this.rim);
+    attachAccessories(this, persona);
   }
 
   /** face a world-space yaw (radians); body eases, doesn't snap */

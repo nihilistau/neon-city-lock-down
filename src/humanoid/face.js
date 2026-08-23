@@ -152,6 +152,14 @@ export class FaceRig {
     this._dirty = true;
     this._sinceDraw = 0;
     this._redrawHz = cfg('humanoid.face.redrawHz', 15);
+    this._under = null;
+    if (typeof Image !== 'undefined') {
+      const underUrl = persona.faceAsset || `/assets/chars/${persona.id}/face.jpg`;
+      const img = new Image();
+      img.onload = () => { this._under = img; this._dirty = true; };
+      img.onerror = () => { this._under = null; };
+      img.src = underUrl;
+    }
 
     // viseme state
     this._vis = { ...VISEMES.rest };
@@ -410,6 +418,12 @@ export class FaceRig {
     shade.addColorStop(1, 'rgba(30,10,20,0.10)');
     ctx.fillStyle = shade;
     ctx.fillRect(0, 0, W, W);
+
+    if (this._under) {
+      ctx.globalAlpha = 0.88;
+      ctx.drawImage(this._under, W * -0.06, W * -0.08, W * 1.12, W * 1.16);
+      ctx.globalAlpha = 1;
+    }
 
     // blush
     if (s.blush > 0.02) {

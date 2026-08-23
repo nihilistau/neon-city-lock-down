@@ -64,7 +64,8 @@ export function applySave(app, save) {
     c.restore(data);
     if (data.wardrobe) c.wardrobe?.deserialize(data.wardrobe);
     if (data.brain) app.brains[id]?.deserialize(data.brain);
-    c.actor.playClip(c.persona.personality.idleClip || 'idle_stand', 0.01);
+    if (!c.alive) c.actor.setDowned(true);
+    else c.actor.playClip(c.persona.personality.idleClip || 'idle_stand', 0.01);
   }
 }
 
@@ -107,4 +108,38 @@ export function exportSave(app) {
   a.download = `ncld-save-day${app.clock.day}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/**
+ * Validate a save envelope without applying it.
+ * @param {any} raw
+ * @returns {{ok:true, save:any}|{ok:false, reason:string}}
+ */
+export function parseSaveEnvelope(raw) {
+  if (!raw || typeof raw !== 'object') return { ok: false, reason: 'not_object' };
+  if (raw.version !== VERSION) return { ok: false, reason: 'version' };
+  if (!raw.run || typeof raw.run !== 'object') return { ok: false, reason: 'shape' };
+  if (!raw.clock || typeof raw.clock !== 'object') return { ok: false, reason: 'shape' };
+  if (!raw.characters || typeof raw.characters !== 'object') return { ok: false, reason: 'shape' };
+  return { ok: true, save: raw };
+}
+
+/**
+ * Import a JSON envelope (object or string) into a live app.
+ * @param {import('./app.js').App} app
+ * @param {any} json
+ */
+export function importSave(app, json) {
+  let data = json;
+  if (typeof json === 'string') {
+    try { data = JSON.parse(json); } catch { return { ok: false, reason: 'json' }; }
+  }
+  const parsed = parseSaveEnvelope(data);
+  if (!parsed.ok) return parsed;
+  try {
+    applySave(app, parsed.save);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : 'apply' };
+  }
 }

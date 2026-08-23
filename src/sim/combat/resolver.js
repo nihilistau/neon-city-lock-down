@@ -53,6 +53,25 @@ export function resolveAttack(a, rng) {
   return { hit: true, crit, damage: Math.round(damage) };
 }
 
+/**
+ * Player-aimed shot: the ray already hit a body. Cover reduces damage and
+ * may glance; it never converts a mesh-hit into a miss. NPC/turret fire
+ * still uses resolveAttack (dice).
+ * @param {{weapon:Weapon, cover?:number, skill?:number, rng:import('../../core/rng.js').RngStream}} a
+ * @returns {{hit:true, crit:boolean, damage:number, glancing:boolean}}
+ */
+export function resolveAimedShot(a) {
+  const w = a.weapon;
+  const cover = Math.max(0, Math.min(1, a.cover ?? 0));
+  const skill = a.skill ?? 60;
+  const crit = a.rng.chance(0.08 + (skill / 100) * 0.1);
+  let damage = a.rng.range(w.damage[0], w.damage[1]);
+  if (crit) damage *= 1.8;
+  const coverMul = 1 - cover * 0.55;
+  damage = Math.max(1, Math.round(damage * coverMul));
+  return { hit: true, crit, damage, glancing: cover >= 0.4 };
+}
+
 const BODY_PARTS = ['arm', 'leg', 'torso', 'shoulder', 'hand'];
 
 /**

@@ -9,8 +9,8 @@
 // It is intentionally dependency-optional so `node --test` never imports Playwright.
 
 export const SMOKE_STEPS = [
-  'boot → 18+ gate visible',
-  'click enter → window.__ncld.ready === true within 5s',
+  'boot → main menu visible (no age-gate clickthrough)',
+  'click New Run / Continue → window.__ncld.ready === true within 5s',
   'zero console errors after boot',
   'intro cutscene plays and is skippable (Space)',
   "say('lola','hey Lola') → returns a reply + a stat delta",
@@ -37,7 +37,8 @@ if (test) {
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await page.goto(URL);
-    await page.click('#g18-enter');
+    await page.getByRole('button', { name: 'New Run' }).click();
+    await page.getByRole('button', { name: /Begin/ }).click();
     await page.waitForFunction(() => window.__ncld?.ready === true, { timeout: 8000 });
     // skip cutscene
     await page.evaluate(async () => {

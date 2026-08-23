@@ -32,7 +32,9 @@ async function main() {
   await import('../data/dialogue/aria/core.js');
   await import('../data/dialogue/aria/depth.js');
   await import('../data/dialogue/kai/core.js');
+  await import('../data/dialogue/kai/depth.js');
   await import('../data/dialogue/vox/core.js');
+  await import('../data/dialogue/vox/depth.js');
   const { topicRegistry, topicsFor } = await import('../src/dialogue/topics.js');
   ok(`topics: ${topicRegistry.size} registered`);
 
