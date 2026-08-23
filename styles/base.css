@@ -1,4 +1,56 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Oxanium:wght@500;700;800&display=swap');
+/* Typefaces are VENDORED, not fetched.
+   styles/base.css used to open with an @import from fonts.googleapis.com — a
+   render-blocking third-party request on every boot of an offline-first,
+   local-only adult game, which also leaked the player's IP to Google. Offline,
+   every glyph silently fell back to Segoe UI and the whole v0.4 typographic
+   identity evaporated.
+
+   Latin subset only (the game is English-only), and one STATIC instance per
+   weight: asking Google for several weights in a single request hands back one
+   variable font repeated per block — byte-identical files, 176KB for 95KB of
+   actual glyphs. Fetched by tools/fetch-fonts.mjs. Total: 95KB, 6 files. */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/vendor/fonts/Oxanium-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/vendor/fonts/Oxanium-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/vendor/fonts/Oxanium-800.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/IBMPlexSans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/vendor/fonts/IBMPlexSans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/vendor/fonts/IBMPlexSans-600.woff2') format('woff2');
+}
 
 /* Neon-City: Lock-Down — base styles + palette */
 :root {
