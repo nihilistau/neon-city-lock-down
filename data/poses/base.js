@@ -150,11 +150,18 @@ registerClips([
     },
   },
   {
+    // MEASURED, not eyeballed. The old values spread the elbows APART — from the
+    // idle 0.475m to 0.630m — and put the hands 20cm BEHIND the torso, so the
+    // "arms crossed" gesture rendered as a shrug bordering on a T-pose. It is
+    // what the intro cutscene puts Lola in, so it was the first pose a new
+    // player ever saw. Swept the parameter space against the real rig and scored
+    // on elbow tuck, hand proximity and how far in front of the chest the hands
+    // land: elbows now 0.223m apart, hands meeting at chest height 19cm forward.
     id: 'gesture_cross_arms',
     duration: 4, loop: 'pingpong',
     bones: {
-      armL: [8, 0, -18], armR: [8, 0, 18],
-      foreL: [95, 40, 0], foreR: [95, -40, 0],
+      armL: [8, 0, -60], armR: [8, 0, 60],
+      foreL: [-95, 75, 0], foreR: [-95, -75, 0],
       chest: [-3, 0, 0], head: [-2, 0, 0],
     },
   },

@@ -121,6 +121,11 @@
   border: 1px solid var(--panel-edge);
   border-left: 2px solid var(--accent, var(--cyan));
   padding: 5px 8px 6px;
+  /* The HUD chips have always blurred their backdrop; these cards carry the
+     SAME 0.72 alpha and did not. Over the neon city plate — which is high
+     frequency by design — 0.72 alpha without a blur lets every lit window
+     through and the stat text becomes unreadable. Same treatment, same look. */
+  backdrop-filter: blur(8px);
 }
 .sb-card.collapsed .sb-row { display: none; }
 .sb-card.collapsed .sb-row.hero { display: flex; }

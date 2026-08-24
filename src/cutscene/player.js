@@ -144,6 +144,15 @@ export class CutscenePlayer {
       this.titleEl.classList.remove('visible');
       document.body.classList.remove('cinema');
       d.cameraRig.setMode(prevMode === 'cinematic' ? 'director' : prevMode);
+      // Hand the cast back their idles. A cutscene's `anim` steps are mostly
+      // static gesture poses, and nothing returned anyone to an idle clip when
+      // the scene ended — so the cast stood frozen mid-gesture for the rest of
+      // the run, which is far more obvious after an Escape skip. POSITION is
+      // deliberately left alone: staging people in the lounge is the whole
+      // point of a scene like LOUNGE_SETTLE.
+      for (const c of Object.values(d.cast || {})) {   // d.cast is the object, not a getter
+        if (c?.actor?.playClip) c.actor.playClip(c.persona?.personality?.idleClip || 'idle_stand', 0.6);
+      }
       d.loop.resume('cutscene');
       this.playing = false;
       this._clearSubtitle();
