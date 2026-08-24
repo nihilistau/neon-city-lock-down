@@ -24,6 +24,9 @@ import { spend } from '../world.js';
 import { buildOutfit } from '../../humanoid/outfitBuilder.js';
 import { OUTFITS, DEFAULT_OUTFIT } from '../../../data/outfits.js';
 
+/** scratch for the per-frame turret floor check — never escapes */
+const _turretWorld = new THREE.Vector3();
+
 /** dark, hooded-looking rioter persona factory (procedural visual variety) */
 function hostilePersona(arch, i, rng) {
   const kit = arch === 'merc' ? 'visor' : arch === 'looter' ? 'backpack' : 'hoodie';
@@ -151,6 +154,8 @@ export class Combat {
         actor, hp: arch.hp, maxHp: arch.hp,
         arch: { ...arch, id: waveSpec.archetype },
         state: 'advance', attackT: this.d.rng.range(0, 1.5),
+        // temperament, decided once: a merc pushes, a looter trades from cover
+        seeksCover: this.d.rng.chance(1 - (arch.aggression ?? 0.6)),
         id: persona.id, coverSpot: null,
       };
       this.hostiles.push(h);
@@ -465,9 +470,12 @@ export class Combat {
     const def = this.d.defences?.();
     const turretX = def?.turret?.group?.position?.x;
     if (turretX == null) return true;
-    const world = new THREE.Vector3();
-    def.turret.group.getWorldPosition(world);
-    return Math.abs(h.actor.root.position.x - world.x) < 100;
+    // Module scratch, not a fresh Vector3. This is called from a filter inside
+    // _turretFire(dt), which runs EVERY FRAME of every fight, once per living
+    // hostile — the same hot path the allocation pass earlier in this branch
+    // was about. The value is consumed on the next line and never retained.
+    def.turret.group.getWorldPosition(_turretWorld);
+    return Math.abs(h.actor.root.position.x - _turretWorld.x) < 100;
   }
 
   _turretFire(dt) {
@@ -543,8 +551,13 @@ export class Combat {
       // looter at 0.5 hangs back and trades shots.
       const isRanged = weapon.range > 3;
       let wantAdvance = bestD > reach;
-      const seeksCover = this.d.rng.chance(1 - (h.arch.aggression ?? 0.6));
-      if (isRanged && h.state !== 'holding' && (seeksCover || h.coverSpot)) {
+      // Rolled ONCE, at spawn (see _spawnWave), not per frame. update() runs
+      // every rendered frame, so a per-frame roll latched almost immediately for
+      // everyone: a merc at 0.95 aggression (5% a frame) still reached cover
+      // inside ~0.3s and a looter at 0.5 inside ~0.03s — a difference no player
+      // can perceive, which meant all three archetypes fought identically
+      // despite the knob now being read.
+      if (isRanged && h.state !== 'holding' && (h.seeksCover || h.coverSpot)) {
         if (!h.coverSpot) {
           h.coverSpot = findCoverSpot(colliders, { x: best.pos.x, z: best.pos.z },
             { x: hp3.x, z: hp3.z }, this.d.walkable);

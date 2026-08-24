@@ -39,6 +39,11 @@ export function applyLineEffects(char, line, topic, ctx) {
     // and has no App handle. src/core/app.js owns the consent checks.
     if (eff.game) emit('game.requested', { game: eff.game, charId: char.id });
   }
+  // A LINE may carry its own `game`, for topics where only SOME answers open one
+  // — Lola accepts truth-or-dare above an openness threshold and declines below
+  // it, and the refusal must not launch the game she just refused. A topic-level
+  // effects.game stays the common case; this is the per-answer escape hatch.
+  if (line.game) emit('game.requested', { game: line.game, charId: char.id });
 
   // 3. tone side-effects — hostile/affectionate tone bleeds into stats
   //    regardless of what topic matched (mind games have real cost)

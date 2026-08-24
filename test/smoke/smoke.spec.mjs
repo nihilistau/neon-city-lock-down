@@ -43,7 +43,25 @@ async function bootToRun(page) {
   if (await begin.isVisible().catch(() => false)) await begin.click();
 
   await page.waitForFunction(() => window.__ncld?.app?.mode === 'run', null, { timeout: 45000 });
-  return errors;
+
+  // mode === 'run' is reached BEFORE the opening cutscene finishes, and during a
+  // cutscene the HUD is deliberately hidden (`.cinema #hud > *`), the sim is
+  // paused, and CutscenePlayer.play() no-ops (`if (this.playing) return`). Tests
+  // that ran against that raced the intro and failed for reasons that had
+  // nothing to do with what they assert. Skip it and wait for real gameplay.
+  // Retry, because a single Escape races the cutscene's own start: abort() bails
+  // early if `playing` is not true yet, and under software rendering the opening
+  // beats take a while to get going.
+  for (let i = 0; i < 40; i++) {
+    const clear = await page.evaluate(() => {
+      const app = window.__ncld.app;
+      return app.cutscene?.playing === false && !app.loop.paused;
+    });
+    if (clear) return errors;
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+  }
+  throw new Error('the opening cutscene never released the sim');
 }
 
 test.describe('Neon-City: Lock-Down', () => {

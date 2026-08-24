@@ -24,8 +24,14 @@ function validateStatMap(map, where) {
  * @param {string} id
  * @param {any} def
  */
-/** minigames a topic may open via effects.game — see src/dialogue/effects.js */
+/** minigames a topic or line may open — see src/dialogue/effects.js */
 const GAME_SET = new Set(['cards', 'tod', 'bed']);
+
+/** @param {any} g @param {string} where */
+function assertGame(g, where) {
+  assert(typeof g === 'string' && (GAME_SET.has(g) || g.startsWith('mystery:') || g.startsWith('bed:')),
+    `${where} must be one of ${[...GAME_SET].join('|')} or mystery:<case> / bed:<partner>`);
+}
 
 export function topic(id, def) {
   assert(typeof id === 'string' && id.includes('.'), `topic id "${id}" should be namespaced (char.pack.name)`);
@@ -34,17 +40,14 @@ export function topic(id, def) {
   for (const ln of def.lines) {
     assert(typeof ln.text === 'string', `topic ${id}: line.text must be a string`);
     validateStatMap(ln.fx, `topic ${id} line.fx`);
+    if (ln.game) assertGame(ln.game, `topic ${id} line.game`);
   }
   if (def.effects) {
     validateStatMap(def.effects.stat, `topic ${id} effects.stat`);
     if (def.effects.gate) {
       assert(GATE_SET.has(def.effects.gate.tier), `topic ${id}: bad gate tier`);
     }
-    if (def.effects.game) {
-      const g = def.effects.game;
-      assert(typeof g === 'string' && (GAME_SET.has(g) || g.startsWith('mystery:') || g.startsWith('bed:')),
-        `topic ${id}: effects.game must be one of ${[...GAME_SET].join('|')} or mystery:<case> / bed:<partner>`);
-    }
+    if (def.effects.game) assertGame(def.effects.game, `topic ${id}: effects.game`);
   }
   if (def.triggers) for (const t of def.triggers) {
     assert(t.intent || t.fromBranch, `topic ${id}: trigger needs intent or fromBranch`);

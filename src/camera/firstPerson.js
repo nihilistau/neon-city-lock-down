@@ -122,15 +122,22 @@ export class FirstPersonControls {
     };
     this._onKeyUp = (e) => this.keys.delete(e.code);
     this._onBlur = () => { this.keys.clear(); this._settle(); };
+    // `driveCamera` as well as `enabled`. The rig calls enable() in AUTO too —
+    // the default mode — so the player's very first click on the canvas grabbed
+    // the pointer and hid the cursor in a mode where the camera is
+    // director-owned and mouselook moves nothing. The captured cursor with no
+    // visible response is a large part of what "I can't control the camera"
+    // feels like, and it also routed LMB to the weapon.
     this._onClick = () => {
-      if (this.enabled && document.pointerLockElement !== this.dom) {
+      if (this.enabled && this.driveCamera && document.pointerLockElement !== this.dom) {
         const p = this.dom.requestPointerLock();
         if (p && p.catch) p.catch(() => { /* gesture rejected — next click retries */ });
       }
     };
     this._onMouseDown = (e) => {
       // LMB while locked = fire the weapon (FP or third-person)
-      if (this.enabled && e.button === 0 && document.pointerLockElement === this.dom && this.onFire) {
+      if (this.enabled && this.driveCamera && e.button === 0
+          && document.pointerLockElement === this.dom && this.onFire) {
         this.onFire();
       }
     };

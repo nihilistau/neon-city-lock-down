@@ -13,7 +13,7 @@
 // AO, soft shadows, grain, FOV) and offered no way to turn any of it down on a
 // machine that could not afford it.
 import { settings, setSetting, saveSettings } from '../core/settings.js';
-import { cfg, applyConfig } from '../core/config.js';
+import { cfg, applyConfig, saveConfigFile } from '../core/config.js';
 import { h } from './widgets.js';
 import { emit } from '../core/bus.js';
 
@@ -66,14 +66,44 @@ export function settingsBody(rerender) {
   const pick = (key, val) => { setSetting(key, val); saveSettings(); rerender(); };
 
   // Graphics live in the CONFIG layer, not user settings, because the render
-  // stack reads them through cfg(). applyConfig validates against the schema and
-  // emits config.changed, which is what the live-reload path already listens to.
+  // stack reads them through cfg().
+  //
+  // PERSISTED, not merely applied. applyConfig() only mutates the in-memory
+  // store, and every consumer of these reads its value ONCE at construction
+  // (stage.js for shadows and FOV, postfx.js for bloom/grain/AO) — so an
+  // applyConfig-only write was inert in the current session AND thrown away by
+  // the next boot when loadConfig re-read config/render.yaml. The panel said
+  // "applies on reload" while guaranteeing it would not.
   const render = cfg('render', {});
-  const setRender = (patch) => {
-    const errs = applyConfig('render', patch);
-    if (errs?.length) { emit('hud.alert', { text: errs[0], kind: 'warn' }); return; }
-    emit('hud.alert', { text: 'Graphics applied — reload to rebuild the render stack.', kind: 'info' });
-    rerender();
+  const deepMerge = (base, patch) => {
+    const out = { ...base };
+    for (const [k, v] of Object.entries(patch)) {
+      out[k] = v && typeof v === 'object' && !Array.isArray(v) ? deepMerge(base?.[k] ?? {}, v) : v;
+    }
+    return out;
+  };
+  let toastT = 0;
+  const setRender = async (patch, { redraw = true } = {}) => {
+    // save the WHOLE group: saveConfigFile writes the file verbatim, so posting
+    // a partial patch would drop every other render setting from the yaml
+    const next = deepMerge(cfg('render', {}), patch);
+    const res = await saveConfigFile('render', next);
+    if (!res.ok) {
+      // no server write (static hosting, or the kit API is off) — at least make
+      // it true for this session rather than silently doing nothing
+      const errs = applyConfig('render', next);
+      if (errs?.length) { emit('hud.alert', { text: errs[0], kind: 'warn' }); return; }
+    }
+    clearTimeout(toastT);
+    toastT = setTimeout(() => emit('hud.alert', {
+      text: res.ok ? 'Graphics saved — reload to rebuild the render stack.'
+        : 'Graphics applied for this session (could not write config/render.yaml).',
+      kind: res.ok ? 'info' : 'warn',
+    }), 400);
+    // Sliders must NOT redraw: both hosts rebuild the whole panel, which
+    // destroys the <input type=range> under the cursor and kills the drag after
+    // a single step.
+    if (redraw) rerender();
   };
 
   return [
@@ -114,15 +144,15 @@ export function settingsBody(rerender) {
       'contact shadows — about 1.5ms a frame'),
     row('Bloom',
       slider(render.bloom?.strength ?? 0.42, 0, 1.2, 0.02,
-        (v) => setRender({ bloom: { strength: v } }), 'Bloom strength'),
+        (v) => setRender({ bloom: { strength: v } }, { redraw: false }), 'Bloom strength'),
       'neon glow'),
     row('Film grain',
       slider(render.grain?.amount ?? 0.055, 0, 0.2, 0.005,
-        (v) => setRender({ grain: { amount: v } }), 'Film grain amount'),
+        (v) => setRender({ grain: { amount: v } }, { redraw: false }), 'Film grain amount'),
       null),
     row('Field of view',
       slider(render.fov ?? 55, 55, 100, 1,
-        (v) => setRender({ fov: v }), 'Field of view'),
+        (v) => setRender({ fov: v }, { redraw: false }), 'Field of view'),
       'applies on reload'),
   ];
 }

@@ -72,7 +72,12 @@ export function hourlyTick(run, cast) {
       // read one — wardrobe.js's own comment claims the state is tracked "for
       // stats/warmth". With the heat off, what you are wearing starts to matter.
       if (!run.systems.power?.online) {
-        const warmth = OUTFITS[c.id]?.[c.wardrobe?.current]?.warmth ?? 0.5;
+        // Refugee ids are runtime-assigned (`refugee`, `refugee2`, …) while
+        // OUTFITS is keyed by the FAMILY (`refugee`), so anyone past the first
+        // missed the lookup and silently fell back to 0.5 no matter what they
+        // were wearing.
+        const family = /^refugee/.test(c.id) ? 'refugee' : c.id;
+        const warmth = OUTFITS[family]?.[c.wardrobe?.current]?.warmth ?? 0.5;
         c.applyStats({ tension: (1 - warmth) * (s.coldTension ?? 2) }, 'cold');
       }
     }

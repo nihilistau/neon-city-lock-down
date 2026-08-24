@@ -3,9 +3,6 @@
 // run state, characters (stats/gates/memory/position/wardrobe/brain), lighting.
 // Autosave is deleted on death — perma-death is real.
 
-import { FLOORS } from '../../data/zones.js';
-import { elevatorPos } from '../sim/actors/nav.js';
-import { emit } from './bus.js';
 
 const VERSION = 1;
 const SLOT_PREFIX = 'ncld.slot.';

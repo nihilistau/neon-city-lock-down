@@ -59,13 +59,24 @@ registerTopics([
 
   // ── truth or dare ───────────────────────────────────────────────────────
   // Wants a little warmth first; a stranger asking is just a stranger asking.
-  gameTopic('lola', 'lola.games.tod', 'play_tod', 'tod', [
-    { when: { statGte: { openness: 30 } },
-      text: "[[face:smirk]] [[look:player]] Truth or dare. In a siege. [[beat:0.5]] Fine. But you go first, and you don't get to lie.",
-      fx: { openness: 3, arousal: 2 } },
-    { text: "[[face:neutral]] Ask me that again when I know you better.",
-      fx: { tension: 1 } },
-  ], { effects: { game: 'tod' }, cond: { minStat: { openness: 30 } } }),
+  // Lola's refusal is deliberately NOT gated behind the same cond as her
+  // acceptance — a topic that fails to match reads as the parser not
+  // understanding you, whereas being turned down is a real answer. The topic
+  // therefore has no `cond`, and the openness check lives on the accepting
+  // LINE. The refusal must not carry effects.game or it would open the game
+  // while she is declining, which is why this one topic sets it per-line.
+  topic('lola.games.tod', {
+    char: 'lola', priority: 7, cooldownMin: 30,
+    triggers: [onIntent('play_tod', 0.45)],
+    lines: [
+      { when: { statGte: { openness: 30 } },
+        text: "[[face:smirk]] [[look:player]] Truth or dare. In a siege. [[beat:0.5]] Fine. But you go first, and you don't get to lie.",
+        fx: { openness: 3, arousal: 2 }, game: 'tod' },
+      { when: { statLte: { openness: 29 } },
+        text: "[[face:neutral]] Ask me that again when I know you better.",
+        fx: { tension: 1 } },
+    ],
+  }),
   gameTopic('aria', 'aria.games.tod', 'play_tod', 'tod', [
     { text: "[[face:smile]] [[look:player]] Truth or dare? God. Yes. Anything that isn't the news.",
       fx: { happiness: 4, openness: 3, fear: -3 } },

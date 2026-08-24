@@ -79,6 +79,8 @@ export class CutscenePlayer {
     if (!this.playing) return;
     this._aborted = true;
     this._skip = true;
+    // the runner's own flag, or it keeps walking the remaining steps
+    this.runner.abort();
     for (const fn of [...this._skipResolvers]) fn();
   }
 
@@ -129,6 +131,17 @@ export class CutscenePlayer {
     const guard = new Promise((resolve) => {
       watchdog = setTimeout(() => {
         console.warn(`[cutscene] exceeded ${Math.round(budgetMs / 1000)}s budget — forcing an exit so the sim can resume`);
+        // STOP the script, do not merely stop waiting for it. Racing the
+        // watchdog against runner.run() and resolving alone left the abandoned
+        // script still iterating: writing cam.position every frame over live
+        // gameplay, painting subtitles, playing voice takes — and leaving
+        // runner.running true, so the NEXT cutscene (the day-3 beat, dinner,
+        // sleep, a death scene) threw "script already running" from inside
+        // play(). No call site catches that, so it became an unhandled
+        // rejection and the scene was silently lost.
+        this._aborted = true;
+        this.runner.abort();
+        for (const fn of [...this._skipResolvers]) fn();
         resolve();
       }, budgetMs);
     });
@@ -143,7 +156,10 @@ export class CutscenePlayer {
       this.skipHint.classList.remove('visible');
       this.titleEl.classList.remove('visible');
       document.body.classList.remove('cinema');
-      d.cameraRig.setMode(prevMode === 'cinematic' ? 'director' : prevMode);
+      // NEVER fall back to 'director' — it is a spectator mode with no
+      // movement, which is the exact class of bug that made the game feel
+      // uncontrollable. 'auto' is the shipped default and does let you move.
+      d.cameraRig.setMode(prevMode === 'cinematic' ? 'auto' : prevMode);
       // Hand the cast back their idles. A cutscene's `anim` steps are mostly
       // static gesture poses, and nothing returned anyone to an idle clip when
       // the scene ended — so the cast stood frozen mid-gesture for the rest of
@@ -236,6 +252,10 @@ export class CutscenePlayer {
 
   /** subtitled voiced line — baked take by id if available */
   async _line(s) {
+    // Every other handler guards on this; _line did not, so an Escape made
+    // _wait return instantly, the runner walked the rest of the script in a few
+    // milliseconds, and every remaining voice take fired AT ONCE.
+    if (this._aborted) return;
     const speaker = s.speaker ? this.d.cast[s.speaker] : null;
     const name = speaker?.name || (s.speaker === 'vox' ? 'VOX' : s.name || '');
     this._subtitle(name, s.text, speaker?.persona.accent);

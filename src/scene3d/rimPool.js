@@ -88,7 +88,9 @@ class RimPool {
       for (let i = 1; i < this.claims.length; i++) {
         if (this.claims[i].want < this.claims[weakest].want) weakest = i;
       }
-      if (this.claims[weakest].want >= v) return;
+      // strictly-greater would mean two equal claims can never rotate, so the
+      // first two speakers of a run would hold both slots for good
+      if (this.claims[weakest].want > v) return;
       slot = weakest;
     }
     this.claims[slot] = { actor, want: v };

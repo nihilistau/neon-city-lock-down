@@ -184,15 +184,22 @@ export class App {
     this.mode = 'run';
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
-    // Pay for every floor's shader variants now, behind the loading screen,
-    // rather than as a stall each time an elevator door opens.
-    this.world.precompile(this.stage.renderer, this.stage.camera);
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
     // world.particles(kind, pos) hook used by stage directions.
     this.combatFx = new CombatFx(this.stage.scene);
     this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
     this.lighting = new Lighting(this.stage);
     rimPool.init(this.stage.scene);   // fixed light count for the whole run
+    // Pay for every floor's shader variants now, behind the loading screen,
+    // rather than as a stall each time an elevator door opens.
+    //
+    // AFTER the light kit and the rim pool, not before. precompile() exists
+    // precisely because a forward renderer bakes the scene's LIGHT COUNT into
+    // every material's program — so running it while the scene still had none
+    // compiled ~77 programs keyed to the wrong count, all of which the first
+    // real frame threw away. The stall it was written to prevent still happened,
+    // and boot paid for seven extra scene compiles on top of it.
+    this.world.precompile(this.stage.renderer, this.stage.camera);
     this.lighting.clock = this.clock;
     this.lighting.apply('neon_night', 0.01);
 
@@ -217,7 +224,10 @@ export class App {
     });
     this.worldTick = new WorldTick({
       run: () => this.run,
-      livingCast: () => Object.values(this.cast).filter((c) => c.alive),
+      // `present` matters as much as `alive`: survival.js counts these as the
+      // mouths at the table, and someone who has left the tower is not eating
+      // your food. Without this, sending a refugee back out changed nothing.
+      livingCast: () => Object.values(this.cast).filter((c) => c.alive && c.present !== false),
       scheduler: this.scheduler,
       events: this.eventRunner,
       combat: () => this.combat,
@@ -421,6 +431,15 @@ export class App {
     // dialogue engagement suspends wandering
     on('chat.reply', ({ speaker }) => {
       this.brains[speaker]?.engage(this.clock.totalMinutes + 3);
+      // and light them, because they are the one talking. rimPool holds two
+      // fixed lights and evicts the weakest claim, so a combat rim (0.8) still
+      // outranks a speaker (0.35) and the count never changes.
+      const c = this.cast[speaker];
+      if (c?.actor?.setRim) {
+        c.actor.setRim(0.35);
+        clearTimeout(this._rimT?.[speaker]);
+        (this._rimT ||= {})[speaker] = setTimeout(() => c.actor.setRim(0), 6000);
+      }
     });
     on('vox.talked', ({ topicId } = {}) => {
       if (!this.run || !topicId) return;
@@ -509,6 +528,18 @@ export class App {
       }
       const r = performAction(this.run, id, rng);
       if (r.ok) {
+        // DAY_ACTIONS are pure over `run` and cannot touch the cast, so
+        // refugee_release raises a flag and the actual person leaves here.
+        // Decrementing the counter alone removed no mouth (survival.js counts
+        // BODIES), left them standing in reception, and made the next arrival
+        // collide with them and silently no-op.
+        if (this.run.flags.releaseRefugee) {
+          this.run.flags.releaseRefugee = false;
+          const gone = Object.values(this.cast)
+            .filter((c) => c.present !== false && /^refugee/.test(c.id))
+            .pop();
+          if (gone) this.despawnCharacter(gone.id);
+        }
         emit('hud.alert', { text: r.msg, kind: 'info' });
         emit('resources.changed', this.run.resources);
         emit('systems.changed', this.run.systems);
@@ -1114,7 +1145,11 @@ export class App {
     const zone = ZONES[zoneId];
     const [x, z] = zone ? waypointPos(zoneId) : [0, 0];
     actor.root.position.set(x, 0, z);
-    actor.setRim(0.35);
+    // NO rim at spawn. The pool holds two lights and this claimed one per cast
+    // member at construction, so Lola and Aria took both slots permanently, Kai
+    // and every refugee never got one at all, and after the first fight evicted
+    // them nothing ever re-claimed — the effect simply stopped existing. It is a
+    // FOCUS light: it belongs on whoever is speaking right now.
     this.stage.scene.add(actor.root);
     const queue = new ActorQueue(actor, this.world);
     const character = new Character(persona, actor, queue);
@@ -1266,7 +1301,12 @@ export class App {
     }
     this._bedPartner = null;
     if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
-    this.cameraRig.setMode(this._bedReturn?.camMode === 'firstPerson' ? 'firstPerson' : 'director');
+    // Restore what they were actually using. This used to send anyone who was
+    // not in firstPerson into 'director' — a spectator mode where WASD is dead
+    // — and setMode PERSISTS the choice, so it survived a reload. The default
+    // camera mode is 'auto', so this hit every player who had not changed it.
+    const back = this._bedReturn?.camMode;
+    this.cameraRig.setMode(back && back !== 'cinematic' ? back : 'auto');
     this._bedReturn = null;
   }
 
@@ -1321,7 +1361,11 @@ export class App {
       if (this.playerMarker && this.playerActor) {
         const b = this.playerActor.root.position;
         this.playerMarker.position.set(b.x, 1.45, b.z);
-        const fpDriving = this.cameraRig.mode === 'thirdPerson' || this.cameraRig.mode === 'firstPerson';
+        // FirstPersonControls.update() already calls body.update() for us, and
+        // cameraRig runs it in auto as well as fp/tps — so 'auto', the DEFAULT
+        // mode, was ticking the player's walk cycle, breath and hair spring
+        // twice per frame.
+        const fpDriving = this.cameraRig.mode !== 'director';
         if (!fpDriving) this.playerActor.update(dtSec);
         // penthouse only: swap apartment/balcony beds as the player crosses the glass
         this._ambT = (this._ambT || 0) + dtSec;
