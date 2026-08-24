@@ -357,3 +357,14 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 .set-seg { display: flex; gap: var(--s-1); }
 .set-seg-btn { padding: 3px var(--s-3); font-size: var(--t-tiny); }
 .set-seg-btn.sel { border-color: var(--cyan); color: var(--cyan); background: rgba(57, 230, 255, 0.10); }
+
+/* Cutscene skip affordance. There was none at all — the only way to discover a
+   cutscene was skippable was to press Space and notice. */
+#cutscene-skip {
+  position: absolute; right: var(--s-4); bottom: var(--s-4);
+  font-size: var(--t-tiny); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); pointer-events: none; opacity: 0;
+  transition: opacity var(--dur-slow) ease; z-index: var(--z-cinema);
+}
+#cutscene-skip.visible { opacity: 0.75; }
+#cutscene-skip b { color: var(--cyan); font-weight: 600; }

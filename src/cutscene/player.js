@@ -28,6 +28,7 @@ export class CutscenePlayer {
     this._skip = false;
     /** @type {Set<() => void>} things a Space press should resolve immediately */
     this._skipResolvers = new Set();
+    this._aborted = false;
     this._buildChrome();
 
     const d = deps;
@@ -50,13 +51,35 @@ export class CutscenePlayer {
     });
 
     document.addEventListener('keydown', (e) => {
-      if (!this.playing || e.code !== 'Space') return;
+      if (!this.playing) return;
+      // Escape abandons the WHOLE cutscene; Space advances one beat. The intro
+      // is about sixty seconds across twenty-one steps and Space only ever
+      // skipped one of them, so "skipping" it meant twenty-one presses — which
+      // is not a skip, and is worse on a replay when you have seen it before.
+      if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); this.abort(); return; }
+      if (e.code !== 'Space') return;
+      e.preventDefault();
       this._skip = true;
       // Poking the flag is not enough when the thing waiting on it is an rAF
       // loop in a hidden tab: nothing is running to notice. Anything currently
       // waiting registers a resolver so a skip reaches it directly.
       for (const fn of [...this._skipResolvers]) fn();
-    });
+      // CAPTURE phase, and we stop here: saveMenu also listens for Escape, and
+      // without this an abort would drop you straight into the pause screen.
+    }, true);
+  }
+
+  /**
+   * Abandon the rest of the cutscene. Every step handler checks `_aborted` and
+   * returns immediately, so the script drains in a tick and play()'s `finally`
+   * does the real teardown — one path out, whether the scene ended, was skipped,
+   * or hit the watchdog.
+   */
+  abort() {
+    if (!this.playing) return;
+    this._aborted = true;
+    this._skip = true;
+    for (const fn of [...this._skipResolvers]) fn();
   }
 
   _buildChrome() {
@@ -67,7 +90,13 @@ export class CutscenePlayer {
     this.lbBottom.className = 'letterbox bottom';
     this.titleEl = document.createElement('div');
     this.titleEl.id = 'titlecard';
-    ui.append(this.lbTop, this.lbBottom, this.titleEl);
+    // There was NO skip affordance anywhere, so the only way to learn a cutscene
+    // was skippable was to press Space and notice something changed. Sixty
+    // seconds of intro is a long time to sit through not knowing.
+    this.skipHint = document.createElement('div');
+    this.skipHint.id = 'cutscene-skip';
+    this.skipHint.innerHTML = '<b>Space</b> next beat &nbsp;·&nbsp; <b>Esc</b> skip';
+    ui.append(this.lbTop, this.lbBottom, this.titleEl, this.skipHint);
   }
 
   /** @param {any[]} steps */
@@ -82,6 +111,7 @@ export class CutscenePlayer {
     document.body.classList.add('cinema');
     this.lbTop.classList.add('active');
     this.lbBottom.classList.add('active');
+    this.skipHint.classList.add('visible');
     // A LAST-RESORT WATCHDOG.
     //
     // The specific rAF stall below is fixed, but the failure mode it caused is
@@ -102,6 +132,7 @@ export class CutscenePlayer {
         resolve();
       }, budgetMs);
     });
+    this._aborted = false;
     try {
       await Promise.race([this.runner.run(steps, {}), guard]);
     } finally {
@@ -109,6 +140,7 @@ export class CutscenePlayer {
       this._skipResolvers.clear();
       this.lbTop.classList.remove('active');
       this.lbBottom.classList.remove('active');
+      this.skipHint.classList.remove('visible');
       this.titleEl.classList.remove('visible');
       document.body.classList.remove('cinema');
       d.cameraRig.setMode(prevMode === 'cinematic' ? 'director' : prevMode);
@@ -119,9 +151,10 @@ export class CutscenePlayer {
   }
 
   async _wait(sec) {
+    if (this._aborted) return;
     const step = 0.05;
     let t = 0;
-    while (t < sec && !this._skip) {
+    while (t < sec && !this._skip && !this._aborted) {
       await new Promise((r) => setTimeout(r, step * 1000));
       t += step;
     }
@@ -151,6 +184,7 @@ export class CutscenePlayer {
    * difference. Whichever arrives first finishes the shot exactly once.
    */
   async _shot(s) {
+    if (this._aborted) return;
     const cam = this.d.stage.camera;
     const from = new THREE.Vector3(...s.from);
     const to = new THREE.Vector3(...(s.to || s.from));
@@ -179,7 +213,7 @@ export class CutscenePlayer {
         const k = raw * raw * (3 - 2 * raw);
         cam.position.lerpVectors(from, to, k);
         cam.lookAt(lookTarget());
-        if (raw >= 1 || this._skip) { finish(); return; }
+        if (raw >= 1 || this._skip || this._aborted) { finish(); return; }
         requestAnimationFrame(tick);
       };
       // + 250ms so the rAF path wins under normal conditions and this only ever
@@ -231,6 +265,7 @@ export class CutscenePlayer {
   }
 
   async _titleCard(s) {
+    if (this._aborted) return;
     this.titleEl.innerHTML = `
       <div class="tc-main neon-title">${s.text}</div>
       ${s.sub ? `<div class="tc-sub">${s.sub}</div>` : ''}`;
