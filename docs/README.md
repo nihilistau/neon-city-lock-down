@@ -16,7 +16,7 @@ then dive into a subsystem.
   gameplay, lighting, llm, voice), with live edit/save.
 - **[Creation Kit](creation-kit/README.md)** — the player-facing guide to authoring scenarios,
   events, cutscenes, dialogue, and voices in-game.
-- **[Demo Script](demo.md)** — a ~3-minute presenter walkthrough of the v0.2.0 features, the
+- **[Demo Script](demo.md)** — a ~3-minute presenter walkthrough (written for v0.2.0; the feature list has moved on considerably), the
   60-second social cut, and **[GIF storyboards](storyboard/README.md)** for the two "wow" moments.
 
 ### Systems (`systems/`)

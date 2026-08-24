@@ -3,15 +3,15 @@
 <p align="center"><em>an adults-only (18+) neon-noir 3D roleplay + survival game</em></p>
 
 <p align="center">
-  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-39e6ff?labelColor=0a0a12" alt="v0.2.0"></a>
+  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-39e6ff?labelColor=0a0a12" alt="v0.5.0"></a>
 </p>
 
 <blockquote align="center">
-🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0">v0.2.0 — Engine + Creation Kit</a></b> is out.<br>
+🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.5.0">v0.5.0 — Consequence, reachability, honesty</a></b> is out.<br>
 Neon-City is now an <b>engine + creation kit</b>: every value tunable in editable YAML, a full
 Voxtral <b>voice studio</b> (realtime TTS, library, baking, cloning — press <b>V</b>), and an
 in-game <b>Creation Kit</b> (press <b>G</b>) to author your own scenarios, events, cutscenes, and
-dialogue. <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0">Release notes →</a>
+dialogue. <a href="https://github.com/nihilistau/neon-city-lock-down/CHANGELOG.md">Changelog →</a>
 </blockquote>
 
 <p align="center">
@@ -92,14 +92,14 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 - **Procedural 3D everything.** Stylized humanoids on programmatic 34-bone
   skeletons with parametric skinning, physically-shaded skin (sheen) and hair
   (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
-  (procedural gait, pose clips, additive breathing, gaze). 15 zones across 7
+  (procedural gait, pose clips, additive breathing, gaze). 14 zones across 7
   floors, elevator transit, 10 lighting presets, time-of-day, a procedural city
   backdrop, rain, news-ticker monitors, and **openable velvet curtains** that draw
   across the glass to shut out the city.
-- **New-game flow & roguelike.** A main menu picks from 16 scenarios and 3
+- **New-game flow & roguelike.** A main menu picks from 17 scenarios (three earned by play) and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
-  repair, **22 world events** plus a scheduled extraction endgame (shuttle seats
+  repair, **28 world events** plus a scheduled extraction endgame (shuttle seats
   or stay), perma-death with a run summary, and light meta-progression (a codex
   of discovered lore + run history).
 - **Combat as a mode.** Breaches arrive in **waves** with a combat HUD (hostile
@@ -115,9 +115,9 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   consumables, valuables, and key items. Equip a weapon and combat uses it
   (ranged spend ammo, melee need reach); use medkits, stims, rations, whiskey, and
   a signal jammer; loot the armoury, med cabinet, and crates for real gear.
-- **Games & mind-games.** A bed game (38 actions, consent-ladder escalation),
-  truth-or-dare (21 truths + 21 dares that heat the whole room), 6 conversational
-  gambits resolved on dice, and 2 mystery cases with clue discovery,
+- **Games & mind-games.** A bed game (39 actions, consent-ladder escalation),
+  truth-or-dare (21 truths + 21 dares that heat the whole room), 3 mystery cases, 6 conversational
+  gambits resolved on dice, and 3 mystery cases with clue discovery,
   interrogation, and accusation.
 - **Generative audio.** A WebAudio bus graph with voice ducking, a music
   conductor whose mood matrix reacts to threat / combat / intimacy, 12 synth SFX,
@@ -125,9 +125,9 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   voice lines** (plus an optional live TTS sidecar for un-baked lines).
 - **Cinematics & a Director panel.** Camera-spline cutscenes with letterbox and
   subtitles; an 8-tab director console to stage lighting, cast, dialogue,
-  actions, 16 scenarios, the world, games, and settings.
+  actions, 17 scenarios, the world, games, and settings.
 - **Save/load & easter eggs.** Multiple save slots + autosave (deleted on death),
-  JSON export (export-only — there is no import yet), a playable bar synth, a
+  JSON export and import, a playable bar synth, a
   fish tank that dies in long blackouts, a balcony telescope, VOX growing fond of
   you across nights, and a Konami-code maintenance-shaft stash.
 
@@ -209,7 +209,9 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # === node --test — 103 unit tests (stats, gates, dialogue, combat, theory…)
+npm test                              # node --test — unit suites (stats, gates, dialogue, combat, sim…)
+npm run test:e2e                      # playwright — 8 end-to-end tests in a real headless browser
+npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
 node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js
 node tools/bake-tts.mjs               # (re)bake voice lines via the voxtral CLI (incremental by hash)
@@ -270,6 +272,10 @@ than graphic. All characters are adults; every escalation is consent-gated
 in-fiction.
 
 ## License
-Original work. All assets (geometry, textures, audio, UI) are procedurally
-generated or hand-authored for this project. three.js is vendored under its MIT
-license.
+Original work. All geometry, audio and UI are procedurally generated or
+hand-authored for this project. The 23 committed image assets (character face
+underpaints, HUD icons, fabric detail maps, the city plates) were generated for
+this project via the xAI image API and processed by `tools/gen-art.mjs`; every
+one has its prompt and processing recorded in `tools/art/manifest.mjs`, so any
+of them can be regenerated from source. Oxanium and IBM Plex Sans are vendored
+under the SIL Open Font License. three.js is vendored under its MIT license.

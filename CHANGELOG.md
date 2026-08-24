@@ -3,7 +3,72 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
-## [Unreleased] — 0.4 overhaul (in progress)
+## [0.5.0] — 2026-08-24 — Consequence, reachability, honesty
+
+A review-and-repair pass over v0.4. Every claim below was measured in a live run
+or a live browser rather than inspected; where a number is quoted, it is the
+number that came back.
+
+### Added
+- **Ambient occlusion** (`src/scene3d/aoPass.js`) — reconstructs view-space
+  position from the composer's existing depth attachment, so no second geometry
+  pass and no new vendored addon. 25.3% of pixels darkened, 1.5ms a frame.
+- **`render` config group + `config/render.yaml`** — shadows, shadow map size,
+  AO, bloom, grain and FOV were all hardcoded across `src/scene3d/*`.
+- **A real settings screen** (`src/ui/settingsPanel.js`), shared by the main menu
+  and the pause screen. 15 controls including graphics, which had none anywhere.
+- **Accessibility**: focus-visible, `prefers-reduced-motion`, `prefers-contrast`,
+  six live regions, and modal roles/labels/focus owned by `modalStack`.
+- **Minigames reachable in-run** — new `effects.game` topic verb plus intents, so
+  asking someone to play cards, truth-or-dare or come to bed opens the game. The
+  VOX terminal carries a case board for the three mysteries.
+- **Refugees can work or leave** (`refugee_work`, `refugee_release` day actions).
+- **Rationing on the plan panel** — previously settable only from the debug drawer.
+- **Meta unlocks**: three scenarios earned by play. Locked cards are shown with
+  their condition rather than hidden.
+- **Self-hosted webfonts** under `vendor/fonts/` — 95KB, six static instances.
+- **Design tokens**: a ten-rung type scale, a 4px spacing rhythm, radius,
+  elevation and motion tokens, joining the z-index scale.
+- **An end-to-end smoke suite** (`npm run test:e2e`) — 8 Playwright tests driving
+  a real headless browser through boot, panels, saves, all seven floors, the
+  minigames, the ration economy and death.
+- **Hostile wardrobes** — they were spawning naked under an accessory kit.
+
+### Changed
+- The neon runs now cast light. A hue census of the rendered frame across eight
+  penthouse camera angles read 61.8% warm amber against 3.8% cyan in a game
+  whose identity is cyan and magenta; the `neon_night` kit was rebalanced from
+  95/34/42 to 34/46/58, giving 42.3% warm and 10.9% cyan.
+- `PCFSoftShadowMap` replaces the 1-texel-hard `PCFShadowMap`.
+- Rim lights are pooled at a fixed count instead of one per actor, so a hostile
+  wave no longer changes the scene's light count and recompiles every shader.
+- Every floor's shaders precompile at world build: 36 compiles across a tour of
+  the tower became zero.
+- Dialogue: ~112 line variants across 88 topics became 236, gated on real state.
+- `--mono` resolves to an actual monospace font.
+- `tools/lint-data.mjs` discovers dialogue packs instead of importing a list.
+- `npm test` is unit-only; `test:e2e` and `test:all` sit beside it.
+
+### Fixed
+- **Seven write-only systems now have consequences**: `fortified`,
+  `garden_blight`, `injury.bleeding`, hostile `aggression`, outfit `warmth`,
+  item `value` and the `zone.entered` event, plus `meta.unlock()` which was
+  exported, never called and never read.
+- **The food economy closes.** Four mouths needed 12 food/day against a forage
+  ceiling that made every action point mandatory, and a refugee made the run
+  unrecoverable. Measured after: 12 vs 14.2, and a refugee is a pressure you can
+  answer.
+- `enterBedScene` swapped the floor group without moving anything else, leaving
+  the avatar 1190 world units away in the basement while the camera sat at the
+  bedside. `App.setFloor()` is now the only floor-change path.
+- Head accessories derive from the head: glasses sat 6.5cm below the eyes and
+  2.5x too wide; earrings floated 1.4cm off the skull beside the jaw.
+- Per-frame heap allocation roughly halved (3843 → 2137 bytes/frame with four
+  actors walking), led by `cfg()` splitting its path string on every call.
+- Repairs at the VOX terminal early-returned past everything below them.
+- The smoke test asserted nothing and could not fail.
+
+## [0.4.0] — 2026-08-13 — Living loop, unique floors, hybrid HUD
 
 ### Changed
 - Boot goes straight to the main menu (handle + body on New Run). No 18+ click-through.
@@ -42,6 +107,26 @@ All notable changes to Neon-City: Lock-Down. This project adheres to
 - Grok marks cropped off the skyline plate, window map, and fabric textures. HUD icons already key out on green.
 
 ---
+
+## [0.3.0] — 2026-08-13 — Correctness pass + render/avatar overhaul
+
+Never given its own entry at the time. Recorded here from the merge (`ae158ed`).
+
+### Added
+- Procedural image-based lighting (PMREM), real MSAA through the composer, film
+  grain after tone-mapping, a threat readout on the HUD.
+- Welded skinned humanoid rebuild: 3-4 influence chain skinning, swept limb
+  profiles, strand hair on real bones, driven jaw and eye bones.
+
+### Fixed
+- ~30 correctness bugs across soft-locks, frozen accessors, mortality, seat
+  heights and cap desync.
+- The "blinking lights on every head" — root-caused by measuring peak luminance
+  and bisecting contributors, after three wrong guesses. It was hair specular,
+  not the eyes or the env map.
+- Tower systems and dead flags given consequences; HUD layout collisions.
+- LM Studio credential untracked (the key still needs rotating — it remains in
+  pre-merge history).
 
 ## [0.2.0] — 2026-07-19 — Engine + Creation Kit
 

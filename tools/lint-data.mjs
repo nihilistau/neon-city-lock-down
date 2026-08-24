@@ -7,7 +7,7 @@
 // Node can't import three.js (browser globals), so data modules that transitively
 // import three are loaded via a lightweight three shim registered on the loader.
 import { pathToFileURL } from 'node:url';
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -92,6 +92,26 @@ async function main() {
       if (t.intent && !intentRegistry.has(t.intent)) err(`${topic.id}: trigger intent "${t.intent}" unknown`);
     }
   }
+  // The Creation Kit's own cheatsheet is documentation people WRITE CONTENT
+  // against, so a verb missing from it is a verb nobody uses. It documented 25
+  // of 27 across two releases. Checked from the source of truth, both ways.
+  {
+    const runnerSrc = await readFile(join(ROOT, 'src', 'sim', 'eventRunner.js'), 'utf8');
+    const real = [...runnerSrc.matchAll(/^ {6}([a-zA-Z]+): \(/gm)].map((m) => m[1]);
+    const docSrc = await readFile(join(ROOT, 'docs', 'event-catalog.md'), 'utf8');
+    // ONLY the verb table — the file has other tables, and a loose scan reads
+    // their first columns as verb names
+    const table = docSrc.slice(docSrc.indexOf('| type | fields | effect |'), docSrc.indexOf('**Note:**'));
+    const documented = new Set([...table.matchAll(/^\| `([a-zA-Z]+)`/gm)].map((m) => m[1]));
+    // `powerDown / powerUp` share one row
+    for (const m of table.matchAll(/`([a-zA-Z]+)` \/ `([a-zA-Z]+)`/g)) { documented.add(m[1]); documented.add(m[2]); }
+    const undocumented = real.filter((v) => !documented.has(v));
+    const phantom = [...documented].filter((v) => !real.includes(v));
+    if (undocumented.length) err(`event verbs missing from docs/event-catalog.md: ${undocumented.join(', ')}`);
+    if (phantom.length) err(`docs/event-catalog.md documents verbs that do not exist: ${phantom.join(', ')}`);
+    if (!undocumented.length && !phantom.length) ok(`event verbs: ${real.length}, all documented`);
+  }
+
   ok('referential checks complete');
 
   if (errors) { console.error(`\n${errors} content error(s).`); process.exit(1); }
