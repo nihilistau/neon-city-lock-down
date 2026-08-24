@@ -50,7 +50,28 @@ number that came back.
 - `npm test` is unit-only; `test:e2e` and `test:all` sit beside it.
 
 ### Fixed
-- **Seven write-only systems now have consequences**: `fortified`,
+- **Alt-tabbing during a cutscene froze the game permanently.** Camera shots drove
+  themselves from requestAnimationFrame, which a browser STOPS in a hidden tab —
+  so the shot never resolved, the cutscene's `finally` never ran, and the sim
+  stayed paused for the rest of the session with no way back. The only symptom
+  was "I can't move or turn the camera". A timer backstop, a skip that reaches a
+  stalled shot directly, and a watchdog under the whole thing.
+- **Escape now skips a whole cutscene**, and the game says so. Space advanced one
+  of twenty-one beats, and there was no skip affordance anywhere.
+- **Seeded runs stopped being reproducible on load.** `rng` was captured in every
+  save and never restored — `Rng.deserialize` had zero call sites.
+- **`exitBedScene` dropped you into `director`**, a spectator mode with no
+  movement, and persisted the choice across reloads.
+- **Graphics settings did nothing** — written to the in-memory store only, then
+  discarded by the next boot, while the panel promised "applies on reload".
+- **`world.precompile()` ran before the lights existed**, so every program it
+  compiled was the wrong variant and the stall it prevents still happened.
+- **Rim lights were claimed at spawn and never re-claimed**, so the effect
+  stopped existing after the first fight and Kai never had one at all.
+- **`gesture_cross_arms` spread the arms** (elbows 0.475m → 0.630m, hands behind
+  the torso). It is the first pose a new player ever sees.
+- Free-food exploit: `refugee_work`'s once-a-day guard read a field nothing wrote.
+- Seven write-only systems now have consequences: `fortified`,
   `garden_blight`, `injury.bleeding`, hostile `aggression`, outfit `warmth`,
   item `value` and the `zone.entered` event, plus `meta.unlock()` which was
   exported, never called and never read.
