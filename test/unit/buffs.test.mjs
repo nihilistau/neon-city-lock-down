@@ -21,16 +21,37 @@ test('stim buffs skill and morale instead of a missing stamina field', () => {
   assert.ok((app.run.flags.stimUntil ?? 0) > 100, 'stim stamps an expiry minute');
 });
 
-test('stim expires and removes the skill boost', () => {
+test('stim on a TRAINED player round-trips exactly — the clamp bug', () => {
+  // Pinned at 92, not the 60 default: the bug only exists where the grant is
+  // clamped. Skill 92 + 12 clamps to 100 (a grant of 8), and expiry used to
+  // subtract the nominal 12 — leaving 88, four points BELOW where the stim
+  // started. dayPlan training caps at 92, so this is a reachable state and
+  // every stim above 88 quietly cost the player skill.
   const app = fakeApp();
-  const before = app.run.player.skill;
+  app.run.player.skill = 92;
   ITEMS.stim.use(app);
-  const boosted = app.run.player.skill;
+  assert.equal(app.run.player.skill, 100, 'the grant clamps at 100');
+  assert.equal(app.run.flags.stimSkillBoost, 8, 'the RECORDED boost is what was actually applied');
+
   tickBuffs(app.run, 100);
-  assert.equal(app.run.player.skill, boosted, 'still active at the start minute');
+  assert.equal(app.run.player.skill, 100, 'still active at the start minute');
   tickBuffs(app.run, app.run.flags.stimUntil);
-  assert.equal(app.run.player.skill, before, 'boost falls off at expiry');
+  assert.equal(app.run.player.skill, 92, 'expiry must return skill to where the stim found it');
   assert.equal(app.run.flags.stimUntil, null);
+  assert.equal(app.run.flags.stimSkillBoost, 0);
+});
+
+test('stim below the clamp still round-trips, and repeated stims never drift', () => {
+  const app = fakeApp();
+  for (const start of [60, 85, 88, 89, 95, 100]) {
+    app.run.player.skill = start;
+    app.run.flags.stimUntil = null;
+    ITEMS.stim.use(app);
+    assert.ok(app.run.player.skill <= 100, 'skill never exceeds 100');
+    assert.ok(app.run.player.skill >= start, 'a stim never lowers skill');
+    tickBuffs(app.run, app.run.flags.stimUntil);
+    assert.equal(app.run.player.skill, start, `stim from ${start} must return to ${start}`);
+  }
 });
 
 test('medkit heals the player and does not wipe NPC injuries', () => {

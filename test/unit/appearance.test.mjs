@@ -106,10 +106,78 @@ test('leather and silk fabric maps are on disk', () => {
   assert.ok(existsSync(join(root, 'assets/city/skyline.jpg')));
 });
 
-test('elevator picker does not go through event.choice', () => {
-  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src/ui/elevator.js'), 'utf8');
-  assert.ok(src.includes('elev-picker'));
-  assert.ok(!src.includes('event.choice'));
+test('the elevator picker really renders, really dismisses, and really rides', async () => {
+  // Was: a grep of elevator.js for the string 'elev-picker', which passes if the
+  // string appears in a comment and passes against a completely broken picker.
+  // This drives the real thing under jsdom instead.
+  const { JSDOM } = await import('jsdom');
+  const dom = new JSDOM('<!doctype html><body><div id="ui"></div><div id="overlay"></div></body>');
+  const g = /** @type {any} */ (globalThis);
+  g.window = dom.window; g.document = dom.window.document;
+  g.HTMLElement = dom.window.HTMLElement;
+  g.HTMLInputElement = dom.window.HTMLInputElement;
+  g.HTMLTextAreaElement = dom.window.HTMLTextAreaElement;
+  g.HTMLSelectElement = dom.window.HTMLSelectElement;
+
+  const { ElevatorUI } = await import('../../src/ui/elevator.js');
+  const { initModalStack, isModalOpen } = await import('../../src/ui/modalStack.js');
+  const { travelMinutes } = await import('../../src/sim/actors/nav.js');
+  const { FLOORS } = await import('../../data/zones.js');
+  initModalStack();
+
+  const paused = [];
+  const app = {
+    world: { activeFloor: 'penthouse' },
+    run: { systems: { elevator: { locked: false } } },
+    loop: { pause: (r) => paused.push(['pause', r]), resume: (r) => paused.push(['resume', r]) },
+  };
+  const ui = new ElevatorUI(/** @type {any} */ (app));
+  let rode = null;
+  ui.ride = async (id) => { rode = id; };
+
+  const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  const overlay = dom.window.document.getElementById('overlay');
+
+  // ── it renders one row per floor, and the current floor is not a destination
+  ui.openPicker();
+  let picker = overlay.querySelector('.elev-picker');
+  assert.ok(picker, 'no picker mounted into #overlay');
+  const rows = [...picker.querySelectorAll('button[data-id]')];
+  assert.equal(rows.length, Object.keys(FLOORS).length, 'one button per floor');
+  const here = rows.find((b) => b.dataset.id === 'penthouse');
+  assert.equal(here.disabled, true, 'you cannot ride to the floor you are on');
+  const roof = rows.find((b) => b.dataset.id === 'rooftop');
+  assert.equal(roof.disabled, false);
+  assert.match(roof.textContent, new RegExp(`${travelMinutes('penthouse', 'rooftop')} min`));
+  assert.deepEqual(paused.at(-1), ['pause', 'elevator'], 'opening the picker pauses the sim');
+  assert.equal(isModalOpen(), true, 'the picker must be on the modal stack, not floating free');
+
+  // ── a click on the backdrop dismisses it and hands the sim back
+  click(picker);
+  assert.equal(overlay.querySelector('.elev-picker'), null, 'backdrop click must dismiss');
+  assert.deepEqual(paused.at(-1), ['resume', 'elevator']);
+  assert.equal(isModalOpen(), false);
+
+  // ── Escape dismisses it too (it used to be a trap with no Esc handler)
+  ui.openPicker();
+  dom.window.document.dispatchEvent(
+    new dom.window.KeyboardEvent('keydown', { code: 'Escape', bubbles: true }));
+  assert.equal(overlay.querySelector('.elev-picker'), null, 'Escape must dismiss');
+  assert.deepEqual(paused.at(-1), ['resume', 'elevator']);
+
+  // ── picking a floor closes the picker and rides to THAT floor
+  ui.openPicker();
+  picker = overlay.querySelector('.elev-picker');
+  click(picker.querySelector('button[data-id="fl27"]'));
+  assert.equal(rode, 'fl27', 'the picked floor must be the floor ridden to');
+  assert.equal(overlay.querySelector('.elev-picker'), null, 'picking closes the picker');
+
+  // ── "Stay" closes without riding
+  rode = null;
+  ui.openPicker();
+  click(overlay.querySelector('.elev-picker button[data-cancel]'));
+  assert.equal(rode, null, 'Stay must not ride anywhere');
+  assert.equal(overlay.querySelector('.elev-picker'), null);
 });
 
 test('itemIconSrc maps fists and medkit onto HUD art', async () => {

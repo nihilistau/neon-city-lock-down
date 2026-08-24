@@ -179,6 +179,43 @@ test.describe('Neon-City: Lock-Down', () => {
     }
   });
 
+  test('a cutscene cannot leave the game frozen — even in a hidden tab', async ({ page }) => {
+    await bootToRun(page);
+    // THE BUG THIS GUARDS. Camera shots drove themselves purely from
+    // requestAnimationFrame, which a browser stops ENTIRELY in a hidden tab —
+    // not throttled, stopped. So alt-tabbing during the ~60s intro meant the
+    // shot's promise never resolved, play()'s finally never ran, and
+    // loop.resume('cutscene') never happened: the sim stayed paused forever with
+    // no way back. The only symptom is "I can't move or turn the camera", which
+    // reads as broken controls rather than a cutscene that never ended.
+    const result = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      // a short script with a shot in it — the step that used to stall
+      const steps = [
+        { type: 'shot', from: [2, 1.6, 4], to: [-1, 1.6, 2], look: [-3, 1.3, 0], dur: 1.2 },
+        { type: 'wait', sec: 0.3 },
+      ];
+      // convince the page it is hidden, exactly as an alt-tab would
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      const rafStub = window.requestAnimationFrame;
+      window.requestAnimationFrame = () => 0;   // the browser's hidden-tab behaviour
+
+      const t0 = performance.now();
+      await app.cutscene.play(steps);
+      const elapsed = performance.now() - t0;
+
+      window.requestAnimationFrame = rafStub;
+      return { elapsed, paused: app.loop.paused, reasons: [...app.loop.pauseReasons], playing: app.cutscene.playing };
+    });
+    expect(result.playing, 'the cutscene must finish').toBe(false);
+    expect(result.reasons, 'the cutscene pause token must be released').not.toContain('cutscene');
+    expect(result.paused, 'the sim must be running again').toBe(false);
+    // the timer backstop lands a little after the declared duration, never never
+    expect(result.elapsed).toBeLessThan(20000);
+  });
+
   test('death ends the run and records it', async ({ page }) => {
     await bootToRun(page);
     const result = await page.evaluate(async () => {

@@ -3,6 +3,10 @@
 // letterboxing, title cards, subtitled+voiced lines, cast staging. The world
 // sim pauses (render continues); Space/click skips the current line's wait.
 import * as THREE from 'three';
+
+// scratch for the per-frame look target — this ran every frame of every shot
+const _scratch = new THREE.Vector3();
+const _fallbackLook = new THREE.Vector3(0, 1.4, 0);
 import { ScriptRunner } from '../core/script.js';
 import { audio } from '../audio/engine.js';
 
@@ -22,6 +26,8 @@ export class CutscenePlayer {
     this.runner = new ScriptRunner('cutscene');
     this.playing = false;
     this._skip = false;
+    /** @type {Set<() => void>} things a Space press should resolve immediately */
+    this._skipResolvers = new Set();
     this._buildChrome();
 
     const d = deps;
@@ -44,7 +50,12 @@ export class CutscenePlayer {
     });
 
     document.addEventListener('keydown', (e) => {
-      if (this.playing && e.code === 'Space') this._skip = true;
+      if (!this.playing || e.code !== 'Space') return;
+      this._skip = true;
+      // Poking the flag is not enough when the thing waiting on it is an rAF
+      // loop in a hidden tab: nothing is running to notice. Anything currently
+      // waiting registers a resolver so a skip reaches it directly.
+      for (const fn of [...this._skipResolvers]) fn();
     });
   }
 
@@ -71,9 +82,31 @@ export class CutscenePlayer {
     document.body.classList.add('cinema');
     this.lbTop.classList.add('active');
     this.lbBottom.classList.add('active');
+    // A LAST-RESORT WATCHDOG.
+    //
+    // The specific rAF stall below is fixed, but the failure mode it caused is
+    // severe enough to deserve a floor under it: while a cutscene runs, the sim
+    // is paused, so ANY step that never settles leaves the game permanently
+    // frozen with no way back. A player cannot recover from that, and the only
+    // symptom is "I can't move" — which reads as the controls being broken
+    // rather than a cutscene that never ended.
+    //
+    // So: a generous budget derived from the script's own declared durations,
+    // and if it is exceeded, tear down anyway. Finishing early looks like a
+    // slightly abrupt cut; not finishing costs the run.
+    const budgetMs = 8000 + steps.reduce((t, st) => t + ((st.dur ?? st.sec ?? 0) * 1000), 0) * 2;
+    let watchdog;
+    const guard = new Promise((resolve) => {
+      watchdog = setTimeout(() => {
+        console.warn(`[cutscene] exceeded ${Math.round(budgetMs / 1000)}s budget — forcing an exit so the sim can resume`);
+        resolve();
+      }, budgetMs);
+    });
     try {
-      await this.runner.run(steps, {});
+      await Promise.race([this.runner.run(steps, {}), guard]);
     } finally {
+      clearTimeout(watchdog);
+      this._skipResolvers.clear();
       this.lbTop.classList.remove('active');
       this.lbBottom.classList.remove('active');
       this.titleEl.classList.remove('visible');
@@ -95,25 +128,65 @@ export class CutscenePlayer {
     this._skip = false;
   }
 
-  /** camera flight: from → to (world), easing, look at fixed point or a character */
+  /**
+   * Camera flight: from → to (world), easing, look at a fixed point or a character.
+   *
+   * THE TAB-SWITCH FREEZE
+   * This used to drive itself purely from requestAnimationFrame. A browser stops
+   * rAF ENTIRELY in a hidden tab — not throttled, stopped — so alt-tabbing during
+   * a cutscene meant this promise never resolved, `play()` never returned, its
+   * `finally` never ran, and `loop.resume('cutscene')` never happened. The game
+   * was then permanently frozen: no movement, no camera control, the clock
+   * stopped dead. Reproduced with the intro cutscene (about 60 seconds of
+   * unskippable shots, so alt-tabbing through it is likely rather than exotic):
+   * visibilityState 'hidden', zero rAF callbacks in 1.5s, and the loop still
+   * holding its cutscene token a minute later.
+   *
+   * Space could not rescue it either, because the skip check lived INSIDE the
+   * rAF callback that had stopped running.
+   *
+   * So: rAF still drives the smooth motion when the tab is visible, and a
+   * setTimeout backstop guarantees completion when it is not. Timers are
+   * throttled in a hidden tab but they do still FIRE, which is the whole
+   * difference. Whichever arrives first finishes the shot exactly once.
+   */
   async _shot(s) {
     const cam = this.d.stage.camera;
     const from = new THREE.Vector3(...s.from);
     const to = new THREE.Vector3(...(s.to || s.from));
     const dur = s.dur ?? 4;
     const lookTarget = s.lookChar
-      ? () => this.d.cast[s.lookChar].actor.rig.byName.head.getWorldPosition(new THREE.Vector3())
-      : () => new THREE.Vector3(...(s.look || [0, 1.4, 0]));
+      ? () => this.d.cast[s.lookChar]?.actor.rig.byName.head.getWorldPosition(_scratch) || _fallbackLook
+      : () => _scratch.set(...(s.look || [0, 1.4, 0]));
     const t0 = performance.now();
     return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(guard);
+        this._skipResolvers.delete(finish);
+        this._skip = false;
+        // land the camera exactly on `to` — a backstop finish may not have run
+        // a frame at raw === 1, and leaving the shot short reads as a jump cut
+        cam.position.copy(to);
+        cam.lookAt(lookTarget());
+        resolve();
+      };
       const tick = () => {
+        if (done) return;
         const raw = Math.min(1, (performance.now() - t0) / (dur * 1000));
         const k = raw * raw * (3 - 2 * raw);
         cam.position.lerpVectors(from, to, k);
         cam.lookAt(lookTarget());
-        if (raw >= 1 || this._skip) { this._skip = false; resolve(); return; }
+        if (raw >= 1 || this._skip) { finish(); return; }
         requestAnimationFrame(tick);
       };
+      // + 250ms so the rAF path wins under normal conditions and this only ever
+      // fires when frames genuinely are not arriving
+      const guard = setTimeout(finish, dur * 1000 + 250);
+      // let a Space press resolve us directly rather than waiting to be polled
+      this._skipResolvers.add(finish);
       tick();
     });
   }
