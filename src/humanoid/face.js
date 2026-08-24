@@ -19,6 +19,11 @@ import * as THREE from 'three';
 import { cfg } from '../core/config.js';
 
 const _e = new THREE.Euler();
+// Hoisted out of FaceRig.update(): these were re-created every frame for every
+// visible actor purely to be iterated once.
+const SIDES = ['L', 'R'];
+const MOUTH_KEYS = ['w', 'curve', 'open', 'pout'];
+const VISEME_KEYS = ['open', 'wide', 'round', 'teeth'];
 
 /**
  * Face patch geometry, in FRACTIONS OF BODY HEIGHT. Exported because
@@ -40,6 +45,14 @@ export const FACE_PATCH = {
   eyeRadius: 0.0130,
 };
 
+/**
+ * Personas that ship a face underpaint under assets/chars/<id>/face.jpg.
+ * Anything not listed uses the purely procedural face: every hostile, every
+ * refugee, VOX — and the PLAYER, deliberately, because a fixed face texture
+ * contradicts the appearance editor's 6 skin tones x 7 hair styles.
+ */
+export const FACE_ASSETS = new Set(['lola', 'aria', 'kai']);
+
 // canvas-space layout (fractions of the 256² face patch). Canvas-left is the
 // character's RIGHT (we look at the face from +Z), so LAYOUT.eyeL drives bone eyeR.
 export const LAYOUT = {
@@ -50,6 +63,43 @@ export const LAYOUT = {
   mouth: { x: 0.5, y: 0.725 },
   noseY: 0.615,
 };
+
+/**
+ * Soft skin-toned wash over the bands where the identity underpaint paints its
+ * OWN brows and mouth.
+ *
+ * The underpaint is a photo/render of a whole face, so it arrives with features
+ * already on it. The procedural layer then draws brows, a nose and lips on top —
+ * and those are the ANIMATED ones (visemes, blinks, expressions). Drawn together
+ * you get two mouths and two sets of eyebrows, one of them frozen; that is the
+ * first thing a viewer sees. Suppressing the procedural set instead is not an
+ * option — the face would stop emoting entirely.
+ *
+ * So the underpaint keeps what it is good at (skin tone, cheekbones, jaw shading,
+ * identity) and gives up the two regions the rig animates.
+ * @param {CanvasRenderingContext2D} ctx @param {number} W @param {any} colors
+ */
+export function maskUnderFeatures(ctx, W, colors) {
+  const wash = (cx, cy, rx, ry, alpha) => {
+    const r = Math.max(rx, ry);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, colors.skin);
+    g.addColorStop(0.6, colors.skin);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx, cy);
+    ctx.scale(1, ry / r);
+    ctx.translate(-cx, -cy);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  wash(W * 0.5, LAYOUT.browY * W + 2, W * 0.30, W * 0.055, 0.92);   // brow band
+  wash(LAYOUT.mouth.x * W, LAYOUT.mouth.y * W, W * 0.17, W * 0.075, 0.94);  // mouth band
+}
 
 /** canvas (u,v) → patch surface point, in height fractions, relative to body origin */
 export function patchSurface(u, v, out = new THREE.Vector3()) {
@@ -153,8 +203,13 @@ export class FaceRig {
     this._sinceDraw = 0;
     this._redrawHz = cfg('humanoid.face.redrawHz', 15);
     this._under = null;
-    if (typeof Image !== 'undefined') {
-      const underUrl = persona.faceAsset || `/assets/chars/${persona.id}/face.jpg`;
+    // Only fetch art we actually ship. Hostile ids are generated at spawn
+    // (`hostile_0_4732`), refugees are `refugee`/`refugee2`, VOX is bodiless —
+    // every one of them fired a 404, i.e. one per hostile per combat wave, on
+    // the spawn hot path.
+    const underUrl = persona.faceAsset
+      || (FACE_ASSETS.has(persona.id) ? `/assets/chars/${persona.id}/face.jpg` : null);
+    if (typeof Image !== 'undefined' && underUrl) {
       const img = new Image();
       img.onload = () => { this._under = img; this._dirty = true; };
       img.onerror = () => { this._under = null; };
@@ -324,7 +379,7 @@ export class FaceRig {
     const k = Math.min(1, dt * 14);
     this._eyeYaw += (this.state.gaze.x * 0.5 - this._eyeYaw) * k;
     this._eyePitch += (-this.state.gaze.y * 0.32 - this._eyePitch) * k;
-    for (const side of ['L', 'R']) {
+    for (const side of SIDES) {
       const bone = this.eyeBones[side];
       if (bone) bone.quaternion.setFromEuler(_e.set(this._eyePitch, this._eyeYaw, 0, 'XYZ'));
     }
@@ -333,7 +388,7 @@ export class FaceRig {
     const target = MOUTHS[this.state.mouth] || MOUTHS.neutral;
     const cur = this._mouthCur;
     const mk = Math.min(1, dt * 10);
-    for (const key of ['w', 'curve', 'open', 'pout']) {
+    for (const key of MOUTH_KEYS) {
       const t = target[key] ?? 0;
       if (Math.abs(cur[key] - t) > 0.003) { cur[key] += (t - cur[key]) * mk; this._dirty = true; }
     }
@@ -386,7 +441,7 @@ export class FaceRig {
       this._visTarget = VISEMES.rest;
     }
     const kk = Math.min(1, dt * 22);
-    for (const key of ['open', 'wide', 'round', 'teeth']) {
+    for (const key of VISEME_KEYS) {
       const d = (next[key] ?? 0) - this._vis[key];
       if (Math.abs(d) > 0.004) { this._vis[key] += d * kk; this._dirty = true; }
     }
@@ -423,6 +478,7 @@ export class FaceRig {
       ctx.globalAlpha = 0.88;
       ctx.drawImage(this._under, W * -0.06, W * -0.08, W * 1.12, W * 1.16);
       ctx.globalAlpha = 1;
+      maskUnderFeatures(ctx, W, colors);
     }
 
     // blush

@@ -2,6 +2,8 @@
 // Codex viewer — the persistent record of lore/easter eggs discovered across
 // runs. Opened with 'K'. Reads the meta store (survives perma-death).
 import { meta } from '../sim/meta.js';
+import { escapeHtml } from './widgets.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class Codex {
   /** @param {import('../core/app.js').App} app */
@@ -19,14 +21,17 @@ export class Codex {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('codex'); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('codex'); closeModal('codex'); }
 
   show() {
     this.open = true;
-    this.app.loop.pause('codex');
+    this.app.loop.pause('codex'); openModal('codex', () => this.close());
     const overlay = document.getElementById('overlay');
     const entries = meta.codex.length
-      ? meta.codex.map((c) => `<div class="cx-entry"><div class="cx-title">◈ ${c.title}</div><div class="cx-text">${c.text}</div></div>`).join('')
+      // Codex entries reach addCodex() from event scripts, and events can be
+      // authored in user/events/*.json — so these are NOT trusted strings.
+      // Reproduced: an entry containing <b id="…"> created a live DOM node.
+      ? meta.codex.map((c) => `<div class="cx-entry"><div class="cx-title">◈ ${escapeHtml(c.title)}</div><div class="cx-text">${escapeHtml(c.text)}</div></div>`).join('')
       : '<p>Nothing discovered yet. Explore the tower, talk to VOX, find what\'s hidden.</p>';
     const el = document.createElement('div');
     el.className = 'screen';

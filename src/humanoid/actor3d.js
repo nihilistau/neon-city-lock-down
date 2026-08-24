@@ -8,6 +8,7 @@ import { buildBody } from './bodyBuilder.js';
 import { FaceRig } from './face.js';
 import { Animator } from './animator.js';
 import { attachAccessories } from './accessories.js';
+import { rimPool } from '../scene3d/rimPool.js';
 
 /** Material texture slots an actor can own; all must be disposed with the body. */
 const TEXTURE_SLOTS = [
@@ -37,16 +38,10 @@ export class Actor3D {
     this.facingTarget = null; // yaw radians the body eases toward
     this._yawVel = 0;
 
-    // Rim light that travels with the character for the neon look.
-    //
-    // It MUST stay clear of the body: with decay 2, a point 0.1m away receives
-    // ~100x the intensity, so any geometry that reaches the light blows to pure
-    // white. It used to sit 0.55m behind the head, which was empty space when
-    // hair was a small skull cap — the strand hair now falls back through that
-    // point, which put a blazing blob on the back of every head.
-    this.rim = new THREE.PointLight(new THREE.Color(persona.accent), 0, 2.6, 2);
-    this.rim.position.set(0, persona.body.height * 0.92, -0.95);
-    this.root.add(this.rim);
+    // The neon rim light is NOT owned here — see scene3d/rimPool.js. One
+    // PointLight per actor meant the scene's light count grew and shrank with
+    // every hostile wave, and each distinct count is a separate shader program,
+    // so a spawn mid-fight recompiled every material on screen.
     attachAccessories(this, persona);
   }
 
@@ -92,8 +87,8 @@ export class Actor3D {
   /** set arousal/energy tempo scalar (drives tempoScaled clips + breath) */
   setTempo(t) { this.animator.tempo = t; }
 
-  /** @param {number} v 0..1 rim intensity */
-  setRim(v) { this.rim.intensity = v * 2.2; }
+  /** @param {number} v 0..1 rim intensity — claims a slot from the shared pool */
+  setRim(v) { rimPool.set(this, v); }
 
   /**
    * @param {number} dt seconds
@@ -122,6 +117,9 @@ export class Actor3D {
   }
 
   dispose() {
+    // a disposed body must not keep a pool slot alive — the pool would go on
+    // tracking a torn-down actor and starve the next hostile that needs one
+    rimPool.release(this);
     this.root.traverse((o) => {
       const m = /** @type {THREE.Mesh} */ (o);
       if (m.geometry) m.geometry.dispose();

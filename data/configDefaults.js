@@ -118,6 +118,12 @@ export const CONFIG_DEFAULTS = {
       moraleFoodDrain: 1.2, moraleWaterDrain: 1.5, moraleRecover: 0.25,
       castFoodShortAt: 0.3, castWaterShortAt: 0.3,
       warnFoodAt: 6, warnWaterAt: 8,
+      // NPC mortality from deprivation — graded, not binary. Loss ramps from 0
+      // at `castStarveAt` to the full rate at a total shortfall.
+      castStarveAt: 0.25,        // shortfall fraction below which nobody is harmed
+      castStarveLoss: 6,         // max hp/hour from hunger, at a total food shortfall
+      castThirstLoss: 8,         // max hp/hour from thirst (outpaces hunger)
+      castRegen: 1.5,            // hp/hour regained when fed and watered
     },
     systems: {
       degrade: { power: 4, water: 3, defence: 6, elevator: 2, cameras: 5 }, // per-day HP loss
@@ -128,7 +134,12 @@ export const CONFIG_DEFAULTS = {
       apPerDay: 4,             // action points per day
       repair: { ap: 1, cost: 1, amount: 35 },
       fortify: { ap: 1, cost: 1, defence: 20, threatDrop: 8 },
-      forage: { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35 },
+      forage: { ap: 1, foodBase: 2, foodRand: 3, waterRand: 3, partsChance: 0.35,
+                blightMul: 0.4 },   // multiplier once the rooftop garden is blighted
+      // Refugees earn their keep, so taking one in is a bet rather than a
+      // slow-motion death sentence: a mouth today, a pair of hands tomorrow.
+      refugeeWork: { ap: 1, foodPer: 3 },
+      refugeeRelease: { ap: 0, morale: 10 },   // the cost of asking them to leave
       train: { ap: 1, gain: 7, cap: 92 },
       rest: { ap: 1, health: 16, morale: 12 },
       deal: { ap: 2, cost: 3, threatDrop: 20 },
@@ -185,6 +196,29 @@ export const CONFIG_DEFAULTS = {
     hemiScale: 0.45,             // presets were authored with no env map, so their hemisphere light
                                  // stood in for all ambient bounce. Scale it back now that IBL is real,
                                  // or the two double-count and the scene goes flat. 1 = no compensation.
+  },
+
+  // ── render: the post-FX stack and shadow quality ──
+  // Every one of these was hardcoded in src/scene3d/*. They are the settings a
+  // player reaches for when the game runs hot or looks wrong on their panel, and
+  // there was no way to touch any of them. Phase 6 hangs the graphics menu here.
+  render: {
+    shadows: 'soft',             // 'off' | 'hard' | 'soft' — soft is PCFSoftShadowMap
+    shadowMapSize: 2048,         // per-side texels for the key light's shadow map
+    ao: {
+      enabled: true,
+      radius: 0.45,              // world-space sample radius in metres
+      intensity: 0.9,            // 0 = no darkening, 1 = full occlusion in creases
+      bias: 0.025,               // depth slack, in metres; too low = self-occlusion acne
+      samples: 12,               // hemisphere taps per pixel
+    },
+    bloom: {
+      strength: 0.42,
+      radius: 0.40,
+      threshold: 1.55,           // LINEAR HDR, pre-tonemap. Above lit skin/hair, below the neon core.
+    },
+    grain: { amount: 0.055, vignette: 0.42 },
+    fov: 55,                     // vertical field of view, degrees
   },
 
   // ── humanoid: procedural walk cycle + animation blending ──

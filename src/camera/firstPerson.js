@@ -76,6 +76,11 @@ export class FirstPersonControls {
     /** @type {import('../humanoid/actor3d.js').Actor3D|null} player body (third person) */
     this.body = null;
     this.thirdPerson = false;    // over-the-shoulder camera + visible body
+    // When false this controller still MOVES the player but does not write the
+    // camera — the situational director owns framing. Without this, 'auto' mode
+    // disabled the controller outright, so WASD was inert and the player had no
+    // agency at all until they discovered the C key.
+    this.driveCamera = true;
     this.aiming = false;         // combat active → hold the two-handed aim stance
     /** @type {(() => THREE.Vector3|null)|null} nearest-hostile aim point during combat */
     this.aimTarget = null;
@@ -117,15 +122,22 @@ export class FirstPersonControls {
     };
     this._onKeyUp = (e) => this.keys.delete(e.code);
     this._onBlur = () => { this.keys.clear(); this._settle(); };
+    // `driveCamera` as well as `enabled`. The rig calls enable() in AUTO too —
+    // the default mode — so the player's very first click on the canvas grabbed
+    // the pointer and hid the cursor in a mode where the camera is
+    // director-owned and mouselook moves nothing. The captured cursor with no
+    // visible response is a large part of what "I can't control the camera"
+    // feels like, and it also routed LMB to the weapon.
     this._onClick = () => {
-      if (this.enabled && document.pointerLockElement !== this.dom) {
+      if (this.enabled && this.driveCamera && document.pointerLockElement !== this.dom) {
         const p = this.dom.requestPointerLock();
         if (p && p.catch) p.catch(() => { /* gesture rejected — next click retries */ });
       }
     };
     this._onMouseDown = (e) => {
       // LMB while locked = fire the weapon (FP or third-person)
-      if (this.enabled && e.button === 0 && document.pointerLockElement === this.dom && this.onFire) {
+      if (this.enabled && this.driveCamera && e.button === 0
+          && document.pointerLockElement === this.dom && this.onFire) {
         this.onFire();
       }
     };
@@ -146,8 +158,10 @@ export class FirstPersonControls {
     // sync targets so entering FP never snaps or inherits stale deltas
     this._targetYaw = this.yaw;
     this._targetPitch = this.pitch;
-    const p = this.dom.requestPointerLock?.();
-    if (p && p.catch) p.catch(() => { /* needs a click — _onClick will retry */ });
+    if (this.driveCamera) {
+      const p = this.dom.requestPointerLock?.();
+      if (p && p.catch) p.catch(() => { /* needs a click — _onClick will retry */ });
+    }
   }
 
   /** Teleport the eye to (x,z) at eye height, aimed at `yaw` (radians). Used to
@@ -217,18 +231,28 @@ export class FirstPersonControls {
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     this._moving = !!(f || s);
     if (f || s) {
-      const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
+      // Move relative to whatever the player is actually looking through. When
+      // the director owns the camera there is no mouselook, so `this.yaw` is
+      // frozen and WASD would push in fixed world directions; take the basis
+      // from the live camera instead, which is what the player sees.
+      const basisYaw = this.driveCamera ? this.yaw : this._cameraYaw();
+      const sin = Math.sin(basisYaw), cos = Math.cos(basisYaw);
       const dx = (-sin * f + cos * s) * speed * dt;
       const dz = (-cos * f - sin * s) * speed * dt;
       this._move(dx, dz);
+      this._moveYaw = Math.atan2(dx, dz);
     }
 
     // drive the player body (visible only in third person)
     if (this.body) {
-      this.body.root.visible = this.thirdPerson;
+      this.body.root.visible = this.thirdPerson || !this.driveCamera;
       this.body.root.position.set(this.pos.x, 0, this.pos.z);
-      // face where the camera aims (horizontal): forward = (-sin, -cos)
-      this.body.root.rotation.y = Math.atan2(-Math.sin(this.yaw), -Math.cos(this.yaw));
+      // face where the camera aims (horizontal): forward = (-sin, -cos).
+      // With the director driving, there is no aim yaw — face the way we walk.
+      const faceYaw = this.driveCamera
+        ? Math.atan2(-Math.sin(this.yaw), -Math.cos(this.yaw))
+        : (this._moving ? this._moveYaw : this.body.root.rotation.y);
+      this.body.root.rotation.y = faceYaw;
       this.body.facingTarget = this.body.root.rotation.y;
       const clip = this.crouching ? 'crouch'
         : (this.aiming ? 'aim'
@@ -237,6 +261,7 @@ export class FirstPersonControls {
       this.body.update(dt);
     }
 
+    if (!this.driveCamera) return;   // director owns framing; we only moved the body
     const euler = _EULER.set(this.pitch, this.yaw, 0, 'YXZ');
     if (this.thirdPerson) {
       const look = _V1.set(0, 0, -1).applyEuler(euler);
@@ -252,6 +277,12 @@ export class FirstPersonControls {
       this.camera.position.copy(this.pos);
       this.camera.rotation.copy(euler);
     }
+  }
+
+  /** Horizontal yaw the live camera is facing — the movement basis in auto mode. */
+  _cameraYaw() {
+    this.camera.getWorldDirection(_V1);
+    return Math.atan2(-_V1.x, -_V1.z);
   }
 
   /** attach the visible player body (Actor3D) driven in third-person mode */

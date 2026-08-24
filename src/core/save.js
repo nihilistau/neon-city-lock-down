@@ -3,6 +3,7 @@
 // run state, characters (stats/gates/memory/position/wardrobe/brain), lighting.
 // Autosave is deleted on death — perma-death is real.
 
+
 const VERSION = 1;
 const SLOT_PREFIX = 'ncld.slot.';
 export const AUTOSAVE_KEY = 'ncld.autosave';
@@ -26,6 +27,10 @@ export function buildSave(app, label = '') {
     scheduler: app.scheduler.serialize(),
     inventory: app.inventory?.serialize(),
     lighting: app.lighting.presetId,
+    // Which floor the player is standing on. Omitting this meant an autosave on
+    // the rooftop resumed in the penthouse — and every floor-scoped thing
+    // (lighting look, ambience, colliders) came back wrong with it.
+    activeFloor: app.world?.activeFloor,
     characters: Object.fromEntries(Object.values(app.cast).map((c) => [c.id, {
       ...c.serialize(),
       wardrobe: c.wardrobe?.serialize(),
@@ -53,6 +58,10 @@ export function applySave(app, save) {
   save = migrate(save);
   if (save.version !== VERSION) throw new Error(`save version ${save.version} unsupported`);
   app.clock.deserialize(save.clock);
+  // buildSave() has always captured rng state and applySave() never restored it,
+  // so a seeded run stopped being reproducible the instant you loaded it. In
+  // place, not by replacement — every system holds its own stream reference.
+  if (save.rng) app.rng.restore(save.rng);
   Object.assign(app.run, save.run);
   app.scheduler.deserialize(save.scheduler);
   app.inventory?.deserialize(save.inventory);
@@ -66,6 +75,29 @@ export function applySave(app, save) {
     if (data.brain) app.brains[id]?.deserialize(data.brain);
     if (!c.alive) c.actor.setDowned(true);
     else c.actor.playClip(c.persona.personality.idleClip || 'idle_stand', 0.01);
+  }
+
+  // Restore the floor BEFORE anything spatial reads it.
+  const floor = save.activeFloor;
+  if (floor && app.world?.floorGroups?.[floor] && floor !== app.world.activeFloor) {
+    app.setFloor(floor, { from: floor });   // one call, all six steps
+  }
+
+  // Refugees are spawned into the cast at runtime, so `save.characters` has
+  // entries with no `app.cast[id]` to restore into and the loop above skipped
+  // them — they vanished from the world. But `run.refugees` DID restore and kept
+  // suppressing the refugee event (events.js gates on `- refugees * 4`), so the
+  // guest was gone from the tower, gone from the pantry maths, and still
+  // blocking their own replacement. Respawn them, then restore their state.
+  for (const [id, data] of Object.entries(save.characters)) {
+    if (app.cast[id] || !id.startsWith('refugee')) continue;
+    const c = app.spawnRefugeeById?.(id);
+    if (!c) continue;
+    c.queue.clear();
+    c.restore(data);
+    if (data.wardrobe) c.wardrobe?.deserialize(data.wardrobe);
+    if (data.brain) app.brains[id]?.deserialize(data.brain);
+    if (!c.alive) c.actor.setDowned(true);
   }
 }
 

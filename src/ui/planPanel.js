@@ -8,6 +8,7 @@ import { objectiveState } from '../sim/objectives.js';
 import { on, emit } from '../core/bus.js';
 import { h } from './widgets.js';
 import { iconUrl } from './icons.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class PlanPanel {
   /** @param {import('../core/app.js').App} app */
@@ -27,8 +28,8 @@ export class PlanPanel {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('plan'); }
-  show() { this.open = true; this.app.loop.pause('plan'); this._render(); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('plan'); closeModal('plan'); }
+  show() { this.open = true; this.app.loop.pause('plan'); openModal('plan', () => this.close()); this._render(); }
 
   async _act(id) {
     this.close();
@@ -64,6 +65,32 @@ export class PlanPanel {
     const sys = Object.entries(run.systems).map(([k, s]) =>
       h('span', { class: `plan-sys ${s.online ? '' : 'off'}` }, [`${k} ${Math.round(s.hp)}%`]));
 
+    // Rationing. Fully wired at both ends — survival.js reads it every game-hour
+    // and it can kill NPCs — but the ONLY way to set it was the debug Director
+    // panel, so the single largest lever on the food economy was invisible to
+    // the player. The day plan is where resource tradeoffs already get made.
+    const heads = 1 + Object.values(this.app.cast).filter((c) => c.alive && c.persona?.corporeal !== false).length;
+    const rationRow = (key, label) => {
+      const cur = run.rationPolicy?.[key] ?? 'normal';
+      const perDay = key === 'food' ? heads * 3 : heads * 1;
+      const rate = cur === 'none' ? 0 : cur === 'half' ? 0.5 : 1;
+      return h('div', { class: 'plan-ration' }, [
+        h('span', { class: 'plan-ration-label' }, [label]),
+        ...['normal', 'half', 'none'].map((v) => h('button', {
+          class: `plan-ration-btn ${cur === v ? 'sel' : ''}`,
+          onclick: () => {
+            run.rationPolicy[key] = v;
+            emit('hud.alert', {
+              text: v === 'none' ? `No ${key} issued. They will not forget this.` : `${label}: ${v}.`,
+              kind: v === 'normal' ? 'info' : 'warn',
+            });
+            this._render();
+          },
+        }, [v])),
+        h('span', { class: 'plan-ration-cost' }, [`${(perDay * rate).toFixed(1)}/day · ${heads} mouths`]),
+      ]);
+    };
+
     const el = h('div', { class: 'plan-wrap' }, [
       h('div', { class: 'plan-scrim', onclick: () => this.close() }),
       h('div', { class: 'plan-drawer clickable' }, [
@@ -77,6 +104,9 @@ export class PlanPanel {
         h('div', { class: 'plan-ap' }, [`Action points: `, h('b', {}, [`${ap} / ${apMax}`]),
           h('span', { class: 'plan-sysrow' }, sys)]),
         this._last ? h('div', { class: 'plan-last' }, [this._last]) : '',
+        h('div', { class: 'dir-label' }, ['RATIONS']),
+        rationRow('food', 'Food'),
+        rationRow('water', 'Water'),
         h('div', { class: 'dir-label' }, ['ACTIONS']),
         h('div', { class: 'plan-actions' }, actions),
         h('div', { class: 'dir-label' }, ['OBJECTIVES']),

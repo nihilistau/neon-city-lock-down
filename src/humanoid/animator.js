@@ -11,9 +11,12 @@ const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _e = new THREE.Euler();
 const _v = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
 /** rest pose target — never mutated */
 const _QI = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
+/** scratch set for the per-frame touched-bone union — never escapes update() */
+const _touched = new Set();
 
 /** bones the gait layer may write */
 const GAIT_BONES = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR',
@@ -27,6 +30,15 @@ export class Animator {
   constructor(rig, personality = {}) {
     this.bones = rig.byName;
     this.hipsRest = this.bones.hips.position.clone();
+    // The relax pass below used to walk `Object.entries(this.bones)` every
+    // frame: one array plus 31 two-element pair arrays PER ACTOR PER FRAME, for
+    // a set of bones that never changes after the rig is built. Cache the
+    // parallel arrays once — and the GAIT_BONES membership test with them, so
+    // the inner loop stops doing a linear `includes` per bone as well.
+    this._boneNames = Object.keys(this.bones);
+    this._boneList = this._boneNames.map((n) => this.bones[n]);
+    this._boneIsGait = this._boneNames.map((n) => GAIT_BONES.includes(n));
+    this._boneIsRoot = this._boneNames.map((n) => n === 'root');
 
     this.current = getClip('idle_stand');
     /** @type {import('./clips.js').CompiledClip|null} */
@@ -95,7 +107,10 @@ export class Animator {
     }
 
     // ---- layer 1: clip pose (crossfaded)
-    const boneNames = new Set();
+    // One reused Set rather than a fresh one per actor per frame. Cleared, not
+    // reallocated; it never escapes this function.
+    const boneNames = _touched;
+    boneNames.clear();
     for (const b of this.current.tracks.keys()) boneNames.add(b);
     if (this.previous) for (const b of this.previous.tracks.keys()) boneNames.add(b);
 
@@ -122,10 +137,10 @@ export class Animator {
     // too when the character isn't moving — otherwise a sit pose's legs stay
     // latched forever under a torso-only clip (the "seated contortion" bug).
     const gaitW = Math.min(1, this.speed / this.gait.walkSpeed);
-    for (const [name, bone] of Object.entries(this.bones)) {
-      if (name === 'root' || boneNames.has(name)) continue;
-      const rate = GAIT_BONES.includes(name) ? dt * 6 * (1 - gaitW) : dt * 6;
-      if (rate > 0.0005) bone.quaternion.slerp(_q.identity(), Math.min(1, rate));
+    for (let i = 0; i < this._boneList.length; i++) {
+      if (this._boneIsRoot[i] || boneNames.has(this._boneNames[i])) continue;
+      const rate = this._boneIsGait[i] ? dt * 6 * (1 - gaitW) : dt * 6;
+      if (rate > 0.0005) this._boneList[i].quaternion.slerp(_q.identity(), Math.min(1, rate));
     }
 
     // hips position: rest + clip offset
@@ -140,11 +155,13 @@ export class Animator {
     this.gait.advance(dt, this.speed);
     const w = Math.min(1, this.speed / this.gait.walkSpeed);
     if (w > 0.01) {
+      // `g` is shared scratch owned by Gait — read it here, never retain it
       const g = this.gait.pose(0.4 + 0.6 * w);
-      for (const [name, deg] of Object.entries(g.eulers)) {
-        const bone = this.bones[name];
+      for (let i = 0; i < g.names.length; i++) {
+        const bone = this.bones[g.names[i]];
         if (!bone) continue;
-        _e.set(deg[0], deg[1], deg[2], 'XYZ');
+        const o = i * 3;
+        _e.set(g.eulers[o], g.eulers[o + 1], g.eulers[o + 2], 'XYZ');
         _q.setFromEuler(_e);
         bone.quaternion.slerp(_q, w);
       }
@@ -167,10 +184,13 @@ export class Animator {
     // ---- layer 4: gaze (neck 40% / head 60%)
     let targetYaw = 0, targetPitch = 0, targetWeight = 0;
     if (this.gazeTarget) {
+      // Two scratch vectors, no allocation. `_v` was already dead after the
+      // setFromMatrixPosition read, so cloning it was pure waste, and
+      // getWorldPosition() takes a target precisely so it need not allocate.
       _v.setFromMatrixPosition(this.gazeTarget.matrixWorld);
-      const local = characterRoot.worldToLocal(_v.clone());
-      const headPos = this.bones.head.getWorldPosition(new THREE.Vector3());
-      const headLocal = characterRoot.worldToLocal(headPos);
+      const local = characterRoot.worldToLocal(_v);
+      const headLocal = characterRoot.worldToLocal(
+        _v2.setFromMatrixPosition(this.bones.head.matrixWorld));
       const d = local.sub(headLocal);
       targetYaw = Math.atan2(d.x, d.z);
       targetPitch = Math.atan2(d.y, Math.hypot(d.x, d.z));

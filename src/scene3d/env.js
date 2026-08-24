@@ -9,7 +9,12 @@
 //
 // Everything here is generated at runtime — a gradient sky, a city-glow band,
 // and a few neon sign cards rendered into a cube target and PMREM-prefiltered.
-// No binary assets, in keeping with the project's zero-asset rule.
+// The IBL specifically uses no binary assets — it is a gradient sky, a city-glow
+// band and a few neon sign cards rendered to a cube target and PMREM-prefiltered.
+// (The project as a whole is NOT asset-free any more: v0.4 introduced generated
+// stills for faces, HUD icons, fabrics and the city, built by tools/gen-art.mjs
+// and committed. This module predates that and stays procedural on purpose,
+// because the environment has to retint with every lighting preset.)
 import * as THREE from 'three';
 
 /**

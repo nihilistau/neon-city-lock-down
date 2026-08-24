@@ -5,6 +5,7 @@ import { FLOORS } from '../../data/zones.js';
 import { elevatorPos, travelMinutes } from '../sim/actors/nav.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class ElevatorUI {
   /** @param {import('../core/app.js').App} app */
@@ -46,10 +47,17 @@ export class ElevatorUI {
     overlay.appendChild(el);
     this._picker = el;
     app.loop.pause('elevator');
+    // The picker used to be a trap: it out-stacked the pause menu, had no Esc
+    // handler, and its click handler required a <button> — so a backdrop click
+    // was a no-op too. Its ONLY exits were its own buttons.
+    openModal('elevator', () => this._closePicker());
     el.addEventListener('click', (e) => {
-      const btn = /** @type {HTMLElement} */ (e.target.closest('button'));
+      const target = /** @type {HTMLElement} */ (e.target);
+      // click outside the card dismisses
+      if (!target.closest('.elev-card')) { closeModal('elevator'); return; }
+      const btn = /** @type {HTMLElement} */ (target.closest('button'));
       if (!btn || btn.disabled) return;
-      this._closePicker();
+      closeModal('elevator');
       if (btn.dataset.cancel != null) return;
       if (btn.dataset.id) this.ride(btn.dataset.id);
     });
@@ -59,6 +67,7 @@ export class ElevatorUI {
     this._picker?.remove();
     this._picker = null;
     this.app.loop.resume('elevator');
+    closeModal('elevator');   // no-op when called from the stack's own teardown
   }
 
   /** @param {string} destFloor */
@@ -90,26 +99,19 @@ export class ElevatorUI {
     app.audioFacade().sfx('elevator_ding');
 
     // clock advances for the ride; world keeps simulating
-    app.clock.skip(mins, (c) => app.worldTick.minute(c));
+    app.clock.skip(mins);   // emits world.minute, so event scripts keep running
 
     // relocate player + camera
     const [ex, ez] = elevatorPos(destFloor);
-    app.world.setActiveFloor(destFloor);
-    app.lighting.setFloorOffset(FLOORS[destFloor].offsetX);
-    app.lighting.setFloorLook(destFloor);
-    app.cameraRig.fp.pos.set(ex, 1.62, ez + 0.6);
+    // App.setFloor owns the whole move: visible group, light offset, fog bias,
+    // ambience bed, player body AND marker (combat spawn checks, cast gaze and
+    // the director camera all key off the marker, not the camera), plus the
+    // floor.changed announcement. Only the orbit/FP framing is the elevator's
+    // own business, so that stays here.
+    app.setFloor(destFloor, { from: fromFloor });
     app.cameraRig.fp.yaw = Math.PI;
     app.cameraRig.orbit.target.set(ex, 1.1, ez + 1.5);
     app.cameraRig.camera.position.set(ex + 3, 2.6, ez + 4.5);
-    // The avatar's transform is only written by FirstPersonControls.update(), which
-    // the rig calls in firstPerson/thirdPerson modes only. Riding in auto/director
-    // otherwise left the body — and playerMarker, which combat spawn checks, cast
-    // gaze and the director camera all key off — on the old floor, up to 1200
-    // world units away.
-    app.playerActor?.root.position.set(ex, 0, ez + 0.6);
-    app.playerMarker?.position.set(ex, 1.1, ez + 0.6);
-    app.setAmbienceForFloor(destFloor);
-    emit('floor.changed', { floor: destFloor, from: fromFloor });
     feed(`Elevator: ${FLOORS[destFloor].label}.`, 'system');
 
     await new Promise((r) => setTimeout(r, 350));

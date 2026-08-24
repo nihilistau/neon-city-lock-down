@@ -17,9 +17,14 @@ export function applyStim(run, nowMinute) {
     run.player.morale = Math.min(100, run.player.morale + 4);
     return;
   }
-  run.player.skill = Math.min(100, (run.player.skill ?? 60) + STIM_SKILL);
+  // Record the delta that was ACTUALLY applied, not the nominal one. The grant
+  // is clamped at 100 but expiry used to subtract the full STIM_SKILL, so a
+  // trained player (dayPlan train caps at 92) lost skill permanently:
+  // 92 -> 100 on use, 100 -> 88 on expiry. Every stim above 88 cost up to 12.
+  const before = run.player.skill ?? 60;
+  run.player.skill = Math.min(100, before + STIM_SKILL);
+  run.flags.stimSkillBoost = run.player.skill - before;
   run.player.morale = Math.min(100, run.player.morale + STIM_MORALE);
-  run.flags.stimSkillBoost = STIM_SKILL;
   run.flags.stimUntil = nowMinute + STIM_DURATION;
 }
 

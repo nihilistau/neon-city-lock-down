@@ -1,4 +1,10 @@
 // @ts-check
+// `requiresUnlock` (optional) gates a scenario behind a meta unlock id awarded in
+// src/sim/death.js at the end of a run; `unlockHint` is the one line the locked
+// card shows so the player knows what to go and do. src/sim/meta.js has exported
+// unlock() since day one and NOTHING ever called it — the whole unlocks array was
+// written by nobody and read by nobody, and the new-run screen told the player
+// "more unlock as you play" while offering every scenario from the first boot.
 // The 15 scenarios. Each sets a stage: mood shifts, lighting, character
 // placement, and optionally launches an event, game, or cutscene.
 import { INTRO_CUTSCENE } from './cutscenes/intro.js';
@@ -62,6 +68,7 @@ export const SCENARIOS = {
   },
   armoury_night: {
     id: 'armoury_night', title: 'Armoury Inventory Night',
+    requiresUnlock: 'blooded', unlockHint: 'Put down ten hostiles across a single run.',
     blurb: 'Counting rounds is meditation for some people. Lola is some people.',
     castMoodShifts: { lola: { dominance: 5, tension: -4 }, aria: { fear: 3 } },
     placements: { lola: ['armoury', 'racks'], kai: ['armoury', 'lockers'] },
@@ -128,6 +135,7 @@ export const SCENARIOS = {
   },
   ghost_on_the_grid: {
     id: 'ghost_on_the_grid', title: 'Mystery: The Grid Ghost',
+    requiresUnlock: 'vox_confided', unlockHint: 'End a run with VOX trusting you (60+).',
     blurb: 'Something walks floor 27 after midnight. VOX did not admit it. VOX is a terrible liar.',
     game: 'mystery:grid_ghost',
     placements: { kai: ['vox_core', 'core'] },
@@ -135,6 +143,7 @@ export const SCENARIOS = {
   },
   last_night: {
     id: 'last_night', title: 'Last Night Before the Gates Open',
+    requiresUnlock: 'long_haul', unlockHint: 'Survive five days in a single run.',
     blurb: 'The rumor is everywhere: tomorrow the barricades lift. One more night in the tank. Make it count.',
     castMoodShifts: {
       lola: { openness: 12, arousal: 8, tension: -8 },

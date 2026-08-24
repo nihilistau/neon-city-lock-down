@@ -61,6 +61,7 @@ export const CONFIG_SCHEMA = {
       hungerHealthAt: num(0, 100), hungerHealthLoss: num(0, 50), thirstHealthAt: num(0, 100), thirstHealthLoss: num(0, 50),
       moraleFoodDrain: num(0, 20), moraleWaterDrain: num(0, 20), moraleRecover: num(0, 20),
       castFoodShortAt: num(0, 1), castWaterShortAt: num(0, 1), warnFoodAt: num(0, 100), warnWaterAt: num(0, 100),
+      castStarveAt: num(0, 1), castStarveLoss: num(0, 100), castThirstLoss: num(0, 100), castRegen: num(0, 50),
     },
     systems: {
       degrade: { map: num(0, 100) }, offlineHp: num(0, 100), cellDrainPer30: num(0, 100),
@@ -69,7 +70,9 @@ export const CONFIG_SCHEMA = {
       apPerDay: num(1, 24),
       repair: { ap: num(0, 24), cost: num(0, 99), amount: num(0, 100) },
       fortify: { ap: num(0, 24), cost: num(0, 99), defence: num(0, 100), threatDrop: num(0, 100) },
-      forage: { ap: num(0, 24), foodBase: num(0, 99), foodRand: num(0, 99), waterRand: num(0, 99), partsChance: num(0, 1) },
+      forage: { ap: num(0, 24), foodBase: num(0, 99), foodRand: num(0, 99), waterRand: num(0, 99), partsChance: num(0, 1), blightMul: num(0, 1) },
+      refugeeWork: { ap: num(0, 24), foodPer: num(0, 20) },
+      refugeeRelease: { ap: num(0, 24), morale: num(0, 60) },
       train: { ap: num(0, 24), gain: num(0, 100), cap: num(0, 100) },
       rest: { ap: num(0, 24), health: num(0, 100), morale: num(0, 100) },
       deal: { ap: num(0, 24), cost: num(0, 99), threatDrop: num(0, 100) },
@@ -100,6 +103,17 @@ export const CONFIG_SCHEMA = {
     tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
     envIntensity: num(0, 3),
     hemiScale: num(0, 2),
+  },
+  render: {
+    shadows: { type: 'string', enum: ['off', 'hard', 'soft'] },
+    shadowMapSize: { type: 'number', enum: [512, 1024, 2048, 4096] },
+    ao: {
+      enabled: { type: 'boolean' }, radius: num(0.05, 3), intensity: num(0, 2),
+      bias: num(0.001, 0.5), samples: num(4, 32),
+    },
+    bloom: { strength: num(0, 3), radius: num(0, 2), threshold: num(0, 8) },
+    grain: { amount: num(0, 0.4), vignette: num(0, 1.5) },
+    fov: num(30, 110),
   },
   humanoid: {
     gait: {

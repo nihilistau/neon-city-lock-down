@@ -11,6 +11,9 @@ export const JOB_DEST = {
   train:   { floor: 'fl40',      zone: 'armoury',    durationMin: 8,  label: 'the range' },
   rest:    { floor: 'penthouse', zone: 'bed_alcove', durationMin: 12, label: 'the bed alcove' },
   deal:    { floor: 'fl27',      zone: 'vox_core',   durationMin: 10, label: 'VOX\'s terminal' },
+  // refugees work the same beds you do, and leave through the doors they came in
+  refugee_work:    { floor: 'rooftop', zone: 'rooftop',   durationMin: 8, label: 'the rooftop garden' },
+  refugee_release: { floor: 'ground',  zone: 'reception', durationMin: 6, label: 'the reception doors' },
 };
 
 /** @param {string} id */

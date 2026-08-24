@@ -73,7 +73,33 @@ export const OUTFITS = {
     underwear: { pieces: [shorts('#2a241c')], warmth: 0.1 },
     none: { pieces: [], warmth: 0.05 },
   },
+
+  // ── hostiles ────────────────────────────────────────────────────────────
+  // Combat spawned bare skinned bodies with an accessory kit on top: a hoodie
+  // hood over a naked torso, a backpack strapped to bare shoulders, a visor on
+  // an otherwise unclothed merc. Three archetypes, one recipe each — hostiles
+  // never change clothes, so a full 10-state matrix would be dead data.
+  // Palettes stay desaturated and dark so a hostile silhouette reads instantly
+  // against the cast's saturated wardrobe under the same neon.
+  hostile_rioter: {
+    default: { pieces: [top('#22201e', 0.95), leggings('#191715'),
+      { piece: 'jacket', color: '#1e1c1a', roughness: 0.9 }], warmth: 0.7 },
+  },
+  hostile_looter: {
+    default: { pieces: [top('#2a2620', 0.92), shorts('#201d18'),
+      { piece: 'jacket', color: '#332c22', roughness: 0.85 }], warmth: 0.6 },
+  },
+  hostile_merc: {
+    // the only one with any sheen: plated tactical kit, not scavenged cloth
+    default: { pieces: [top('#161a20', 0.4), leggings('#101418'),
+      { piece: 'jacket', color: '#131920', roughness: 0.35, metalness: 0.42 }], warmth: 0.8 },
+  },
 };
 
 /** default per-character starting outfit */
-export const DEFAULT_OUTFIT = { lola: 'evening_wear', aria: 'casual_lounge', kai: 'casual_lounge', player: 'street_armor', refugee: 'street_armor' };
+export const DEFAULT_OUTFIT = {
+  lola: 'evening_wear', aria: 'casual_lounge', kai: 'casual_lounge',
+  player: 'street_armor', refugee: 'street_armor',
+  // hostiles have exactly one state; combat.js reads this rather than hardcoding 'default'
+  hostile_rioter: 'default', hostile_looter: 'default', hostile_merc: 'default',
+};

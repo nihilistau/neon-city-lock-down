@@ -26,7 +26,24 @@ export function applyLineEffects(char, line, topic, ctx) {
       // eff.gate = { tier, action }
       char.gate(eff.gate.tier, eff.gate.action, ctx.nowMinute);
     }
+    // eff.game = 'cards' | 'tod' | 'bed' | 'mystery:<caseId>'
+    //
+    // The minigames were the single largest pool of unreachable content in the
+    // repo: 39 bed actions, 42 truth-or-dare prompts, a full card game and three
+    // mystery cases, all openable ONLY by picking a scenario at the new-run
+    // screen or through the debug Director panel. Nothing in a live run could
+    // reach any of it. Asking someone to play is how a person would actually
+    // start a game, so that is now the door.
+    //
+    // Emitted rather than called: this module is pure over (char, line, topic)
+    // and has no App handle. src/core/app.js owns the consent checks.
+    if (eff.game) emit('game.requested', { game: eff.game, charId: char.id });
   }
+  // A LINE may carry its own `game`, for topics where only SOME answers open one
+  // — Lola accepts truth-or-dare above an openness threshold and declines below
+  // it, and the refusal must not launch the game she just refused. A topic-level
+  // effects.game stays the common case; this is the per-answer escape hatch.
+  if (line.game) emit('game.requested', { game: line.game, charId: char.id });
 
   // 3. tone side-effects — hostile/affectionate tone bleeds into stats
   //    regardless of what topic matched (mind games have real cost)

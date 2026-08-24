@@ -11,34 +11,89 @@ let root = null;
 
 const RES_KEYS = ['food', 'water', 'meds', 'ammo', 'cells', 'parts', 'luxury'];
 
+/**
+ * Keep the left column from colliding with itself.
+ *
+ * `#hud-floor`, `#statbars` and `#chat` all live on the left edge, and the rail
+ * and the chat log BOTH take pointer events — so any overlap makes clicks land
+ * ambiguously. This has now regressed twice from hard-coded constants: a flat
+ * `56vh`, then `calc(62vh - 150px)` which was calibrated against wrap-row reply
+ * chips before v0.4 restacked them vertically (measured: 108px of overlap).
+ *
+ * So stop guessing. Measure what the neighbours actually occupy and publish the
+ * result as CSS custom properties, recomputed on resize and whenever the chat
+ * or the floor chip changes size.
+ */
+function layoutLeftColumn() {
+  const floorEl = document.getElementById('hud-floor');
+  const railEl = document.getElementById('statbars');
+  const chatEl = document.getElementById('chat');
+
+  const apply = () => {
+    if (!railEl) return;
+    const gap = 8;
+    const floorBottom = floorEl ? floorEl.getBoundingClientRect().bottom : 46;
+    const railTop = Math.round(floorBottom + gap);
+    // chat may not exist yet (it mounts with the run) — fall back to a sane share
+    const chatTop = chatEl && chatEl.offsetParent !== null
+      ? chatEl.getBoundingClientRect().top
+      : window.innerHeight * 0.62;
+    const railMax = Math.max(120, Math.round(chatTop - railTop - gap));
+    railEl.style.setProperty('--rail-top', `${railTop}px`);
+    railEl.style.setProperty('--rail-max', `${railMax}px`);
+  };
+
+  apply();
+  window.addEventListener('resize', apply);
+  // the chat grows as chips stack and the log fills; the floor chip wraps on
+  // long labels. Re-measure whenever either actually changes size.
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(apply);
+    if (chatEl) ro.observe(chatEl);
+    if (floorEl) ro.observe(floorEl);
+  }
+  // chat mounts after the HUD, so re-measure once the run is up
+  on('game.entered', () => setTimeout(apply, 0));
+  on('chat.reply', () => apply());
+}
+
 export function initHud() {
   root = document.getElementById('hud');
+  // Roles and live regions. The HUD had none, so a screen reader announced a
+  // wall of unlabelled divs and never announced anything that CHANGED — alerts,
+  // the clock, the resource counts and the interaction prompt all updated
+  // silently. `polite` throughout except the alert, which is the one thing
+  // worth interrupting for.
   root.innerHTML = `
-    <div id="hud-clock" class="hud-chip"></div>
-    <div id="hud-floor" class="hud-chip">${FLOORS.penthouse.label}</div>
-    <div id="hud-resources" class="hud-chip"></div>
-    <div id="hud-threat" class="hud-chip" title="Threat — how close the city outside is to coming through the door">
+    <div id="hud-clock" class="hud-chip" role="status" aria-live="polite" aria-label="Time"></div>
+    <div id="hud-floor" class="hud-chip" role="status" aria-live="polite" aria-label="Current floor">${FLOORS.penthouse.label}</div>
+    <div id="hud-resources" class="hud-chip" role="status" aria-live="polite" aria-label="Resources"></div>
+    <div id="hud-threat" class="hud-chip" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+         aria-label="Threat — how close the city outside is to coming through the door"
+         title="Threat — how close the city outside is to coming through the door">
       <img class="res-ico" alt="" src="">
       <span class="th-label">THREAT</span>
       <span class="th-track"><span class="th-fill"></span></span>
       <span class="th-val">0</span>
     </div>
-    <div id="hud-hint" class="hud-chip hidden">Press ? for controls</div>
-    <div id="hud-help" class="hidden"></div>
-    <div id="hud-prompt"></div>
-    <div id="hud-alert"></div>
+    <div id="hud-hint" class="hud-chip">Press <b>?</b> for controls</div>
+    <div id="hud-help" class="hidden" role="dialog" aria-label="Controls"></div>
+    <div id="hud-prompt" role="status" aria-live="polite"></div>
+    <div id="hud-alert" role="alert" aria-live="assertive"></div>
     <div id="hud-choice"></div>`;
+
+  layoutLeftColumn();
 
   const resEl = root.querySelector('#hud-resources');
   let playerHealth = 100;
   const renderRes = (resources) => {
     const hpLow = playerHealth <= 35;
     resEl.innerHTML =
-      `<span class="res hp ${hpLow ? 'low' : ''}"><img class="res-ico" alt="" src="${iconUrl('hp')}">${Math.round(playerHealth)}</span>` +
+      `<span class="res hp ${hpLow ? 'low' : ''}" aria-label="health: ${Math.round(playerHealth)}"><img class="res-ico" alt="" src="${iconUrl('hp')}">${Math.round(playerHealth)}</span>` +
       RES_KEYS.map((k) => {
         const v = resources[k] ?? 0;
         const low = (k === 'food' && v <= 6) || (k === 'water' && v <= 8) || v <= 1;
-        return `<span class="res ${low ? 'low' : ''}"><img class="res-ico" alt="" src="${iconUrl(k)}">${Math.floor(v)}</span>`;
+        return `<span class="res ${low ? 'low' : ''}" aria-label="${k}: ${Math.floor(v)}"><img class="res-ico" alt="" src="${iconUrl(k)}">${Math.floor(v)}</span>`;
       }).join('');
   };
   let lastRes = {};
@@ -64,7 +119,7 @@ export function initHud() {
     const faces = (c.portraits || []).map((id) =>
       `<img class="choice-face" alt="" src="/assets/chars/${escapeHtml(id)}/face.jpg">`).join('');
     choiceEl.innerHTML = `
-      <div class="choice-box clickable">
+      <div class="choice-box clickable" role="alertdialog" aria-modal="true" aria-label="A decision">
         ${faces ? `<div class="choice-faces">${faces}</div>` : ''}
         <div class="choice-prompt">${escapeHtml(c.prompt)}</div>
         <div class="choice-opts">${c.options.map((o, i) =>
@@ -93,6 +148,7 @@ export function initHud() {
     const t = Math.max(0, Math.min(100, threat));
     threatFill.style.width = `${t}%`;
     threatVal.textContent = String(Math.round(t));
+    threatEl.setAttribute('aria-valuenow', String(Math.round(t)));
     // band the bar rather than a continuous ramp, so a glance reads as a state
     threatEl.dataset.band = t >= 70 ? 'critical' : t >= 45 ? 'high' : t >= 22 ? 'raised' : 'calm';
   });
@@ -121,12 +177,15 @@ export function initHud() {
 
   const helpEl = root.querySelector('#hud-help');
   const CAM_HELP = {
-    auto: 'C camera · E/click interact',
-    thirdPerson: 'C camera · WASD move · mouse aim · LMB fire · R reload · Ctrl cover · E interact',
-    firstPerson: 'C camera · WASD move · mouselook · LMB fire · R reload · Ctrl cover · E interact',
+    auto: 'WASD move · C camera · E/click interact  (auto-camera is framing the shot)',
+    thirdPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouse aim · LMB fire · R reload · E interact',
+    firstPerson: 'C camera · WASD move · Shift run · Ctrl crouch · mouselook · LMB fire · R reload · E interact',
     director: 'C camera · drag orbit · F focus cast · click interact',
   };
-  const KEY_HELP = 'P plan · I inventory · K codex · ` director · G kit · L llm · V voice · Esc menu';
+  // Shift (run) and Ctrl (crouch/cover) were missing entirely, and so was `?`
+  // itself — which mattered because the on-screen hint pointing at this overlay
+  // was shipped hidden, making the whole control surface undiscoverable.
+  const KEY_HELP = 'P plan · I inventory · K codex · ` director · G kit · L llm · V voice · Esc menu · Space skip/act · ? this help';
   let camMode = 'director';
   const renderHelp = () => {
     helpEl.innerHTML =
@@ -137,8 +196,11 @@ export function initHud() {
   };
   on('camera.mode', ({ mode }) => { camMode = mode; if (!helpEl.classList.contains('hidden')) renderHelp(); });
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Slash' && e.key !== '?') return;
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // `?` only — e.code === 'Slash' is also true for an unshifted `/`, which
+    // meant a bare slash anywhere opened the overlay.
+    if (e.key !== '?') return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+      || e.target instanceof HTMLSelectElement) return;
     e.preventDefault();
     helpEl.classList.toggle('hidden');
     if (!helpEl.classList.contains('hidden')) renderHelp();

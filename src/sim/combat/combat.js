@@ -21,6 +21,11 @@ import { cfg } from '../../core/config.js';
 const weapons = () => cfg('combat.weapons');
 import { feed } from '../../core/log.js';
 import { spend } from '../world.js';
+import { buildOutfit } from '../../humanoid/outfitBuilder.js';
+import { OUTFITS, DEFAULT_OUTFIT } from '../../../data/outfits.js';
+
+/** scratch for the per-frame turret floor check — never escapes */
+const _turretWorld = new THREE.Vector3();
 
 /** dark, hooded-looking rioter persona factory (procedural visual variety) */
 function hostilePersona(arch, i, rng) {
@@ -83,6 +88,8 @@ export class Combat {
     this.mag = 0;          // rounds in the current magazine (reserve = resources.ammo)
     this.magSize = 12;
     this._spawnAt = [0, 0];
+    /** bumped per fight so a stale cleanup timer can't wipe a newer wave */
+    this._generation = 0;
   }
 
   _colliders() { return this.d.colliders ? this.d.colliders() : []; }
@@ -126,6 +133,15 @@ export class Combat {
     for (let i = 0; i < waveSpec.count; i++) {
       const persona = hostilePersona(waveSpec.archetype, i, this.d.rng);
       const actor = new Actor3D(persona);
+      // Dress them. Hostiles used to spawn as bare skinned bodies wearing only
+      // an accessory kit — a hood over a naked torso, a backpack on bare
+      // shoulders — in an adults-only game where nudity is supposed to be a
+      // deliberate wardrobe state, not the default for anyone who breaks in.
+      const wardrobeId = `hostile_${waveSpec.archetype}`;
+      const kitRecipe = OUTFITS[wardrobeId]?.[DEFAULT_OUTFIT[wardrobeId]];
+      if (kitRecipe) {
+        for (const m of buildOutfit(persona, actor.rig, kitRecipe)) actor.root.add(m);
+      }
       const ox = this.d.floorOffset ? this.d.floorOffset() : 0;
       actor.root.position.set(
         this._spawnAt[0] + ox + this.d.rng.range(-0.8, 0.8), 0,
@@ -138,6 +154,8 @@ export class Combat {
         actor, hp: arch.hp, maxHp: arch.hp,
         arch: { ...arch, id: waveSpec.archetype },
         state: 'advance', attackT: this.d.rng.range(0, 1.5),
+        // temperament, decided once: a merc pushes, a looter trades from cover
+        seeksCover: this.d.rng.chance(1 - (arch.aggression ?? 0.6)),
         id: persona.id, coverSpot: null,
       };
       this.hostiles.push(h);
@@ -444,12 +462,33 @@ export class Combat {
   }
 
   /** the building fights back while the defence grid is up */
+  /**
+   * Is this hostile on the same floor as the turret itself?
+   * @param {{actor:{root:{position:{x:number}}}}} h
+   */
+  _onTurretFloor(h) {
+    const def = this.d.defences?.();
+    const turretX = def?.turret?.group?.position?.x;
+    if (turretX == null) return true;
+    // Module scratch, not a fresh Vector3. This is called from a filter inside
+    // _turretFire(dt), which runs EVERY FRAME of every fight, once per living
+    // hostile — the same hot path the allocation pass earlier in this branch
+    // was about. The value is consumed on the next line and never retained.
+    def.turret.group.getWorldPosition(_turretWorld);
+    return Math.abs(h.actor.root.position.x - _turretWorld.x) < 100;
+  }
+
   _turretFire(dt) {
     const run = this.d.run();
     const def = this.d.defences?.();
     const grid = run.systems.defence;
     if (!def || !grid.online || grid.hp <= 5) return;
-    const alive = this.hostiles.filter((h) => h.hp > 0);
+    // The turret is a penthouse fixture, but nothing checked that the fight was
+    // on its floor. Floors sit 200 world-units apart on X, so a basement breach
+    // had the ceiling gun firing at ~1200m for a floored 3% hit chance while
+    // wearing the defence grid down ~14hp/min. Same bug the v0.3.0 pass fixed
+    // for _castFire; the turret was missed.
+    const alive = this.hostiles.filter((h) => h.hp > 0 && this._onTurretFloor(h));
     if (!alive.length) return;
 
     // yoke tracks the closest hostile continuously
@@ -503,9 +542,22 @@ export class Combat {
       const hp3 = h.actor.root.position;
 
       // mercs fight from cover at range; rushers close to melee
+      //
+      // `aggression` is authored per archetype in config/combat.yaml (rioter
+      // 0.8, looter 0.5, merc 0.95) and was the ONE archetype field the AI never
+      // read — every other one (hp, weapon, speed, skill) drives something. So
+      // all three fought identically and the tuning knob was decoration. It now
+      // decides how willing they are to break cover: a merc at 0.95 pushes, a
+      // looter at 0.5 hangs back and trades shots.
       const isRanged = weapon.range > 3;
       let wantAdvance = bestD > reach;
-      if (isRanged && h.state !== 'holding') {
+      // Rolled ONCE, at spawn (see _spawnWave), not per frame. update() runs
+      // every rendered frame, so a per-frame roll latched almost immediately for
+      // everyone: a merc at 0.95 aggression (5% a frame) still reached cover
+      // inside ~0.3s and a looter at 0.5 inside ~0.03s — a difference no player
+      // can perceive, which meant all three archetypes fought identically
+      // despite the knob now being read.
+      if (isRanged && h.state !== 'holding' && (h.seeksCover || h.coverSpot)) {
         if (!h.coverSpot) {
           h.coverSpot = findCoverSpot(colliders, { x: best.pos.x, z: best.pos.z },
             { x: hp3.x, z: hp3.z }, this.d.walkable);
@@ -625,11 +677,20 @@ export class Combat {
     } else {
       feed('You are down. The tower has fallen.', 'combat');
     }
-    setTimeout(() => this._cleanup(), 14000);
+    // Tag the corpses THIS fight owns. A queued event can start a new fight ~5
+    // real seconds later (tick.js re-queues blocked events at +5 game-min), well
+    // inside this window — and the stale timer then disposed the NEW wave's
+    // actors and emptied `hostiles`, so update() saw no one alive and resolved
+    // the fresh breach as an instant phantom victory.
+    const generation = ++this._generation;
+    setTimeout(() => this._cleanup(generation), 14000);
     this._onResolve?.(win);
   }
 
-  _cleanup() {
+  /** @param {number} [generation] only clean up if no new fight has started */
+  _cleanup(generation) {
+    if (generation != null && generation !== this._generation) return;
+    if (this.active) return;   // a new fight owns the field now
     for (const h of this.hostiles) {
       if (h.hp <= 0 && !h.looted) this._lootBody(h);
       this.d.stage.scene.remove(h.actor.root);

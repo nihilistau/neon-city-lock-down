@@ -29,14 +29,30 @@ function merge(base, over) {
 }
 
 /**
+ * Dotted paths, already split. `cfg()` is called from the render loop by the
+ * animator, the camera director, the lighting system and combat — measured at
+ * roughly thirty calls per frame — and `path.split('.')` allocated an array
+ * plus one substring per segment on EVERY one of them, so a single line here
+ * was producing well over a hundred short-lived objects per frame for the GC.
+ *
+ * Paths are compile-time literals from a fixed vocabulary, so this map is
+ * bounded by the number of distinct paths in the source and never grows with
+ * runtime data.
+ * @type {Map<string, string[]>}
+ */
+const _pathCache = new Map();
+
+/**
  * Read a dotted config path. cfg('camera.thirdPerson.shoulderDist').
  * @param {string} path @param {any} [fallback]
  */
 export function cfg(path, fallback) {
+  let keys = _pathCache.get(path);
+  if (keys === undefined) { keys = path.split('.'); _pathCache.set(path, keys); }
   let o = _store;
-  for (const k of path.split('.')) {
+  for (let i = 0; i < keys.length; i++) {
     if (o == null || typeof o !== 'object') return fallback;
-    o = o[k];
+    o = o[keys[i]];
   }
   return o === undefined ? fallback : o;
 }

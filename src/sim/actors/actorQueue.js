@@ -166,7 +166,22 @@ export class ActorQueue {
           socket.getWorldQuaternion(new THREE.Quaternion()));
         const approach = world.clone().addScaledVector(fwd, 0.45);
         approach.y = 0;
-        this._path = [approach];
+
+        // Cross-floor sockets need the elevator, exactly like `goto` does.
+        // `world.sockets` is one flat global map, and this case skipped
+        // findPath entirely — so a character on fl40 told to sit on the
+        // penthouse couch straight-lined 400+ world units through empty space
+        // (~5.5 real minutes of walking), and a refugee in reception took ~14.
+        const p = a.root.position;
+        const destZone = zoneAt(world.x, world.z);
+        const sameFloor = Math.abs(world.x - p.x) < 100;
+        if (!sameFloor && destZone) {
+          this._path = findPath({ x: p.x, z: p.z }, destZone).map((pt) =>
+            Array.isArray(pt) ? new THREE.Vector3(pt[0], 0, pt[1]) : pt);
+          this._path.push(approach);
+        } else {
+          this._path = [approach];
+        }
         a.playClip('walk', 0.25);
         break;
       }

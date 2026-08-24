@@ -3,6 +3,7 @@
 // Tuning: config/sim.yaml (survival).
 import { spend } from './world.js';
 import { cfg } from '../core/config.js';
+import { OUTFITS } from '../../data/outfits.js';
 
 /**
  * Called once per game-hour.
@@ -50,6 +51,35 @@ export function hourlyTick(run, cast) {
       if (waterShort > (s.castWaterShortAt ?? 0.3)) { deltas.tension = (deltas.tension || 0) + 2.5 * waterShort; }
       if (run.rationPolicy.food === 'half') deltas.tension = (deltas.tension || 0) + 0.4;
       if (Object.keys(deltas).length) c.applyStats(deltas, 'rations');
+      // Health is now driven by the ACTUAL shortfall, not inferred from the
+      // presence of a 'rations'-tagged stat delta. That inference meant the flat
+      // half-ration tension nudge above killed the whole cast with a full pantry.
+      if (c.applyDeprivation(foodShort, waterShort, 1)) {
+        notes.push(`${c.name} did not survive the shortage.`);
+      }
+      // Untreated wounds bleed. rollInjury() has always set `bleeding` on
+      // serious hits and nothing anywhere read it, so a gut-shot character was
+      // in exactly the same state as an unhurt one and the medbay had no
+      // urgency at all. Now it is a clock: treat them, or lose them.
+      if (c.alive && c.injuries?.some((i) => i.bleeding)) {
+        if (c.hurt(s.bleedLoss ?? 3, 'wounds')) notes.push(`${c.name} bled out.`);
+        else if (!run.flags.warnedBleeding) {
+          run.flags.warnedBleeding = true;
+          notes.push(`${c.name} is still bleeding. The medbay is on 12.`);
+        }
+      }
+      // Cold. Every outfit recipe carries a `warmth` value and nothing has ever
+      // read one — wardrobe.js's own comment claims the state is tracked "for
+      // stats/warmth". With the heat off, what you are wearing starts to matter.
+      if (!run.systems.power?.online) {
+        // Refugee ids are runtime-assigned (`refugee`, `refugee2`, …) while
+        // OUTFITS is keyed by the FAMILY (`refugee`), so anyone past the first
+        // missed the lookup and silently fell back to 0.5 no matter what they
+        // were wearing.
+        const family = /^refugee/.test(c.id) ? 'refugee' : c.id;
+        const warmth = OUTFITS[family]?.[c.wardrobe?.current]?.warmth ?? 0.5;
+        c.applyStats({ tension: (1 - warmth) * (s.coldTension ?? 2) }, 'cold');
+      }
     }
     c.tickMinutes(60);
   }

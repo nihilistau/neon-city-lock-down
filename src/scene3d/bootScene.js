@@ -100,6 +100,17 @@ export class BootScene {
     sign.position.set(0, 6.5, -14);
     this.group.add(sign);
     this.sign = sign;
+    // Canvas2D does not block on webfonts: whichever face is loaded AT THIS
+    // INSTANT is what gets baked in, and Oxanium usually isn't, so the game's
+    // own title rasterised in Segoe UI. Re-bake once the faces have arrived and
+    // swap the map. (Cheap: one 1024x256 canvas, once, and only if it changed.)
+    document.fonts?.ready.then(() => {
+      if (!this.sign) return;                        // disposed while we waited
+      const fresh = makeTitleTexture();
+      this.sign.material.map = fresh;
+      this.sign.material.needsUpdate = true;
+      tex.dispose();
+    }).catch(() => { /* no FontFaceSet: the initial bake stands */ });
 
     // under-lighting for mood
     const key = new THREE.PointLight(0x39e6ff, 40, 60);
@@ -133,5 +144,6 @@ export class BootScene {
         m.dispose();
       }
     });
+    this.sign = null;   // a pending fonts.ready re-bake must not resurrect it
   }
 }

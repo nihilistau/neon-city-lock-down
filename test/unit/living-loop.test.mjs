@@ -58,7 +58,7 @@ test('a corporeal refugee in the cast eats; the refugees integer does not double
   const runA = newRunState(1);
   const runB = newRunState(1);
   runB.refugees = 1;
-  const npc = { persona: { corporeal: true }, stats: {}, applyStats() {}, tickMinutes() {} };
+  const npc = { persona: { corporeal: true }, stats: {}, applyStats() {}, tickMinutes() {}, applyDeprivation() { return false; } };
   hourlyTick(runA, [npc]);
   hourlyTick(runB, [npc]);
   assert.equal(runA.resources.food, runB.resources.food, 'integer refugees must not add a second mouth once they have a body');

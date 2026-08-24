@@ -545,6 +545,14 @@ const HAIR_STYLES = {
 };
 
 /**
+ * The skull, as an ellipsoid, in fractions of body height. buildHair() grows
+ * every strand off this surface — and accessories.js hangs earrings on it, so
+ * anything worn on the head lands where the head actually IS rather than at a
+ * separately hand-tuned offset that drifts the moment the head changes shape.
+ */
+export const SCALP = { cy: 0.9585, cz: 0.004, ax: 0.0655, ay: 0.0715, az: 0.0665 };
+
+/**
  * Hair as generated STRAND CARDS instead of three primitive shells (a sphere
  * cap, a back cap and a fringe wedge — the "cap-blob").
  *
@@ -569,8 +577,8 @@ export function buildHair(persona, rig) {
   const cardW = style.width * h;
 
   // scalp ellipsoid, a hair's thickness outside the skull rings in trunkRings()
-  const C = new THREE.Vector3(0, 0.9585 * h, 0.004 * h);
-  const A = new THREE.Vector3(0.0655 * h, 0.0715 * h, 0.0665 * h);
+  const C = new THREE.Vector3(0, SCALP.cy * h, SCALP.cz * h);
+  const A = new THREE.Vector3(SCALP.ax * h, SCALP.ay * h, SCALP.az * h);
   const STEPS = 7;
 
   const pos = [], uv = [], index = [], freeT = [];

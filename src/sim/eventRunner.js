@@ -146,6 +146,16 @@ export class EventRunner {
 
   get busy() { return this.runner.running; }
 
+  /**
+   * Can this event actually start right now? `fire()` is async, so its early
+   * return is invisible to callers — they get a pending promise either way.
+   * Callers that pay a cost (an action point, a resource) must check this FIRST.
+   * @param {string} eventId
+   */
+  canFire(eventId) {
+    return !!EVENTS[eventId] && !this.runner.running;
+  }
+
   /** @param {string} eventId */
   async fire(eventId) {
     const def = EVENTS[eventId];

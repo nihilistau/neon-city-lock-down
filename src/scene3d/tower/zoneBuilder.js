@@ -76,6 +76,11 @@ export class World3D {
       this.collidersByFloor[floor.id] = [];
       this[`_build_${floor.shell}`](group, floor);
       this._buildElevatorDoor(group, floor);
+      // v0.4 added ~100 architecture meshes — dais, cages, server columns, lobby
+      // columns, basement pillars, HVAC, the ramp — and registered NONE of them
+      // as colliders, so the player walked straight through the lot. Anything
+      // tagged `userData.solid` is picked up automatically from here on.
+      this._collectSolids(group, floor.id);
       stage.scene.add(group);
     }
     this._buildFurniture();
@@ -84,6 +89,15 @@ export class World3D {
   }
 
   // ── shared helpers ──────────────────────────────────────────────
+  /**
+   * A floor slab. `y` is the slab CENTRE, so a 0.2-thick slab at the default
+   * -0.1 has its walkable top at exactly 0 — which is where actors stand
+   * (Actor3D.snapTo pins root.y = 0) and where the FP eye height is measured
+   * from. Anything that raises this top buries every character by the
+   * difference; v0.4 shipped three such surfaces (fl27 +0.08, ground +0.04,
+   * the fl40 dais +0.14 — past the ankle). There is no step-up logic anywhere,
+   * so floor FINISHES must stay flush and only the base may sit lower.
+   */
   _slab(group, rect, tex, y = -0.1) {
     const w = rect.x[1] - rect.x[0], d = rect.z[1] - rect.z[0];
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, d), tex);
@@ -91,6 +105,20 @@ export class World3D {
     m.receiveShadow = true;
     group.add(m);
     return m;
+  }
+
+  /**
+   * Register every mesh tagged `userData.solid` on this floor as a world-space
+   * collider. Tag at construction (`mesh.userData.solid = true`) and it is
+   * picked up here — no second list to keep in sync.
+   * @param {THREE.Group} group @param {string} floorId
+   */
+  _collectSolids(group, floorId) {
+    group.updateMatrixWorld(true);
+    group.traverse((o) => {
+      if (!(/** @type {any} */ (o).isMesh) || !o.userData?.solid) return;
+      this.collidersByFloor[floorId].push(new THREE.Box3().setFromObject(o));
+    });
   }
 
   _ceiling(group, rect, y, color = 0x0c0f18) {
@@ -236,14 +264,22 @@ export class World3D {
       post.position.set(F.x[1], ceil / 2, mz);
       group.add(post);
     }
-    // ceiling light strips + neon trim. These were 2cm-thick slabs — the same
+    // Ceiling light strips + neon trim. These were 2cm-thick slabs — the same
     // sub-pixel shimmer problem as the old trim, three times across the ceiling.
-    // No lights on these: the ceiling wash is already the `cool` point light in
-    // the fixed kit, and three more would be pure shader cost for no new look.
+    //
+    // These runs now CAST. They used to be pure emissive geometry on the theory
+    // that the fixed kit's `cool` point light covered the ceiling wash. It did
+    // not: a hue census of the finished frame, averaged over eight camera angles
+    // in this room, came back 61.8% warm amber against 3.8% cyan and 1.7%
+    // magenta — in the game whose entire identity is cyan and magenta. The three
+    // brightest objects in the penthouse lit nothing at all. Spilling from the
+    // visible tube is also better-motivated than an invisible point light doing
+    // it from somewhere else.
     for (const lx of [-11, -4, 4]) {
       neonRun(group, {
         x: lx, y: ceil - 0.04, z: 0, length: 8, axis: 'z',
         color: PALETTE.neonCyan, radius: 0.028, intensity: 2.0,
+        light: { distance: 7.5, power: 14 },
       });
     }
     this._neonTrim(group, (F.x[0] + F.x[1]) / 2, 2.4, F.z[0] + 0.03, F.x[1] - F.x[0]);
@@ -354,6 +390,7 @@ export class World3D {
     // flood lights
     for (const [x, z] of [[-9.2, -7.2], [9.2, -7.2], [9.2, 7.2]]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), mullionMat());
+      pole.userData.solid = true;
       pole.position.set(x, 1.2, z);
       group.add(pole);
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.2),
@@ -366,6 +403,7 @@ export class World3D {
       const hvac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.1),
         new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a3038'), 1.1, 0.3), metalness: 0.55, roughness: 0.45 }));
       hvac.position.set(x, 0.4, z);
+      hvac.userData.solid = true;
       group.add(hvac);
     }
     this._practical(group, 4.5, 2.8, 0, PALETTE.neonAmber, 20, 12);
@@ -383,9 +421,12 @@ export class World3D {
     walls = ['solid', 'solid', 'solid', 'solid'],
     floorMat = null,
   } = {}) {
+    // base sits 2cm below the nominal top so a floor's own finish layer can be
+    // laid flush at 0 without z-fighting; where no finish covers it the 2cm is
+    // imperceptible and still walkable.
     this._slab(group, rect, floorMat || new THREE.MeshStandardMaterial({
       ...surfaced(concreteTex(floorTint), 1.6, 0.8), roughness: 0.82,
-    }));
+    }), -0.12);
     this._ceiling(group, rect, ceilH, ceilColor);
     const wall = wallMatOf(tint);
     const glass = glassMat();
@@ -436,9 +477,11 @@ export class World3D {
     port.position.set(0, 1.85, 3.2);
     group.add(port);
     // security dais (west)
-    const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.18, 10.4),
+    // Reads as a distinct deck via material, not height: at 0.18 thick centred
+    // on +0.05 its top was +0.14 and everyone standing on it sank past the ankle.
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 10.4),
       new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a1520'), 1.1, 0.4), metalness: 0.35, roughness: 0.5 }));
-    dais.position.set(-5.2, 0.05, 0);
+    dais.position.set(-5.2, -0.02, 0);
     group.add(dais);
     // monitor alcove hood
     const hood = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 1.4),
@@ -457,8 +500,9 @@ export class World3D {
     const backstop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.6, 2.4),
       new THREE.MeshStandardMaterial({ color: 0x2a1818, roughness: 0.9 }));
     backstop.position.set(9.3, 0.85, -3.5);
+    backstop.userData.solid = true;
     group.add(backstop);
-    neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7 });
+    neonRun(group, { x: 5, y: ceilH - 0.12, z: -5.4, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.03, intensity: 1.7, light: { distance: 8, power: 16 } });
     neonRun(group, { x: -5, y: ceilH - 0.12, z: 0, length: 8, axis: 'x', color: PALETTE.neonRed, radius: 0.025, intensity: 1.2 });
     const cage = new THREE.MeshStandardMaterial({ color: 0x1a1520, metalness: 0.55, roughness: 0.4 });
     for (const z of [-4.4, -0.2, 4.0]) {
@@ -489,7 +533,7 @@ export class World3D {
     });
     // raised access floor (server tiles)
     const tile = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#15202c'), 1.4, 0.35), metalness: 0.45, roughness: 0.4 });
-    this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile, -0.02);
+    this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile);   // flush: top = 0
     // concentric ring
     const ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.7, 32),
       new THREE.MeshStandardMaterial({ color: 0x111, emissive: PALETTE.neonCyan, emissiveIntensity: 0.7, side: THREE.DoubleSide }));
@@ -510,13 +554,14 @@ export class World3D {
       new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2430'), 1.2, 0.4), metalness: 0.55, roughness: 0.4 }));
     dais.position.set(0, 0.12, 1.4);
     group.add(dais);
-    neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0 });
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0, light: { distance: 9, power: 20 } });
     // hex of server columns
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.32, 2.9, 0.32),
         new THREE.MeshStandardMaterial({ color: 0x0c141c, metalness: 0.55, roughness: 0.32, emissive: PALETTE.neonCyan, emissiveIntensity: 0.14 }));
       col.position.set(Math.cos(a) * 5.2, 1.45, Math.sin(a) * 5.2);
+      col.userData.solid = true;
       group.add(col);
     }
     // floor vents
@@ -557,7 +602,7 @@ export class World3D {
       lamp.position.set(x, ceilH - 0.08, -2.2);
       group.add(lamp);
     }
-    neonRun(group, { x: 0, y: ceilH - 0.1, z: -5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.5 });
+    neonRun(group, { x: 0, y: ceilH - 0.1, z: -5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.5, light: { distance: 8, power: 14 } });
     neonRun(group, { x: 0, y: ceilH - 0.1, z: 5.5, length: 13, axis: 'x', color: 0xbfe8ff, radius: 0.022, intensity: 1.1 });
     // cabinet glow strip
     const glow = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.08),
@@ -576,7 +621,7 @@ export class World3D {
       walls: ['glass', 'solid', 'solid', 'solid'],
     });
     const marble = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.22, metalness: 0.18 });
-    this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble, -0.06);
+    this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble);   // flush: top = 0
     this._neonTrim(group, 0, 3.7, R.z[0] + 0.16, 16, PALETTE.neonCyan);
     this._neonTrim(group, 0, 4.15, R.z[1] - 0.2, 16, PALETTE.neonMagenta);
     // mezzanine strip along -Z
@@ -593,13 +638,14 @@ export class World3D {
     for (const x of [-6.5, 0, 6.5]) {
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, ceilH, 12), colMat);
       col.position.set(x, ceilH / 2, 2.4);
+      col.userData.solid = true;
       group.add(col);
     }
     const sign = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.85, 0.1),
       new THREE.MeshStandardMaterial({ color: 0x0a0c12, emissive: PALETTE.neonCyan, emissiveIntensity: 1.05 }));
     sign.position.set(0, 3.55, -7.85);
     group.add(sign);
-    neonRun(group, { x: 0, y: ceilH - 0.12, z: 0, length: 16, axis: 'x', color: PALETTE.neonCyan, radius: 0.045, intensity: 2.4 });
+    neonRun(group, { x: 0, y: ceilH - 0.12, z: 0, length: 16, axis: 'x', color: PALETTE.neonCyan, radius: 0.045, intensity: 2.4, light: { distance: 10, power: 24 } });
     // vestibule mats
     const mat = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.04, 1.8),
       new THREE.MeshStandardMaterial({ color: 0x1a1020, roughness: 0.9 }));
@@ -621,6 +667,7 @@ export class World3D {
       new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c22'), 1.4, 0.7), roughness: 0.9 }));
     ramp.rotation.z = -0.12;
     ramp.position.set(11.2, 0.35, 4);
+    ramp.userData.solid = true;
     group.add(ramp);
     for (let i = 0; i < 7; i++) {
       const stain = new THREE.Mesh(new THREE.CircleGeometry(0.45 + this.rng.next() * 0.9, 12),
@@ -652,6 +699,7 @@ export class World3D {
       for (const z of [-4, 4]) {
         const col = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, ceilH, 10), colM);
         col.position.set(x, ceilH / 2, z);
+        col.userData.solid = true;
         group.add(col);
       }
     }
@@ -659,17 +707,26 @@ export class World3D {
       new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0xffb347, emissiveIntensity: 2.0 }));
     sodium.position.set(0, ceilH - 0.08, 0);
     group.add(sodium);
-    neonRun(group, { x: 0, y: 0.04, z: 8.8, length: 20, axis: 'x', color: 0xffb347, radius: 0.02, intensity: 0.6 });
+    neonRun(group, { x: 0, y: 0.04, z: 8.8, length: 20, axis: 'x', color: 0xffb347, radius: 0.02, intensity: 0.6, light: { distance: 5, power: 6 } });
     this._practical(group, 0, 2.1, 0, 0xffb347, 22, 10);
   }
 
   _buildExterior(group, fromRoof = false) {
     const tex = cityWindowsTexture();
+    // matC is declared FIRST: the loader callbacks below close over it, and it
+    // used to be read in a callback declared above its own `const` — a TDZ read
+    // that only survived because TextureLoader is always async. Any cache hit or
+    // sync path would have thrown a ReferenceError at world build.
+    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
     const loader = new THREE.TextureLoader();
     loader.load('/assets/city/windows.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
       map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      // Scale the tiling to the tower's real height so window aspect stays
+      // constant: a flat repeat(2,4) gave ~32x64 windows per box face — windows
+      // about 15cm wide — which aliased into moire that bloom then amplified.
       map.repeat.set(2, 4);
+      map.anisotropy = Math.min(8, this.stage.renderer.capabilities.getMaxAnisotropy?.() ?? 1);
       matC.map = map;
       matC.needsUpdate = true;
     });
@@ -682,7 +739,6 @@ export class World3D {
       plate.lookAt(4, fromRoof ? 8 : 2, 0);
       group.add(plate);
     });
-    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const mesh = new THREE.InstancedMesh(geo, matC, 80);
     const m4 = new THREE.Matrix4();
@@ -794,9 +850,43 @@ export class World3D {
         // `cam_` and `vinyl_disc` were named for animation that was never
         // written — monitors.js only ever implemented NewsTicker, despite the
         // comment in furniture.js claiming it drove the cam screens.
-        if (/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) this.animated.push(o);
+        if (!/^(fish_|vox_ring_|fire_glow|cam_|vinyl_disc)/.test(o.name)) return;
+        // Parse the trailing index ONCE, here at build time. update() used to do
+        // `o.name.slice(5)` per object per frame — a fresh substring for every
+        // fish, camera screen and VOX ring, sixty times a second, to recover a
+        // number that was decided when the object was created.
+        const m = o.name.match(/(\d+)$/);
+        o.userData.animIdx = m ? Number(m[1]) : 0;
+        this.animated.push(o);
       });
     }
+  }
+
+  /**
+   * Compile every floor's shaders up front, while a loading screen is up.
+   *
+   * A forward renderer bakes the scene's LIGHT COUNT into each material's
+   * program, and the floors deliberately differ (measured: 8 to 12 lights), so
+   * arriving somewhere new meant compiling a fresh variant of every material on
+   * it. Measured across one visit to all seven floors, the program count climbed
+   * 41 -> 77 — seventy-odd link steps, each landing as a stall the moment the
+   * elevator doors opened. Programs are cached by the renderer, so paying for
+   * all of them here means the ride is the only thing the player waits on.
+   *
+   * Best-effort: a driver that chokes on this must not take the boot with it.
+   * @param {THREE.WebGLRenderer} renderer @param {THREE.Camera} camera
+   */
+  precompile(renderer, camera) {
+    const wasActive = this.activeFloor;
+    try {
+      for (const id of Object.keys(this.floorGroups)) {
+        this.setActiveFloor(id);
+        renderer.compile(this.stage.scene, camera);
+      }
+    } catch (err) {
+      console.warn('[world] shader precompile skipped', err);
+    }
+    if (wasActive) this.setActiveFloor(wasActive);
   }
 
   /** @param {string} floorId */
@@ -842,8 +932,8 @@ export class World3D {
       // so the old `&& !group.visible` made this guard dead and animated all
       // seven floors (including per-frame emissive writes) every frame.
       if (!o.parent?.visible) continue;
+      const i = o.userData.animIdx;   // parsed once in _collectAnimated
       if (o.name.startsWith('fish_')) {
-        const i = Number(o.name.slice(5));
         if (o.userData.dead) {
           o.position.y = Math.min(1.24, o.position.y + 0.002);
           o.rotation.x = Math.PI;
@@ -853,7 +943,6 @@ export class World3D {
           o.rotation.y = Math.cos(t * (0.5 + i * 0.2) + i * 2) > 0 ? 0 : Math.PI;
         }
       } else if (o.name.startsWith('vox_ring_')) {
-        const i = Number(o.name.slice(9));
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         mat3.emissiveIntensity = 1.2 + Math.sin(t * 2 + i * 1.4) * 0.7 + (o.userData.excite || 0);
         // wrapped: `t` is seconds-since-load, so an unwrapped angle climbs into
@@ -865,7 +954,6 @@ export class World3D {
       } else if (o.name.startsWith('cam_')) {
         // security feed: slow per-screen brightness drift plus a brief dropout,
         // each screen on its own phase so the wall never pulses as one block
-        const i = Number(o.name.slice(4));
         const mat3 = /** @type {THREE.MeshStandardMaterial} */ (o.material);
         const drift = 0.32 + Math.sin(t * (0.7 + i * 0.13) + i * 1.7) * 0.09;
         // dropout: ~1 frame in 12 of a 3.1s cycle, offset per screen

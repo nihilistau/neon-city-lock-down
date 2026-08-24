@@ -7,17 +7,16 @@ import { deriveMood, animTempo } from './mood.js';
 import { Memory } from './memory.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { cfg } from '../core/config.js';
 
 /** Starting/ceiling body integrity for a cast member (the player has run.player.health). */
 const MAX_HEALTH = 100;
-/** Health lost per game-hour of ration shortfall, and regained per fed hour. */
-const STARVE_LOSS = 6;
-const FED_REGEN = 1.5;
 
 /** feed/obituary wording per cause */
 const CAUSE_TEXT = {
   wounds: 'bled out from the breach',
   starvation: 'starved',
+  dehydration: 'died of thirst',
   unknown: 'is gone',
 };
 
@@ -42,7 +41,6 @@ export class Character {
     this.health = MAX_HEALTH;  // body integrity; 0 → dead (see hurt()/die())
     this.present = true;      // in the game right now? (director can send NPCs away)
     this.injuries = [];
-    this._hungryHour = false;  // set by the 'rations' stat pass, consumed by tickMinutes
 
     this._moodId = null;
     this._moodTimer = 0;
@@ -66,10 +64,6 @@ export class Character {
   applyStats(deltas, cause) {
     if (!this.alive) return {};
     const applied = applyDelta(this.stats, deltas, this.persona.personality);
-    // survival.js tags the hourly hunger/thirst cascade 'rations' — the only
-    // starvation signal that reaches a Character. It always lands immediately
-    // before that character's tickMinutes(60) in the same hourly loop.
-    if (cause === 'rations') this._hungryHour = true;
     emit('char.stat', { id: this.id, applied, stats: this.stats, cause });
     this.refreshMood();
     return applied;
@@ -79,15 +73,46 @@ export class Character {
   tickMinutes(minutes) {
     if (!this.alive) return;
     decayTick(this.stats, minutes);
-    // slow half of mortality: hungry hours eat into health, fed hours heal it
-    const hours = minutes / 60;
-    if (this._hungryHour) {
-      this._hungryHour = false;
-      this.hurt(STARVE_LOSS * hours, 'starvation');
-    } else {
-      this.health = Math.min(MAX_HEALTH, this.health + FED_REGEN * hours);
-    }
     this.refreshMood();
+  }
+
+  /**
+   * The slow half of mortality, driven by the hourly survival tick.
+   *
+   * This used to be inferred from a stat-delta *cause string*: any
+   * `applyStats(..., 'rations')` latched a "hungry hour". That was wrong three
+   * ways, and one of them was lethal:
+   *   - survival.js adds a flat tension nudge whenever the ration policy is
+   *     'half', with NO shortfall, so half rations killed every NPC at 6 hp/hour
+   *     with a completely full pantry (dead in ~17 game-hours).
+   *   - a WATER shortage took the same path and was reported as "starvation".
+   *   - damage was binary: a 0.31 shortfall and a 1.0 shortfall both dealt 6/hr.
+   * Now the shortfalls are passed in explicitly and the curve is graded.
+   *
+   * @param {number} foodShort  0..1 fraction of the hourly food draw unmet
+   * @param {number} waterShort 0..1 fraction of the hourly water draw unmet
+   * @param {number} hours
+   * @returns {boolean} true if this killed them
+   */
+  applyDeprivation(foodShort, waterShort, hours) {
+    if (!this.alive || !(hours > 0)) return false;
+    const s = cfg('sim.survival', {});
+    const startAt = s.castStarveAt ?? 0.25;
+    // ramp from 0 at the threshold to full loss at a total shortfall
+    const ramp = (short) => {
+      const over = (short - startAt) / Math.max(1e-6, 1 - startAt);
+      return Math.max(0, Math.min(1, over));
+    };
+    const fromFood = ramp(foodShort) * (s.castStarveLoss ?? 6);
+    // dehydration outpaces starvation, as it does for the player
+    const fromWater = ramp(waterShort) * (s.castThirstLoss ?? 8);
+    const loss = (fromFood + fromWater) * hours;
+
+    if (loss > 0) {
+      return this.hurt(loss, fromWater > fromFood ? 'dehydration' : 'starvation');
+    }
+    this.health = Math.min(MAX_HEALTH, this.health + (s.castRegen ?? 1.5) * hours);
+    return false;
   }
 
   /**

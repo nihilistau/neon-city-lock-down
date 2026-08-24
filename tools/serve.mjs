@@ -22,6 +22,18 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  // v0.4 shipped 25 .jpg assets and 10 config .yaml files with no entry here, so
+  // every one was served as application/octet-stream. It only worked because
+  // browsers content-sniff <img>; any nosniff header, CDN, or fetch()-based
+  // loader would have broken every icon, face, fabric and the skyline.
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.yaml': 'text/yaml; charset=utf-8',
+  '.yml': 'text/yaml; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 createServer(async (req, res) => {
@@ -75,6 +87,17 @@ createServer(async (req, res) => {
   } catch (err) {
     res.writeHead(500).end(String(err));
   }
+}).on('error', (err) => {
+  // A bare throw here printed a listen stack trace and — since run.bat has no
+  // pause — closed the console window before anyone could read it.
+  if (/** @type {any} */ (err).code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use.`);
+    console.error('Another copy of the server is probably running.');
+    console.error(`Close it, or start on another port:  node tools/serve.mjs ${PORT + 1}`);
+  } else {
+    console.error('Server failed to start:', err.message);
+  }
+  process.exit(1);
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`Neon-City: Lock-Down  →  http://localhost:${PORT}`);
 });

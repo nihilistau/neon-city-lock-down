@@ -34,7 +34,9 @@ scheduled beat) and bypasses the scheduler's gap. `curfew_flyover`'s weight drop
 `flags.curtainsClosed` — drawn curtains hide the tower's lights.
 
 ## Step vocabulary (`eventRunner.js`)
-Each script step is `{ type, …fields }`. Registered verbs (a handler may be async; a returned `{steps:[…]}`
+Each script step is `{ type, …fields }`. Registered verbs — this table is CHECKED
+against `src/sim/eventRunner.js` by `tools/lint-data.mjs`, so it cannot drift again
+(it documented 25 of 27 for two releases). Registered verbs (a handler may be async; a returned `{steps:[…]}`
 runs inline — how `choice`/`combat` branch):
 
 | type | fields | effect |
@@ -62,6 +64,8 @@ runs inline — how `choice`/`combat` branch):
 | `cutscene` | `steps` | run a cutscene script |
 | `combat` | `spawnAt, count?/archetype?, waves?, onWin?, onLoss?` | start a firefight; resolves to `onWin`/`onLoss` steps |
 | `choice` | `prompt, options:[{label, steps}]` | emit `event.choice`; player pick resolves to that option's steps |
+| `runFlag` | `flag, value?` | set `run.flags[flag]` (defaults to `true`) — the run-scoped counterpart to `castFlag` |
+| `castHurt` | `char, amount, cause?` | damage one character; can kill them |
 | `endRun` | `outcome` | emit `run.extraction {outcome}` (the extraction ending) |
 
 **Note:** `anim`/`face`/`look` etc. are NOT event verbs — those belong to the cutscene DSL

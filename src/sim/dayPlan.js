@@ -51,14 +51,60 @@ export const DAY_ACTIONS = [
     },
   },
   {
+    // Accepting a refugee used to be an unrecoverable spiral with no exit: a
+    // fifth mouth pushed daily food demand past what four AP of foraging can
+    // produce, and there was no way to remove them, put them to work, or even
+    // acknowledge the problem. A choice you cannot respond to is not a choice.
+    //
+    // Put them to work and they earn their keep — a refugee who forages beside
+    // you turns the decision into a BET (a mouth today, hands tomorrow) instead
+    // of a punishment for compassion.
+    id: 'refugee_work', label: 'Put the refugees to work', ap: 1,
+    hint: 'they forage with you — food scaled by how many took you in',
+    can: (run) => (run.refugees || 0) > 0 && !run.dayPlan?.done?.includes('refugee_work'),
+    apply: (run, rng) => {
+      const n = run.refugees || 0;
+      const per = cfg('sim.dayPlan.refugeeWork.foodPer', 3);
+      const food = n * (per + rng.int(0, 2));
+      const water = n * rng.int(0, 2);
+      run.resources.food += food; run.resources.water += water;
+      return `They know where the city hides things. +${food} food, +${water} water.`;
+    },
+  },
+  {
+    // The other half of the answer. Asking someone to leave a besieged tower is
+    // supposed to cost you something with the people watching you do it.
+    id: 'refugee_release', label: 'Send the refugees back out', ap: 0,
+    hint: 'one fewer mouth — and the cast will remember',
+    can: (run) => (run.refugees || 0) > 0,
+    // `run.refugees` is a HISTORY counter; survival.js counts bodies in the cast
+    // as the actual mouths. Decrementing it alone removed no mouth, left the
+    // person standing in reception, and — because spawnRefugee derives its
+    // template index from the counter — made the NEXT arrival collide with the
+    // still-present character and silently no-op. The release has to be
+    // requested of the App, which owns the cast, hence the flag it reads below.
+    apply: (run) => {
+      run.refugees = Math.max(0, (run.refugees || 0) - 1);
+      run.flags.sentRefugeeOut = true;
+      run.flags.releaseRefugee = true;      // App.simStep despawns the body
+      run.player.morale = Math.max(0, run.player.morale - cfg('sim.dayPlan.refugeeRelease.morale', 10));
+      return 'The doors opened, briefly, outward. Nobody spoke at dinner.';
+    },
+  },
+  {
     id: 'forage', label: 'Forage the rooftop garden', ap: 1, hint: 'time → food/water, maybe parts',
     can: () => true,
     apply: (run, rng) => {
-      const food = cfg('sim.dayPlan.forage.foodBase', 2) + rng.int(0, cfg('sim.dayPlan.forage.foodRand', 3));
-      const water = rng.int(0, cfg('sim.dayPlan.forage.waterRand', 3));
-      const parts = rng.chance(cfg('sim.dayPlan.forage.partsChance', 0.35)) ? 1 : 0;
+      // Letting the garden blight (data/events.js garden_blight, "Let it ride")
+      // set a flag that nothing read, while its own alert told the player "the
+      // rooftop will give less". It does now.
+      const blight = run.flags.gardenBlight ? cfg('sim.dayPlan.forage.blightMul', 0.4) : 1;
+      const food = Math.round((cfg('sim.dayPlan.forage.foodBase', 2) + rng.int(0, cfg('sim.dayPlan.forage.foodRand', 3))) * blight);
+      const water = Math.round(rng.int(0, cfg('sim.dayPlan.forage.waterRand', 3)) * blight);
+      const parts = rng.chance(cfg('sim.dayPlan.forage.partsChance', 0.35) * blight) ? 1 : 0;
       run.resources.food += food; run.resources.water += water; run.resources.parts += parts;
-      return `Scavenged +${food} food, +${water} water${parts ? ', +1 part' : ''}.`;
+      return `Scavenged +${food} food, +${water} water${parts ? ', +1 part' : ''}.`
+        + (blight < 1 ? ' The blighted beds gave up little.' : '');
     },
   },
   {
@@ -94,7 +140,10 @@ export const DAY_ACTIONS = [
 /** Reset the AP pool (called on day rollover). */
 export function resetDayPlan(run) {
   const ap = cfg('sim.dayPlan.apPerDay', AP_PER_DAY);
-  run.dayPlan = { ap, apMax: ap };
+  // `done` tracks once-a-day actions. It was read by refugee_work's `can()` and
+  // written by NOTHING, so the guard was permanently satisfied and a refugee
+  // could be worked on every action point of every day for free food.
+  run.dayPlan = { ap, apMax: ap, done: [] };
 }
 
 /** Can the player perform action `id` right now? */
@@ -117,6 +166,7 @@ export function performAction(run, id, rng) {
   if (!a.can(run)) return { ok: false, msg: 'Can\'t do that right now.' };
   const msg = a.apply(run, rng);
   run.dayPlan.ap -= ap;
+  (run.dayPlan.done ||= []).push(id);   // once-a-day actions read this
   return { ok: true, msg, ap: run.dayPlan.ap };
 }
 

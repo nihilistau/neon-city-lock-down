@@ -13,6 +13,7 @@ import '../../data/dialogue/kai/core.js';
 import '../../data/dialogue/kai/depth.js';
 import '../../data/dialogue/vox/core.js';
 import '../../data/dialogue/vox/depth.js';
+import '../../data/dialogue/games.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -27,6 +28,7 @@ import { BootScene } from '../scene3d/bootScene.js';
 import { Lighting } from '../scene3d/lighting.js';
 import { World3D } from '../scene3d/tower/zoneBuilder.js';
 import { Picker } from '../scene3d/picking.js';
+import { rimPool } from '../scene3d/rimPool.js';
 import { CameraRig } from '../camera/cameraRig.js';
 import { Actor3D } from '../humanoid/actor3d.js';
 import { buildPlayerPersona } from '../../data/cast/player.js';
@@ -76,7 +78,8 @@ import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
 import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
-import { zoneAt, waypointPos } from '../sim/actors/nav.js';
+import { MYSTERY_CASES } from '../../data/games/mysteryCases.js';
+import { zoneAt, waypointPos, elevatorPos } from '../sim/actors/nav.js';
 import { ElevatorUI } from '../ui/elevator.js';
 import { Codex } from '../ui/codex.js';
 import { Inventory } from '../sim/inventory.js';
@@ -93,6 +96,8 @@ import { LOADOUTS } from '../../data/items.js';
 import { buildRefugee } from '../../data/cast/refugee.js';
 import { registerRefugeeTopics } from '../../data/dialogue/refugee.js';
 import { showMainMenu } from '../ui/mainMenu.js';
+import { showGate18 } from '../ui/gate18.js';
+import { initModalStack } from '../ui/modalStack.js';
 import { addCodex } from '../sim/meta.js';
 import { applyScenario } from '../sim/scenario.js';
 import { jobDest, interruptChance } from '../sim/jobs.js';
@@ -106,6 +111,14 @@ function setTimeoutGameSafe(app, minutes, fn) {
     if (app.clock.totalMinutes >= target) { off(); fn(); }
   });
 }
+
+/** VOX's idle terminal chatter. Hoisted: it was rebuilt on every interaction. */
+const VOX_TERMINAL_LINES = [
+  'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
+  'I have counted the rioters. You do not want the number.',
+  'My cameras miss nothing. Except floor thirteen. There is no floor thirteen.',
+  'Query logged. Curiosity noted. Approval pending.',
+];
 
 export class App {
   constructor() {
@@ -138,8 +151,14 @@ export class App {
 
   async start() {
     this.loop.start();
+    initModalStack();   // one panel at a time; Escape is a universal "back"
     const unlock = () => audio.unlock();
     document.addEventListener('pointerdown', unlock, { once: true });
+    // 18+ gate first. v0.4 dropped it while README/package.json/docs still
+    // advertised one, and the game ships explicit adult content. The click is
+    // also the autoplay gesture the audio bus needs.
+    await showGate18();
+    audio.unlock();
     const choice = await showMainMenu(this);   // boot scene renders behind the menu
     audio.unlock();
     emit('game.entered', {});
@@ -170,6 +189,17 @@ export class App {
     this.combatFx = new CombatFx(this.stage.scene);
     this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
     this.lighting = new Lighting(this.stage);
+    rimPool.init(this.stage.scene);   // fixed light count for the whole run
+    // Pay for every floor's shader variants now, behind the loading screen,
+    // rather than as a stall each time an elevator door opens.
+    //
+    // AFTER the light kit and the rim pool, not before. precompile() exists
+    // precisely because a forward renderer bakes the scene's LIGHT COUNT into
+    // every material's program — so running it while the scene still had none
+    // compiled ~77 programs keyed to the wrong count, all of which the first
+    // real frame threw away. The stall it was written to prevent still happened,
+    // and boot paid for seven extra scene compiles on top of it.
+    this.world.precompile(this.stage.renderer, this.stage.camera);
     this.lighting.clock = this.clock;
     this.lighting.apply('neon_night', 0.01);
 
@@ -194,7 +224,10 @@ export class App {
     });
     this.worldTick = new WorldTick({
       run: () => this.run,
-      livingCast: () => Object.values(this.cast).filter((c) => c.alive),
+      // `present` matters as much as `alive`: survival.js counts these as the
+      // mouths at the table, and someone who has left the tower is not eating
+      // your food. Without this, sending a refugee back out changed nothing.
+      livingCast: () => Object.values(this.cast).filter((c) => c.alive && c.present !== false),
       scheduler: this.scheduler,
       events: this.eventRunner,
       combat: () => this.combat,
@@ -212,6 +245,48 @@ export class App {
     // music matrix: combat and intimacy override the baseline mood
     on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
     on('combat.resolved', () => { this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = false; });
+    // ── minigames, reachable from inside a run ────────────────────────────
+    // Emitted by a topic's `effects.game` (src/dialogue/effects.js) and by
+    // scenario payloads, so there is ONE place that opens a game rather than
+    // one per entry point.
+    on('game.requested', ({ game, charId }) => {
+      if (!this.gamesPanel || !game) return;
+      if (game === 'cards') this.gamesPanel.cards();
+      else if (game === 'tod') this.gamesPanel.tod();
+      // `bed` carrying a charId came from a DIALOGUE topic and means "with the
+      // person you just asked" — the only reading that makes sense mid-
+      // conversation. Without one it came from a scenario, so offer the picker.
+      else if (game === 'bed') {
+        if (charId) this.gamesPanel.bed(charId); else this.gamesPanel.bedPick();
+      } else if (game.startsWith('bed:')) this.gamesPanel.bed(game.slice(4));
+      else if (game.startsWith('mystery:')) this.gamesPanel.mystery(game.slice(8));
+    });
+
+    // ── arrivals ──────────────────────────────────────────────────────────
+    // ActorQueue has emitted `zone.entered` every time an actor crosses a zone
+    // boundary since the day it was written, and NOTHING has ever subscribed —
+    // not even the debug feed. So the cast moved around a tower you could not
+    // perceive them moving around: they were simply elsewhere, then here.
+    //
+    // Two consequences, both from data that already exists. The room reports who
+    // just walked in, and whoever walked in looks at you — which is the whole
+    // difference between a character pathing past and a character arriving.
+    on('zone.entered', ({ id, zone, from }) => {
+      const c = this.cast[id];
+      if (!c || !c.alive || c.persona?.corporeal === false) return;
+      const here = zoneAt(this.playerMarker.position.x, this.playerMarker.position.z);
+      if (!zone || zone === from) return;
+      if (zone === here) {
+        feed(`${c.name} comes in from the ${ZONES[from]?.name?.toLowerCase() || 'hall'}.`, 'info');
+        c.actor.lookAt(this.playerMarker);
+        // drop the glance after a beat — a held stare reads as a bug, not interest
+        clearTimeout(this._glanceT?.[id]);
+        (this._glanceT ||= {})[id] = setTimeout(() => c.actor.lookAt(null), 4000);
+      } else if (from === here) {
+        feed(`${c.name} heads for the ${ZONES[zone]?.name?.toLowerCase() || 'hall'}.`, 'info');
+      }
+    });
+
     // keep the hand weapon model in sync with the equipped weapon
     on('inventory.equipped', () => this._setWeaponModel());
     on('bedgame.started', () => this.conductor.setMood({ intimacy: 0.8, warmth: 0.7, energy: 0.28, tension: 0.05 }));
@@ -237,7 +312,7 @@ export class App {
         this.run.flags.day3Queued = true;
         const minutesToDusk = Math.max(5, 18.5 * 60 - this.clock.minuteOfDay);
         setTimeoutGameSafe(this, minutesToDusk, async () => {
-          if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+          if (!this._beatPlayable()) return;   // penthouse-authored; see _beatPlayable
           const { DAY3_CUTSCENE } = await import('../../data/cutscenes/day3.js');
           this.cutscene.play(DAY3_CUTSCENE);
         });
@@ -264,7 +339,7 @@ export class App {
     // a named companion falling is a scene, not a feed line
     const playFallen = (name) => {
       import('../../data/cutscenes/fallen.js').then(({ fallenCutscene }) => {
-        if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+        if (!this._beatPlayable()) { feed(`Word reaches you: ${name} is gone.`, 'combat'); return; }
         this.cutscene.play(fallenCutscene(name));
       });
     };
@@ -356,6 +431,15 @@ export class App {
     // dialogue engagement suspends wandering
     on('chat.reply', ({ speaker }) => {
       this.brains[speaker]?.engage(this.clock.totalMinutes + 3);
+      // and light them, because they are the one talking. rimPool holds two
+      // fixed lights and evicts the weakest claim, so a combat rim (0.8) still
+      // outranks a speaker (0.35) and the count never changes.
+      const c = this.cast[speaker];
+      if (c?.actor?.setRim) {
+        c.actor.setRim(0.35);
+        clearTimeout(this._rimT?.[speaker]);
+        (this._rimT ||= {})[speaker] = setTimeout(() => c.actor.setRim(0), 6000);
+      }
     });
     on('vox.talked', ({ topicId } = {}) => {
       if (!this.run || !topicId) return;
@@ -417,17 +501,45 @@ export class App {
       if (dest && dest.floor !== this.world.activeFloor) {
         emit('hud.alert', { text: `Heading to ${dest.label}…`, kind: 'info' });
         await this.elevatorUI.ride(dest.floor);
+        // ride() returns silently when the car is locked, offline, or already in
+        // motion. Without this check the job ran anyway — you "foraged the
+        // rooftop garden" and "ran the range" from the penthouse, and the
+        // interrupt roll (themed as being exposed on the roof) fired too.
+        if (this.world.activeFloor !== dest.floor) {
+          const msg = `You can't reach ${dest.label} right now.`;
+          emit('hud.alert', { text: msg, kind: 'warn' });
+          return { ok: false, msg };
+        }
       }
       const rng = this.rng.stream('dayplan');
       if (interruptChance(this.run, id, rng)) {
-        spendAp(this.run, id);
-        this.eventRunner.fire('forage_scare');
-        const msg = 'Shots on the roof. You drop the harvest and get down.';
-        emit('hud.alert', { text: msg, kind: 'warn' });
-        return { ok: false, msg };
+        // Only take the AP if the interrupting event can actually run.
+        // fire() is async, so its early-return when a script is already running
+        // (including one stalled on waitMinutes) is invisible to the caller — the
+        // AP was spent regardless and the player got no event, no choice, no food.
+        if (this.eventRunner.canFire('forage_scare')) {
+          spendAp(this.run, id);
+          this.eventRunner.fire('forage_scare');
+          const msg = 'Shots on the roof. You drop the harvest and get down.';
+          emit('hud.alert', { text: msg, kind: 'warn' });
+          return { ok: false, msg };
+        }
+        // couldn't interrupt — fall through and let the job resolve normally
       }
       const r = performAction(this.run, id, rng);
       if (r.ok) {
+        // DAY_ACTIONS are pure over `run` and cannot touch the cast, so
+        // refugee_release raises a flag and the actual person leaves here.
+        // Decrementing the counter alone removed no mouth (survival.js counts
+        // BODIES), left them standing in reception, and made the next arrival
+        // collide with them and silently no-op.
+        if (this.run.flags.releaseRefugee) {
+          this.run.flags.releaseRefugee = false;
+          const gone = Object.values(this.cast)
+            .filter((c) => c.present !== false && /^refugee/.test(c.id))
+            .pop();
+          if (gone) this.despawnCharacter(gone.id);
+        }
         emit('hud.alert', { text: r.msg, kind: 'info' });
         emit('resources.changed', this.run.resources);
         emit('systems.changed', this.run.systems);
@@ -544,7 +656,7 @@ export class App {
       rng: this.rng.stream('gambits'),
       playerSkill: () => this.run.player.skill ?? 60,
     });
-    this.mystery = new Mystery({ cast: () => this.cast });
+    this.mystery = new Mystery({ cast: () => this.cast, run: () => this.run });
     this.cards = new Cards({
       rng: this.rng.stream('cards'),
       kaiDominance: () => this.cast.kai?.stats.dominance ?? 50,
@@ -594,9 +706,9 @@ export class App {
       }
       if (this.mode === 'run' && clock.minuteOfDay === DINNER_MINUTE && shouldDinner(this.run, clock)) {
         markDinner(this.run, clock);
-        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+        if (this._beatPlayable('dinner')) {
           import('../../data/cutscenes/dinner.js').then(({ dinnerCutscene }) => {
-            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            if (!this._beatPlayable()) return;
             this.cutscene.play(dinnerCutscene(clock.day));
           });
         }
@@ -604,9 +716,9 @@ export class App {
       if (this.mode === 'run' && clock.minuteOfDay === SLEEP_MINUTE && shouldSleep(this.run, clock)) {
         markSleep(this.run, clock);
         this._castOutfitHour('sleepwear');
-        if (!this.combat.active && !this.cutscene.playing && !this.run.activeEventId) {
+        if (this._beatPlayable('sleep')) {
           import('../../data/cutscenes/sleep.js').then(({ sleepCutscene }) => {
-            if (this.mode !== 'run' || this.combat.active || this.cutscene.playing) return;
+            if (!this._beatPlayable()) return;
             this.cutscene.play(sleepCutscene(clock.day));
           });
         }
@@ -800,18 +912,42 @@ export class App {
         break;
       }
       case prop.id === 'vox_terminal': {
-        // repairs first: any damaged systems can be fixed here (parts + time)
-        const damaged = Object.entries(this.run.systems)
-          .filter(([, s]) => s.hp < 70 || !s.online);
-        if (damaged.length && this.run.resources.parts >= 1) {
-          emit('event.choice', {
-            prompt: `VOX diagnostics list damaged systems. Repairs cost 1 part + 45 minutes each. Parts: ${Math.floor(this.run.resources.parts)}.`,
-            options: [...damaged.map(([name, s]) => `Repair ${name} (${Math.round(s.hp)}%)`), 'Not now'],
-            pick: (idx) => {
-              if (idx >= damaged.length) return;
+        // ONE menu: repairs and open case files together.
+        //
+        // Repairs used to be a separate early-return, so as long as any system
+        // was damaged and you held a part — which is most of a run — the branch
+        // below was unreachable. That matters because it is the case board:
+        // three mystery cases shipped openable ONLY by picking a scenario at the
+        // new-run screen or through the debug Director panel, so a player who
+        // started any other scenario could never open one, and the clue props
+        // scattered across six floors had nothing to feed. VOX keeping files on
+        // things that do not resolve is also just what VOX would do.
+        const damaged = this.run.resources.parts >= 1
+          ? Object.entries(this.run.systems).filter(([, sys]) => sys.hp < 70 || !sys.online)
+          : [];
+        const openCases = Object.values(MYSTERY_CASES)
+          .filter((c) => !this.run.flags.solvedCases?.includes(c.id));
+        addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+
+        if (!damaged.length && !openCases.length) {
+          this.vox.say(this.rng.stream('vox_lines').pick(VOX_TERMINAL_LINES));
+          break;
+        }
+        const prompt = damaged.length
+          ? `VOX diagnostics. Repairs cost 1 part + 45 minutes each. Parts: ${Math.floor(this.run.resources.parts)}.`
+          : 'VOX: "I keep files on things that do not resolve. I would like someone to read one."';
+        emit('event.choice', {
+          prompt,
+          options: [
+            ...damaged.map(([name, sys]) => `Repair ${name} (${Math.round(sys.hp)}%)`),
+            ...openCases.map((c) => `Case file: ${c.title}`),
+            'Just diagnostics',
+          ],
+          pick: (idx) => {
+            if (idx < damaged.length) {
               const [name, sys] = damaged[idx];
               this.run.resources.parts -= 1;
-              this.clock.skip(45, (c) => this.worldTick.minute(c));
+              this.clock.skip(45);   // clock.skip emits world.minute; worldTick subscribes
               sys.hp = Math.min(100, sys.hp + 60);
               sys.online = true;
               if (name === 'power') emit('power.changed', { online: true });
@@ -819,18 +955,16 @@ export class App {
               emit('resources.changed', this.run.resources);
               this.vox.say(`${name} restored. The tower thanks you. I thank you. We are the same thing, but the sentiment doubles.`);
               feed(`Repaired ${name}.`, 'system');
-            },
-          });
-          break;
-        }
-        const lines = [
-          'Diagnostics: hull integrity acceptable. Morale integrity: declining.',
-          'I have counted the rioters. You do not want the number.',
-          'My cameras miss nothing. Except floor thirteen. There is no floor thirteen.',
-          'Query logged. Curiosity noted. Approval pending.',
-        ];
-        this.vox.say(this.rng.stream('vox_lines').pick(lines));
-        addCodex('vox_terminal', 'The VOX Terminal', 'The tower AI answers direct queries. Some answers feel like warnings.');
+              return;
+            }
+            const caseIdx = idx - damaged.length;
+            if (caseIdx < openCases.length) {
+              emit('game.requested', { game: `mystery:${openCases[caseIdx].id}` });
+              return;
+            }
+            this.vox.say(this.rng.stream('vox_lines').pick(VOX_TERMINAL_LINES));
+          },
+        });
         break;
       }
       case prop.id === 'gurney0' || prop.id === 'gurney1': {
@@ -933,6 +1067,44 @@ export class App {
   }
 
   /** floor → ambience bed */
+  /**
+   * Make `floorId` the live floor. THE one place that does it.
+   *
+   * A floor change is not one call, it is six: swap the visible group, shift the
+   * light kit to that floor's world offset, apply its fog bias, re-key the
+   * ambience bed, move the player body AND the marker (combat spawn checks, cast
+   * gaze and the director camera all read the marker, not the camera), and
+   * announce it so the HUD chip and anything else listening can follow.
+   *
+   * The elevator and the save loader each open-coded the whole sequence, and
+   * enterBedScene() open-coded ONE step of it — `setActiveFloor('penthouse')` on
+   * its own — which left the lighting rig, the fog, `world.activeFloor` and the
+   * HUD all still pointing at the floor the player had just left, up to 1200
+   * world units away. Three copies of a ritual is how a step goes missing.
+   *
+   * @param {string} floorId
+   * @param {{movePlayer?: boolean, from?: string}} [opts]
+   *   movePlayer: place the player at that floor's elevator (default true).
+   *   Pass false when the caller positions the player itself.
+   */
+  setFloor(floorId, opts = {}) {
+    const floor = FLOORS[floorId];
+    if (!floor || !this.world?.floorGroups?.[floorId]) return false;
+    const from = opts.from ?? this.world.activeFloor;
+    this.world.setActiveFloor(floorId);
+    this.lighting.setFloorOffset(floor.offsetX);
+    this.lighting.setFloorLook(floorId);
+    if (opts.movePlayer !== false) {
+      const [ex, ez] = elevatorPos(floorId);
+      this.playerActor?.root.position.set(ex, 0, ez + 0.6);
+      this.playerMarker?.position.set(ex, 1.1, ez + 0.6);
+      this.cameraRig?.fp.pos.set(ex, 1.62, ez + 0.6);
+    }
+    this.setAmbienceForFloor(floorId);
+    emit('floor.changed', { floor: floorId, from });
+    return true;
+  }
+
   setAmbienceForFloor(floorId) {
     const map = {
       penthouse: 'apartment', rooftop: 'balcony', fl40: 'server', fl27: 'server',
@@ -973,7 +1145,11 @@ export class App {
     const zone = ZONES[zoneId];
     const [x, z] = zone ? waypointPos(zoneId) : [0, 0];
     actor.root.position.set(x, 0, z);
-    actor.setRim(0.35);
+    // NO rim at spawn. The pool holds two lights and this claimed one per cast
+    // member at construction, so Lola and Aria took both slots permanently, Kai
+    // and every refugee never got one at all, and after the first fight evicted
+    // them nothing ever re-claimed — the effect simply stopped existing. It is a
+    // FOCUS light: it belongs on whoever is speaking right now.
     this.stage.scene.add(actor.root);
     const queue = new ActorQueue(actor, this.world);
     const character = new Character(persona, actor, queue);
@@ -983,8 +1159,34 @@ export class App {
   }
 
   /** A named guest at reception. Counted as a corporeal mouth via the cast. */
-  spawnRefugee() {
-    const idx = Math.max(0, (this.run.refugees || 1) - 1);
+  /**
+   * Can a scripted daily beat play right now?
+   *
+   * The dinner/sleep/stay/fallen cutscenes are authored in PENTHOUSE-local
+   * coordinates, and only one floor group is ever visible
+   * (World3D.setActiveFloor). Firing one while the player is on the rooftop or
+   * in the basement flew the camera into a hidden group and teleported the cast
+   * to bar stools nobody could see. Being elsewhere is now a narrative outcome
+   * instead of a broken scene.
+   *
+   * @param {string} [announce] beat id — feeds a line when the player misses it
+   */
+  _beatPlayable(announce) {
+    if (this.mode !== 'run' || this.combat.active || this.cutscene.playing || this.run.activeEventId) return false;
+    if (this.world?.activeFloor !== 'penthouse') {
+      if (announce === 'dinner') feed('Somewhere above you, the others sit down to eat without you.', 'system');
+      if (announce === 'sleep') feed('The tower goes quiet upstairs. You are still out here.', 'system');
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * @param {number} [forceIdx] explicit template index — used by save restore,
+   *   which must reproduce a specific refugee rather than the "next" one.
+   */
+  spawnRefugee(forceIdx) {
+    const idx = forceIdx != null ? forceIdx : Math.max(0, (this.run.refugees || 1) - 1);
     const persona = buildRefugee(idx);
     if (this.cast[persona.id]) return this.cast[persona.id];
     registerRefugeeTopics(persona.id);
@@ -1008,6 +1210,19 @@ export class App {
     feed(`${c.name} is in reception — another mouth, another story.`, 'system');
     emit('hud.alert', { text: `${c.name} made it inside`, kind: 'info' });
     return c;
+  }
+
+  /**
+   * Respawn a specific refugee by persona id — save restore only. Refugees are
+   * created at runtime, so a loaded save had entries in `characters` with no
+   * `cast[id]` to restore into and they were silently dropped.
+   * @param {string} id
+   */
+  spawnRefugeeById(id) {
+    for (let i = 0; i < 8; i++) {
+      if (buildRefugee(i).id === id) return this.spawnRefugee(i);
+    }
+    return null;
   }
 
   /** Send an NPC away (they leave the room/tower). Reversible. VOX can't leave. */
@@ -1047,7 +1262,9 @@ export class App {
   enterBedScene(partner) {
     if (!partner) return;
     // make sure the alcove floor is active so the bed + partner are visible
-    if (this.world.activeFloor !== 'penthouse') this.world.setActiveFloor?.('penthouse');
+    // the bed lives in the penthouse alcove; setFloor does the WHOLE move,
+    // and movePlayer:false because the bedside eye position is computed below
+    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false });
     const bed = this.world.getSocket('bed.lie_center');
     const bedPos = bed ? bed.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
     this._bedReturn = { camMode: this.cameraRig.mode, lighting: this.lighting.presetId };
@@ -1067,6 +1284,12 @@ export class App {
     this.cameraRig.setMode('firstPerson');
     this.cameraRig.fp.placeAt(eyeX, eyeZ, yaw, -0.12);
     this.playerMarker.position.set(eyeX, 1.4, eyeZ);
+    // The BODY too, not just the eye and the marker. Entering the bed scene from
+    // any floor but the penthouse moved the camera and the marker to the bedside
+    // and left the avatar standing where it was — measured 1190 world units away,
+    // in the basement, still ticking its animator and still what the partner's
+    // gaze and every proximity check resolve against.
+    this.playerActor?.snapTo(eyeX, eyeZ, yaw);
   }
 
   /** Tear down the bed scene and restore the camera + lighting. */
@@ -1078,7 +1301,12 @@ export class App {
     }
     this._bedPartner = null;
     if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
-    this.cameraRig.setMode(this._bedReturn?.camMode === 'firstPerson' ? 'firstPerson' : 'director');
+    // Restore what they were actually using. This used to send anyone who was
+    // not in firstPerson into 'director' — a spectator mode where WASD is dead
+    // — and setMode PERSISTS the choice, so it survived a reload. The default
+    // camera mode is 'auto', so this hit every player who had not changed it.
+    const back = this._bedReturn?.camMode;
+    this.cameraRig.setMode(back && back !== 'cinematic' ? back : 'auto');
     this._bedReturn = null;
   }
 
@@ -1133,7 +1361,11 @@ export class App {
       if (this.playerMarker && this.playerActor) {
         const b = this.playerActor.root.position;
         this.playerMarker.position.set(b.x, 1.45, b.z);
-        const fpDriving = this.cameraRig.mode === 'thirdPerson' || this.cameraRig.mode === 'firstPerson';
+        // FirstPersonControls.update() already calls body.update() for us, and
+        // cameraRig runs it in auto as well as fp/tps — so 'auto', the DEFAULT
+        // mode, was ticking the player's walk cycle, breath and hair spring
+        // twice per frame.
+        const fpDriving = this.cameraRig.mode !== 'director';
         if (!fpDriving) this.playerActor.update(dtSec);
         // penthouse only: swap apartment/balcony beds as the player crosses the glass
         this._ambT = (this._ambT || 0) + dtSec;
@@ -1155,6 +1387,7 @@ export class App {
         c.actor.update(dtSec);
       }
       this.picker.update();
+      rimPool.update();   // rims live on the scene root; they follow their claimant
     }
     this.postfx.render(dt);
   }
@@ -1172,7 +1405,7 @@ export class App {
       debug: {
         fps: () => this.loop.fps(),
         snapshot: () => ({ mode: this.mode, clock: this.clock.serialize() }),
-        advanceMinutes: (n) => this.clock.skip(n, (c) => emit('world.minute', { clock: c })),
+        advanceMinutes: (n) => this.clock.skip(n),
         goto: (id, zone, wp) => this.cast[id]?.queue.goto(zone, wp),
         sit: (id, socket) => this.cast[id]?.queue.sit(socket),
         clip: (id, clip) => this.cast[id]?.queue.playClip(clip, 0.3),

@@ -3,6 +3,7 @@
 // Day 1 starts at 18:00 — lockdown is declared at dusk. Pace + phase bands are
 // config-tunable (config/world.yaml → clock). MINUTES_PER_DAY is structural.
 import { cfg } from './config.js';
+import { emit } from './bus.js';
 
 export const MINUTES_PER_DAY = 1440;
 
@@ -62,10 +63,26 @@ export class GameClock {
   }
 
   /** jump forward n game minutes, firing per-minute callback (used by debug + sleep) */
+  /**
+   * Fast-forward the world (elevator rides, long repairs).
+   *
+   * This ALWAYS emits `world.minute`, because callers used to pass
+   * `(c) => worldTick.minute(c)` instead — which ticks the sim but skips every
+   * other subscriber on the bus. During an elevator ride or a 45-minute terminal
+   * repair that froze: event scripts blocked on `waitMinutes`, the brain and
+   * relationship ticks, the player-death check, the hourly autosave, and the
+   * dinner/sleep beats. The debug helper emitted and therefore behaved
+   * differently from the real thing. One path now.
+   *
+   * @param {number} minutes
+   * @param {(clock: GameClock) => void} [onMinute] extra per-minute hook; the
+   *   bus event fires regardless, so do NOT pass worldTick.minute here.
+   */
   skip(minutes, onMinute) {
     for (let i = 0; i < minutes; i++) {
       this.minuteOfDay++;
       if (this.minuteOfDay >= MINUTES_PER_DAY) { this.minuteOfDay = 0; this.day++; }
+      emit('world.minute', { clock: this });
       if (onMinute) onMinute(this);
     }
   }

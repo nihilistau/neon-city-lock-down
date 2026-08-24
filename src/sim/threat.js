@@ -28,9 +28,15 @@ export function threatTick(run, clock, rng) {
   // A brokered ceasefire eases the baseline. (`flags.ceasefire` was set by the
   // ceasefire objective and read by nothing.)
   const truce = run.flags.ceasefire ? (t.ceasefireRelief ?? 12) : 0;
+  // Each `fortify` day-action incremented run.flags.fortified and NOTHING read
+  // it — the action's own flavour text promised the tower would be harder to get
+  // into, and spending an AP bought a number that did nothing. Capped, so
+  // fortifying is a real but finite investment rather than a threat off-switch.
+  const hardened = Math.min(t.fortifyCap ?? 14,
+    (run.flags.fortified || 0) * (t.fortifyRelief ?? 4));
 
   const target = dayBase + nightBoost + wave + camerasBlind
-    - jammer - truce + (run.flags.threatSpike || 0);
+    - jammer - truce - hardened + (run.flags.threatSpike || 0);
 
   // ease toward target; spikes decay
   run.threat += (target - run.threat) * (t.ease ?? 0.004);

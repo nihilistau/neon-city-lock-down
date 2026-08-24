@@ -4,6 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { on } from '../../src/core/bus.js';
+import { findPath } from '../../src/sim/actors/nav.js';
+import { FLOORS } from '../../data/zones.js';
+import { applyStim, tickBuffs, STIM_DURATION } from '../../src/sim/buffs.js';
+import { GameClock } from '../../src/core/clock.js';
 import { newRunState } from '../../src/sim/world.js';
 import { hourlyTick } from '../../src/sim/survival.js';
 import { Gambits } from '../../src/games/gambits.js';
@@ -28,6 +33,8 @@ function fakeChar(persona) {
     applyStats(d, src) { this.applied.push([d, src]); },
     ticked: 0,
     tickMinutes(m) { this.ticked += m; },
+    deprived: [],
+    applyDeprivation(f, w, h) { this.deprived.push([f, w, h]); return false; },
   };
 }
 
@@ -217,23 +224,58 @@ test('a real ActorQueue refuses commands once frozen', () => {
   assert.equal(q.busy, false);
 });
 
-test('sustained ration shortfall starves a character to death', () => {
+test('a total food shortfall starves a character to death, over days not minutes', () => {
   const c = makeChar();
   let hours = 0;
-  while (c.alive && hours < 500) {
-    c.applyStats({ happiness: -1.5, tension: 2 }, 'rations');  // survival.js's tag
-    c.tickMinutes(60);
-    hours++;
-  }
+  while (c.alive && hours < 500) { c.applyDeprivation(1, 0, 1); hours++; }
   assert.equal(c.alive, false, 'never starved');
   assert.ok(hours > 8 && hours < 100, `took ${hours} game-hours — should be days, not minutes`);
 });
 
-test('fed hours heal a character back up instead of starving them', () => {
+test('HALF RATIONS WITH A FULL PANTRY MUST NOT HARM ANYONE', () => {
+  // The bug: survival.js adds a flat tension nudge when the policy is 'half',
+  // which tagged a 'rations' stat delta, which latched a "hungry hour", which
+  // dealt 6 hp/hour. Every NPC died in ~17 game-hours while food was plentiful.
+  const run = newRunState(1);
+  run.rationPolicy.food = 'half';
+  run.resources.food = 9999;            // pantry is full
+  run.resources.water = 9999;
+  const c = makeChar();
+  const before = c.health;
+  for (let i = 0; i < 48; i++) hourlyTick(run, [c]);
+  assert.equal(c.alive, true, 'half rations killed a well-fed character');
+  assert.ok(c.health >= before, `lost ${(before - c.health).toFixed(1)} hp on half rations with a full pantry`);
+});
+
+test('deprivation damage is graded, not binary', () => {
+  const mild = makeChar(); const total = makeChar();
+  mild.applyDeprivation(0.4, 0, 1);
+  total.applyDeprivation(1.0, 0, 1);
+  const mildLoss = 100 - mild.health, totalLoss = 100 - total.health;
+  assert.ok(totalLoss > mildLoss * 1.5,
+    `0.4 shortfall lost ${mildLoss.toFixed(2)}, 1.0 lost ${totalLoss.toFixed(2)} — should scale`);
+  // and below the threshold, nothing at all
+  const safe = makeChar();
+  safe.hurt(20, 'wounds');
+  const wounded = safe.health;
+  safe.applyDeprivation(0.1, 0, 1);
+  assert.ok(safe.health > wounded, 'a trivial shortfall should still allow healing');
+});
+
+test('thirst is reported as dehydration, not starvation', () => {
+  const c = makeChar();
+  let cause = null;
+  const off = on('char.died', (e) => { cause = e.cause; });
+  while (c.alive) c.applyDeprivation(0, 1, 1);
+  off();
+  assert.equal(cause, 'dehydration', 'a water shortage used to report as "starvation"');
+});
+
+test('fed hours heal a character back up', () => {
   const c = makeChar();
   c.hurt(50, 'wounds');
   const wounded = c.health;
-  for (let i = 0; i < 100; i++) c.tickMinutes(60);
+  for (let i = 0; i < 100; i++) c.applyDeprivation(0, 0, 1);
   assert.ok(c.health > wounded, 'no recovery at all');
   assert.equal(c.alive, true);
 });
@@ -285,4 +327,70 @@ test('every dead_drop interrogation becomes reachable once its clues are found',
   // ask_kai needs `ledger`, which lived on the unregistered vanity_table
   assert.ok(ids.includes('ask_kai'), 'ask_kai still unreachable');
   assert.equal(ids.length, MYSTERY_CASES.dead_drop.interrogations.length);
+});
+
+// ── v0.5 correctness pass ──────────────────────────────────────────────────
+
+test('a stim never permanently costs skill when it clamps at the cap', () => {
+  // The bug: the grant was clamped at 100 but expiry subtracted the full
+  // STIM_SKILL (12). A trained player (dayPlan train caps at 92) went
+  // 92 -> 100 on use and 100 -> 88 on expiry: -4 permanent, every stim.
+  // The old test used the default skill of 60, where the clamp never engages.
+  for (const start of [60, 88, 92, 99, 100]) {
+    const run = newRunState(1);
+    run.player.skill = start;
+    applyStim(run, 0);
+    assert.ok(run.player.skill <= 100, `skill exceeded the cap from ${start}`);
+    tickBuffs(run, STIM_DURATION + 1);
+    assert.equal(run.player.skill, start, `stim from ${start} left skill at ${run.player.skill}`);
+  }
+});
+
+test('clock.skip emits world.minute so nothing freezes during a ride', () => {
+  // Callers used to pass `(c) => worldTick.minute(c)`, which ticks the sim but
+  // skips every OTHER bus subscriber: event scripts blocked on waitMinutes, the
+  // brain/relationship ticks, the death check, autosave, and the daily beats all
+  // froze for the duration of an elevator ride or a 45-minute repair.
+  const clock = new GameClock();
+  let minutes = 0;
+  const off = on('world.minute', () => { minutes++; });
+  clock.skip(30);
+  off();
+  assert.equal(minutes, 30, 'skip must emit one world.minute per minute skipped');
+});
+
+test('clock.skip still rolls the day over', () => {
+  const clock = new GameClock();
+  const startDay = clock.day;
+  const off = on('world.minute', () => {});
+  clock.skip(1440);
+  off();
+  assert.equal(clock.day, startDay + 1);
+});
+
+test('cross-floor routing goes via the elevator, not through the void', () => {
+  // findPath inserts a {transit} marker for cross-floor journeys. `gotoSocket`
+  // used to skip findPath entirely and emit a single straight-line approach
+  // point — and sockets live in one flat global map, so a character on fl40
+  // asked to sit on the penthouse couch walked 400+ world units through empty
+  // space (~5.5 real minutes); a refugee in reception took ~14.
+  const fromGround = { x: FLOORS.ground.offsetX, z: 0 };
+  const path = findPath(fromGround, 'lounge');
+  const hasTransit = path.some((p) => p && !Array.isArray(p) && p.transit);
+  assert.ok(hasTransit, 'a cross-floor route must include an elevator transit');
+
+  // and a same-floor route must NOT pay for one
+  const samePath = findPath({ x: 0, z: 0 }, 'lounge');
+  assert.ok(!samePath.some((p) => p && !Array.isArray(p) && p.transit));
+});
+
+test('every floor has colliders registered, not just the penthouse', () => {
+  // v0.4 added ~100 architecture meshes and registered none as colliders, so the
+  // player walked through columns, pillars, cages, HVAC and the ramp. This is a
+  // source-level guard: the auto-collector must still be wired into the build.
+  const src = readFileSync(new URL('../../src/scene3d/tower/zoneBuilder.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('_collectSolids('), 'the solid-collector must exist');
+  assert.match(src, /_collectSolids\(group, floor\.id\)/, 'and run for every floor at build time');
+  const tagged = (src.match(/userData\.solid = true/g) || []).length;
+  assert.ok(tagged >= 5, `only ${tagged} meshes tagged solid — the new architecture is walk-through`);
 });

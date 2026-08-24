@@ -4,9 +4,16 @@
 // returned points are WORLD coordinates (floor offset applied).
 import { ZONES, FLOORS } from '../../../data/zones.js';
 
+/**
+ * ZONES never changes at runtime, but zoneAt() is called once per actor per
+ * frame from ActorQueue.update — so Object.values() was rebuilding a 14-element
+ * array for every actor, every frame, forever.
+ */
+const ZONE_LIST = Object.values(ZONES);
+
 /** @param {number} x @param {number} z @returns {string|null} zone id containing WORLD point */
 export function zoneAt(x, z) {
-  for (const zone of Object.values(ZONES)) {
+  for (const zone of ZONE_LIST) {
     const o = FLOORS[zone.floor].offsetX;
     const { bounds } = zone;
     if (x >= bounds.x[0] + o && x <= bounds.x[1] + o && z >= bounds.z[0] && z <= bounds.z[1]) return zone.id;

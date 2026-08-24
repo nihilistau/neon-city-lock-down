@@ -1,6 +1,6 @@
 // @ts-check
 // Perma-death: compile the run summary, record meta, delete the autosave.
-import { recordRun } from './meta.js';
+import { recordRun, unlock } from './meta.js';
 import { deleteAutosave } from '../core/save.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
@@ -33,6 +33,19 @@ export function endRun(app, endedBy) {
     playerName: app.player?.name,
   };
   recordRun(summary);
+
+  // Meta unlocks, earned from what the run actually was. Each one opens a
+  // scenario on the new-run screen (data/scenarios.js `requiresUnlock`), which
+  // is the only thing standing between "perma-death" and "start over identically".
+  const earned = [];
+  if (summary.days >= 5 && unlock('long_haul')) earned.push('Last Night Before the Gates Open');
+  if ((summary.kills || 0) >= 10 && unlock('blooded')) earned.push('Armoury Inventory Night');
+  if ((summary.bonds?.vox ?? 0) >= 60 && unlock('vox_confided')) earned.push('Mystery: The Grid Ghost');
+  if (earned.length) {
+    feed(`Unlocked: ${earned.join(' · ')}. Start a new run to play ${earned.length > 1 ? 'them' : 'it'}.`, 'system');
+  }
+  summary.unlocked = earned;
+
   deleteAutosave();
   feed('The run is over. The tower forgets no one.', 'system');
   emit('run.death', summary);

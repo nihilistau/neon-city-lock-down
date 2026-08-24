@@ -13,10 +13,13 @@
 }
 #hud-clock { top: 14px; left: 14px; color: var(--cyan) !important; font-family: var(--mono); }
 #hud-floor { top: 46px; left: 14px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; max-width: 280px; }
-#hud-hint { bottom: 12px; left: 14px; display: flex; flex-direction: column; gap: 2px; }
+/* Single inline line. `flex-direction: column` here was written for an older
+   two-element hint and stacked the inline <b> onto its own row. */
+#hud-hint { bottom: 12px; left: 14px; white-space: nowrap; }
+#hud-hint b { color: var(--cyan); font-weight: 700; }
 #hud-help {
   position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start;
-  padding: 18px; pointer-events: none; z-index: 40;
+  padding: 18px; pointer-events: none; z-index: var(--z-cinema);
 }
 #hud-help.hidden { display: none; }
 .help-box {
@@ -49,7 +52,7 @@
   display: block; height: 100%; width: 0;
   background: var(--green); transition: width 0.5s ease, background 0.5s ease;
 }
-#hud-threat .th-val { width: 20px; text-align: right; color: var(--text); }
+#hud-threat .th-val { width: 20px; text-align: right; color: var(--text); font-family: var(--mono); }
 #hud-threat[data-band='raised']  .th-fill { background: var(--amber); }
 #hud-threat[data-band='high']    .th-fill { background: #ff8a3d; }
 #hud-threat[data-band='critical'] .th-fill { background: var(--red); box-shadow: 0 0 10px rgba(255,71,87,0.7); }
@@ -62,7 +65,7 @@
    an open panel, or its promise is unreachable and the run soft-locks. */
 #hud-choice {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  pointer-events: none; z-index: 60;
+  pointer-events: none; z-index: var(--z-choice);
 }
 .choice-box {
   background: var(--panel); border: 1px solid var(--amber);
@@ -101,22 +104,28 @@
 
 /* stat-bar rail */
 #statbars {
-  position: absolute; top: 52px; left: 12px;
+  position: absolute; left: 12px;
   display: flex; flex-direction: column; gap: 6px;
   width: 186px; overflow-y: auto; padding-right: 2px;
-  pointer-events: auto; z-index: 12;
+  pointer-events: auto; z-index: var(--z-world);
   scrollbar-width: thin;
-  /* The rail and the chat log both sit on the left edge and BOTH take pointer
-     events, so any overlap makes clicks land ambiguously. A flat 56vh overlapped
-     the chat by ~80px at 900px tall. Derive the cap from what chat actually
-     occupies instead: 44px offset + ~46px input row + 38vh log. */
-  max-height: min(56vh, calc(62vh - 150px));
+  /* Position and cap are MEASURED at runtime by layoutLeftColumn() in
+     src/ui/hud.js — see the comment there. Two hard-coded constants have already
+     gone stale here and reintroduced a click-eating overlap with the chat log.
+     The fallbacks below only apply before the first measurement. */
+  top: var(--rail-top, 80px);
+  max-height: var(--rail-max, 44vh);
 }
 .sb-card {
   background: rgba(6, 8, 14, 0.72);
   border: 1px solid var(--panel-edge);
   border-left: 2px solid var(--accent, var(--cyan));
   padding: 5px 8px 6px;
+  /* The HUD chips have always blurred their backdrop; these cards carry the
+     SAME 0.72 alpha and did not. Over the neon city plate — which is high
+     frequency by design — 0.72 alpha without a blur lets every lit window
+     through and the stat text becomes unreadable. Same treatment, same look. */
+  backdrop-filter: blur(8px);
 }
 .sb-card.collapsed .sb-row { display: none; }
 .sb-card.collapsed .sb-row.hero { display: flex; }
@@ -148,7 +157,7 @@
 #chat {
   position: absolute; left: 12px; bottom: 44px;
   width: 380px; max-width: 42vw; display: flex; flex-direction: column; gap: 6px;
-  z-index: 14;
+  z-index: var(--z-chat);
 }
 #chat-log {
   display: flex; flex-direction: column; gap: 5px;
@@ -185,7 +194,7 @@
 /* games panel */
 #games-panel {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(3, 4, 8, 0.92); z-index: 46;
+  background: rgba(3, 4, 8, 0.92); z-index: var(--z-games);
   backdrop-filter: blur(3px);
 }
 .game-box { width: 560px; max-width: 92vw; max-height: 84vh; overflow-y: auto;
@@ -229,7 +238,7 @@
 #weapon-chip {
   position: absolute; bottom: 44px; right: 14px;
   background: rgba(6,8,14,0.78); border: 1px solid var(--panel-edge);
-  padding: 6px 12px; font-size: 12px; color: var(--amber); letter-spacing: 0.05em; z-index: 12;
+  padding: 6px 12px; font-size: 12px; color: var(--amber); letter-spacing: 0.05em; z-index: var(--z-world);
   display: flex; align-items: center; gap: 8px;
   backdrop-filter: blur(8px);
   clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
@@ -258,7 +267,7 @@
   text-shadow: 0 0 12px rgba(57,230,255,0.7);
 }
 .elev-picker {
-  position: absolute; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0; z-index: var(--z-picker); display: flex; align-items: center; justify-content: center;
   background: rgba(4,5,9,0.55);
 }
 .elev-card {
@@ -277,14 +286,14 @@
 .elev-card button.here { opacity: 0.45; }
 .elev-cancel { margin-top: 8px; color: var(--text-dim); border-color: var(--panel-edge); }
 
-.letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: 40; }
+.letterbox { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s ease; z-index: var(--z-cinema); }
 .letterbox.top { top: 0; } .letterbox.bottom { bottom: 0; }
 .letterbox.active { height: 11vh; }
 
 /* ── combat HUD ── */
 #combat-hud {
   position: absolute; top: 54px; left: 50%; transform: translateX(-50%);
-  width: 380px; z-index: 14; pointer-events: none;
+  width: 380px; z-index: var(--z-chat); pointer-events: none;
   font-size: 12px; letter-spacing: 0.06em; text-align: center;
 }
 #combat-hud .ch-top span {
@@ -322,7 +331,7 @@
 
 #hit-mark {
   position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
-  margin: -9px 0 0 -9px; pointer-events: none; z-index: 16; opacity: 0;
+  margin: -9px 0 0 -9px; pointer-events: none; z-index: var(--z-hitmark); opacity: 0;
   border: 2px solid var(--red); transform: rotate(45deg);
   box-shadow: 0 0 10px rgba(255,71,87,0.8);
   transition: opacity 0.08s;
@@ -335,7 +344,7 @@
 #games-panel.bed-hud {
   position: absolute; top: 0; right: 0; bottom: 0; left: auto;
   width: 300px; display: flex; align-items: flex-end; justify-content: flex-end;
-  padding: 12px; background: none; pointer-events: none; z-index: 20;
+  padding: 12px; background: none; pointer-events: none; z-index: var(--z-drawer-top);
 }
 #games-panel.bed-hud .bed-box {
   pointer-events: auto; width: 276px; max-height: 92vh; overflow-y: auto;
@@ -358,7 +367,7 @@
 /* ── FPS/TPS reticle + ammo readout ── */
 #reticle {
   position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
-  transform: translate(-50%, -50%); pointer-events: none; z-index: 15;
+  transform: translate(-50%, -50%); pointer-events: none; z-index: var(--z-reticle);
 }
 #reticle span {
   position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px rgba(0,0,0,0.7);
@@ -372,7 +381,7 @@
 #reticle.hidden { display: none; }
 #ammo-readout {
   position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%);
-  font-size: 15px; color: var(--amber); letter-spacing: 0.06em; z-index: 15; pointer-events: none;
+  font-size: 15px; color: var(--amber); letter-spacing: 0.06em; z-index: var(--z-reticle); pointer-events: none;
   text-shadow: 0 0 5px rgba(0,0,0,0.8);
   display: flex; align-items: center; gap: 6px;
 }
@@ -381,7 +390,7 @@
 #ammo-readout.hidden { display: none; }
 
 /* ── day-plan drawer (P) ── */
-.plan-wrap { position: absolute; inset: 0; z-index: 45; pointer-events: none; }
+.plan-wrap { position: absolute; inset: 0; z-index: var(--z-panel); pointer-events: none; }
 .plan-scrim { position: absolute; inset: 0 360px 0 0; pointer-events: auto; }
 .plan-drawer {
   position: absolute; top: 0; right: 0; bottom: 0; width: 360px;
@@ -408,3 +417,24 @@
 .plan-bar { height: 4px; background: rgba(255,255,255,0.08); margin-top: 3px; }
 .plan-bar i { display: block; height: 100%; background: var(--cyan); }
 .plan-obj.done .plan-bar i { background: var(--green); }
+
+
+/* Rationing on the day plan. This was Director-debug-only, while being the
+   single largest lever the player has on the food economy. */
+.plan-ration { display: flex; align-items: center; gap: 6px; margin: 3px 0 3px 2px; }
+.plan-ration-label { width: 52px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.plan-ration-btn { padding: 2px 10px; font-size: 10.5px; letter-spacing: 0.06em; }
+.plan-ration-btn.sel { border-color: var(--cyan); color: var(--cyan); background: rgba(57,230,255,0.10); }
+.plan-ration-cost { margin-left: auto; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+
+/* Tabular figures on everything that counts. `--mono` now resolves to a real
+   monospace (it used to resolve to Oxanium, a proportional display face), and
+   tabular-nums covers any element whose stack falls through to --font: a digit
+   that changes width makes a fixed-width box twitch on every tick, and the
+   clock ticks once a second. */
+#hud-clock, #hud-resources, #hud-threat .th-val, #hud-floor,
+.sb-val, .tc-sv, .plan-ration-cost, .ds-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}

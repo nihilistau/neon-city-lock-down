@@ -5,6 +5,7 @@ import { ITEMS } from '../../data/items.js';
 import { on } from '../core/bus.js';
 import { h } from './widgets.js';
 import { iconUrl, itemIconSrc } from './icons.js';
+import { openModal, closeModal } from './modalStack.js';
 
 export class InventoryUI {
   /** @param {import('../core/app.js').App} app */
@@ -40,11 +41,11 @@ export class InventoryUI {
   }
 
   toggle() { this.open ? this.close() : this.show(); }
-  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('inventory'); }
+  close() { this.open = false; this.el?.remove(); this.el = null; this.app.loop.resume('inventory'); closeModal('inventory'); }
 
   show() {
     this.open = true;
-    this.app.loop.pause('inventory');
+    this.app.loop.pause('inventory'); openModal('inventory', () => this.close());
     this._render();
   }
 

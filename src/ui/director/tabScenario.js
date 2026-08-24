@@ -2,6 +2,7 @@
 // Scenario tab: preview + launch scenarios (mood shifts, opening cutscene).
 import { SCENARIOS } from '../../../data/scenarios.js';
 import { applyScenario } from '../../sim/scenario.js';
+import { escapeHtml } from '../widgets.js';
 
 /** @param {HTMLElement} el @param {import('../../core/app.js').App} app */
 export function tabScenario(el, app) {
@@ -11,8 +12,8 @@ export function tabScenario(el, app) {
       <div class="dir-label">SCENARIOS — ${list.length} available (more unlock as you play)</div>
       ${list.map((s) => `
         <div class="ts-scen" data-scen="${s.id}">
-          <div class="ts-title">${s.title}</div>
-          <div class="ts-blurb">${s.blurb}</div>
+          <div class="ts-title">${escapeHtml(s.title)}</div>
+          <div class="ts-blurb">${escapeHtml(s.blurb)}</div>
           <div class="dir-row">
             ${s.openingCutscene ? `<button data-play="cut">▶ cutscene</button>` : ''}
             <button data-play="launch">apply mood shifts</button>
