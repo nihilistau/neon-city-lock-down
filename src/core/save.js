@@ -61,6 +61,10 @@ export function applySave(app, save) {
   save = migrate(save);
   if (save.version !== VERSION) throw new Error(`save version ${save.version} unsupported`);
   app.clock.deserialize(save.clock);
+  // buildSave() has always captured rng state and applySave() never restored it,
+  // so a seeded run stopped being reproducible the instant you loaded it. In
+  // place, not by replacement — every system holds its own stream reference.
+  if (save.rng) app.rng.restore(save.rng);
   Object.assign(app.run, save.run);
   app.scheduler.deserialize(save.scheduler);
   app.inventory?.deserialize(save.inventory);

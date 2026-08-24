@@ -71,6 +71,24 @@ export class RngStream {
     for (let i = 0; i < s.draws; i++) r.next();
     return r;
   }
+
+  /**
+   * Wind THIS stream to a saved position, in place.
+   *
+   * Restoring by REPLACING the object cannot work: consumers capture their
+   * stream once at construction (`rng: this.rng.stream('cards')`), so a swapped
+   * instance leaves every one of them holding the old one.
+   * @param {{seed:number, draws:number}} s
+   */
+  restore(s) {
+    this.seed = s.seed >>> 0;
+    // `this.seed` is the ORIGINAL seed and never moves; the live position lives
+    // in the `_next` closure. Rebuilding it is what actually rewinds the stream
+    // — setting the seed field alone leaves the closure exactly where it was.
+    this._next = mulberry32(this.seed);
+    this.draws = 0;
+    for (let i = 0; i < s.draws; i++) this.next();
+  }
 }
 
 export class Rng {
@@ -97,5 +115,28 @@ export class Rng {
     const r = new Rng(data.baseSeed);
     for (const [k, s] of Object.entries(data.streams)) r.streams.set(k, RngStream.from(s));
     return r;
+  }
+
+  /**
+   * Restore saved stream positions onto THIS instance.
+   *
+   * `deserialize()` builds a fresh Rng, which is right for tests and wrong for
+   * loading a save: the App hands `rng.stream(name)` out at construction and
+   * every system holds its own reference, so swapping app.rng leaves them all
+   * pointing at the pre-load object. save.js consequently captured rng state and
+   * never restored it — deserialize() had zero call sites in src/ — so a seeded
+   * run stopped being reproducible the moment you loaded it.
+   *
+   * Restoring in place fixes every captured reference at once.
+   * @param {{baseSeed:number, streams:Record<string,{seed:number,draws:number}>}} data
+   */
+  restore(data) {
+    if (!data || typeof data.baseSeed !== 'number') return false;
+    this.baseSeed = data.baseSeed >>> 0;
+    for (const [name, st] of Object.entries(data.streams || {})) {
+      // stream() creates it if this session has not touched that stream yet
+      this.stream(name).restore(st);
+    }
+    return true;
   }
 }

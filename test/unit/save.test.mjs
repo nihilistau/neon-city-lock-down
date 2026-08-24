@@ -311,3 +311,40 @@ test('slots, the autosave, and perma-death deletion', () => {
   assert.equal(readSlot(3), null);
   assert.equal(listSlots().length, 3);
 });
+
+test('seeded determinism survives a load — rng state was captured but never restored', () => {
+  // buildSave() has always written `rng: app.rng.serialize()` and applySave()
+  // never read it back; Rng.deserialize had zero call sites in src/. So a run
+  // stopped being reproducible the moment you loaded it, silently.
+  const rng = new Rng('lockdown-seed');
+  const events = rng.stream('events');
+  const cards = rng.stream('cards');
+  for (let i = 0; i < 17; i++) { events.next(); cards.next(); }
+
+  const snapshot = JSON.parse(JSON.stringify(rng.serialize()));
+  const expected = [events.next(), events.next(), cards.next()];
+
+  // diverge hard, the way continuing to play would
+  for (let i = 0; i < 40; i++) { events.next(); cards.next(); }
+
+  rng.restore(snapshot);
+  const afterLoad = [events.next(), events.next(), cards.next()];
+
+  assert.deepEqual(afterLoad, expected, 'the same draws must come back after a restore');
+  // and it must restore IN PLACE: every system captures rng.stream(name) once at
+  // construction, so a replaced instance would leave them all holding the old one
+  assert.equal(rng.stream('events'), events, 'captured stream references must stay valid');
+});
+
+test('rng restore reaches streams the loading session has not created yet', () => {
+  const source = new Rng('lockdown-seed');
+  const s = source.stream('events');
+  for (let i = 0; i < 9; i++) s.next();
+  const expected = s.next();
+
+  const fresh = new Rng('a-completely-different-seed');
+  fresh.restore(JSON.parse(JSON.stringify(
+    (() => { const r = new Rng('lockdown-seed'); const e = r.stream('events');
+      for (let i = 0; i < 9; i++) e.next(); return r.serialize(); })())));
+  assert.equal(fresh.stream('events').next(), expected);
+});
