@@ -12,6 +12,7 @@
 // greys a surface out — stays at the scene's level. Never apply it to skin,
 // hair or cloth.
 import * as THREE from 'three';
+import { keepPatchOnClone } from './patchClone.js';
 
 /** How much harder glossy architecture reflects than the scene's env intensity. */
 export const GLOSSY_REFLECT = 2.5;
@@ -35,5 +36,6 @@ export function patchReflectBoost(material, boost = GLOSSY_REFLECT) {
   };
   // the patch changes the program, so it needs its own cache key
   material.customProgramCacheKey = () => 'reflect-boost';
-  return material;
+  // interactive props and the hover glow clone their materials (patchClone.js)
+  return keepPatchOnClone(material, (c) => patchReflectBoost(c, boost));
 }

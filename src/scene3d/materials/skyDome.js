@@ -9,10 +9,15 @@
 import * as THREE from 'three';
 import { cfg } from '../../core/config.js';
 import { HDRI_KNEE, SOFT_KNEE_GLSL } from '../envMath.js';
+import { keepPatchOnClone } from './patchClone.js';
 
 /** Linear gain on the raw HDRI for the visible dome (render.hdri.domeGain overrides). */
 export const DOME_GAIN = 0.1;
-/** Soft cap (envMath softKnee, knee HDRI_KNEE) on a texel's max channel after the gain. */
+/**
+ * Soft cap (envMath softKnee, knee HDRI_KNEE) on a texel's max channel after
+ * the gain. The same render.hdri.clamp as the IBL capture (env.js), so what the
+ * window shows and what the chrome reflects clip their lamps alike.
+ */
 export const DOME_CAP = 3.0;
 /**
  * The strip of the panorama the dome shows, as [start, span] in u. The HDRI
@@ -30,10 +35,17 @@ export const DOME_STRIP = /** @type {const} */ ([0.33, 0.48]);
  * @returns {THREE.MeshBasicMaterial}
  */
 export function skyDomeMaterial(equirect) {
-  const mat = new THREE.MeshBasicMaterial({ map: equirect, side: THREE.BackSide, fog: false, depthWrite: false });
+  return patchSkyDome(new THREE.MeshBasicMaterial({ map: equirect, side: THREE.BackSide, fog: false, depthWrite: false }));
+}
+
+/**
+ * @param {THREE.MeshBasicMaterial} mat
+ * @returns {THREE.MeshBasicMaterial}
+ */
+function patchSkyDome(mat) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.domeGain = { value: cfg('render.hdri.domeGain', DOME_GAIN) };
-    shader.uniforms.domeCap = { value: DOME_CAP };
+    shader.uniforms.domeCap = { value: Math.max(HDRI_KNEE + 0.05, cfg('render.hdri.clamp', DOME_CAP)) };
     shader.uniforms.domeStrip = { value: new THREE.Vector2(DOME_STRIP[0], DOME_STRIP[1]) };
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\nuniform float domeGain;\nuniform float domeCap;\nuniform vec2 domeStrip;\n${SOFT_KNEE_GLSL}`)
@@ -50,5 +62,5 @@ export function skyDomeMaterial(equirect) {
       ].join('\n'));
   };
   mat.customProgramCacheKey = () => 'sky-dome';
-  return mat;
+  return keepPatchOnClone(mat, patchSkyDome);
 }

@@ -3,6 +3,7 @@
 // for assets/city/windows.jpg and the first frame before that image decodes.
 // Seeded, so every run and every screenshot shows the same skyline windows.
 import * as THREE from 'three';
+import { keepPatchOnClone } from './patchClone.js';
 import { hashStr, mulberry32 } from '../../core/rng.js';
 
 export function cityWindowsTexture() {
@@ -44,7 +45,7 @@ export function patchWindowOffsets(material) {
   };
   // the patch changes the program, so it needs its own cache key
   material.customProgramCacheKey = () => 'city-window-offsets';
-  return material;
+  return keepPatchOnClone(material, patchWindowOffsets);
 }
 
 /**

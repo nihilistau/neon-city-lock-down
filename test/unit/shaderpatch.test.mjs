@@ -46,3 +46,25 @@ test('the reflection boost lands on the specular IBL lobe only, in the r185 stan
   assert.equal(s.uniforms.reflectBoost.value, 2.5);
   assert.equal(m.customProgramCacheKey(), 'reflect-boost');
 });
+
+// Material.clone()/copy() carry no instance onBeforeCompile/customProgramCacheKey,
+// and interactive props + the picker's hover glow clone their materials: a
+// clone must come back with the patch re-applied, or it silently drops it.
+test('every patch survives clone() — and a clone of a clone', async () => {
+  const { patchReflectBoost } = await import('../../src/scene3d/materials/reflectBoost.js');
+  const { skyDomeMaterial } = await import('../../src/scene3d/materials/skyDome.js');
+  const cases = [
+    [patchReflectBoost(new THREE.MeshStandardMaterial(), 1.7), 'reflect-boost', 'physical', (s) => assert.equal(s.uniforms.reflectBoost.value, 1.7)],
+    [patchWindowOffsets(new THREE.MeshStandardMaterial()), 'city-window-offsets', 'standard', (s) => assert.match(s.vertexShader, /aWinOffset/)],
+    [skyDomeMaterial(new THREE.Texture()), 'sky-dome', 'basic', (s) => assert.ok(s.uniforms.domeGain)],
+  ];
+  for (const [m, key, lib, check] of cases) {
+    for (const c of [m.clone(), m.clone().clone()]) {
+      assert.notEqual(c, m);
+      assert.equal(c.customProgramCacheKey(), key);
+      const s = shaderOf(lib);
+      c.onBeforeCompile(/** @type {any} */ (s), /** @type {any} */ (null));
+      check(s);
+    }
+  }
+});
