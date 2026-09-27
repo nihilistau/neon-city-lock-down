@@ -134,6 +134,9 @@ const bondTo = (page, id, tier) => game(page, (app, debug, { id, tier }) => {
 const holdToast = (page) => page.evaluate(() => {
   const el = document.getElementById('hud-alert');
   if (!el) return;
+  // no fade-in: under SwiftShader the 0.3s opacity transition had not left 0
+  // by capture time, so the toast was "visible" in the DOM and blank on screen
+  el.style.transition = 'none';
   new MutationObserver(() => { if (!el.classList.contains('visible')) el.classList.add('visible'); })
     .observe(el, { attributes: true, attributeFilter: ['class'] });
 });
@@ -215,12 +218,22 @@ const SHOTS = [
     name: 'bond-rail', file: '11-bond-rail', size: STD,
     stage: async (page) => {
       await quiet(page);
+      // The picture is the rail and the toast. Kai's lounge outfit (top over
+      // leggings) left a band of skin at the hip that read as missing clothes
+      // from this angle, so he waits out of frame.
+      await game(page, (app) => {
+        app.brains.kai?.hold();
+        app.cast.kai.queue.clear();
+        app.cast.kai.actor.snapTo(2.6, 0.4, 0);
+      });
       await bondTo(page, 'kai', 'ally');
       await bondTo(page, 'lola', 'trusted');
       await sleep(300);
       await holdToast(page);
       await bondTo(page, 'aria', 'loyal');   // last, so its toast is the one on screen
       await sleep(900);
+      // the auto camera re-frames once Kai has gone; let it settle (the toast is held)
+      await sleep(5000);
     },
   },
   {
