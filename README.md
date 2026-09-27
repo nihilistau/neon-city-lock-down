@@ -45,7 +45,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 | | Character | Archetype |
 |---|---|---|
 | 🔴 | **Lola Voss** | Bold, dominant. A renowned fixer — one of the toughest in the city. Walked in to collect a debt the night the gates fell. |
-| 🟣 | **Aria Chen** | Shy → playful. A high-end street-girl whose nerves lose to her curiosity. Everyone assumes she's fragile; everyone is wrong. |
+| 🟣 | **Aria Chen** | Shy → playful. A corporate negotiator who smoothed scandals for executives with too much money; her nerves lose to her curiosity. Everyone assumes she's fragile; everyone is wrong. |
 | 🟡 | **Kai Mercer** | Enigmatic, charming, patient. An information broker who watches everything and is loyal only to the most interesting outcome. |
 | 🔵 | **VOX** | The tower, awake. Sixty floors of sensors and three decades of uptime made it something more than a concierge. |
 | — | **You** | A legendary freelance hacker/fixer. A myth. Name, pronouns, and look are yours to set on New Run. |
@@ -56,21 +56,32 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 
 <table>
   <tr>
+    <td width="50%"><img src="docs/screenshots/01-main-menu.jpg" alt="Main menu"><br><sub><b>New run</b> — pick a scenario and a loadout, continue the autosave, or open the codex.</sub></td>
     <td width="50%"><img src="docs/screenshots/02-intro-cutscene.jpg" alt="Cinematic cold open"><br><sub><b>Cinematic cutscenes</b> — camera-spline flights, letterbox, voiced + subtitled dialogue.</sub></td>
-    <td width="50%"><img src="docs/screenshots/03-penthouse-lounge.jpg" alt="Penthouse lounge"><br><sub><b>Neon-noir penthouse</b> — procedural geometry, textures, bloom, and a live city burning through the glass.</sub></td>
   </tr>
   <tr>
+    <td><img src="docs/screenshots/03-penthouse-lounge.jpg" alt="Penthouse lounge"><br><sub><b>Neon-noir penthouse</b> — procedural geometry, textures, bloom, and a live city burning through the glass.</sub></td>
     <td><img src="docs/screenshots/06-events-choices.jpg" alt="World events and choices"><br><sub><b>The living tower</b> — news tickers, world events, and branching choices with real consequences.</sub></td>
-    <td><img src="docs/screenshots/05-cast-outfits.jpg" alt="The cast in outfits"><br><sub><b>Autonomous cast</b> — 9 stats each, moods, memory, in-fighting, and 8 outfit states.</sub></td>
   </tr>
   <tr>
+    <td><img src="docs/screenshots/05-cast-outfits.jpg" alt="The cast in outfits"><br><sub><b>Autonomous cast</b> — 9 stats each, moods, memory, in-fighting, and 8 outfit states.</sub></td>
     <td><img src="docs/screenshots/08-director-panel.jpg" alt="Director panel"><br><sub><b>Director panel</b> — 8 tabs to stage scenes, launch scenarios, whisper, and tune the world.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/11-bond-rail.jpg" alt="Bond tiers on the stat rail"><br><sub><b>Bonds</b> — stranger → ally → trusted → loyal, derived from trust + loyalty; a toast when one deepens.</sub></td>
+    <td><img src="docs/screenshots/12-bed-together.jpg" alt="Sitting on the bed with an ally"><br><sub><b>The bed is furniture</b> — sit, lie down, and invite an ally to sit beside you.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/13-stay-the-night.jpg" alt="Stay the night: fade and one narration line"><br><sub><b>Stay the night</b> — a trusted companion stays: a fade, one line, three hours, both of you rested.</sub></td>
     <td><img src="docs/screenshots/09-combat.jpg" alt="Combat"><br><sub><b>Combat</b> — riots spill inside; hostiles breach the floor and the cast fights back.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/10-extraction-victory.jpg" alt="Extraction ending"><br><sub><b>Perma-death & endings</b> — survive to the extraction, or don't. A run summary either way.</sub></td>
+    <td></td>
   </tr>
 </table>
+
+<sub>All but the extraction screen are captured from the running game by <code>node tools/screenshots.mjs</code> — see <a href="docs/development.md">docs/development.md</a>.</sub>
 
 ---
 
