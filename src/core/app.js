@@ -174,6 +174,11 @@ export class App {
     this.bootScene.dispose();
     this.bootScene = null;
     this.mode = 'run';
+    // False from the moment a run starts until the opening beat (scenario
+    // placement + its cutscene, or a resumed save) has fully settled. Tests
+    // and any other code that must not act until the opening beat is done
+    // should wait on this rather than inferring it from cutscene state.
+    this.scenarioSettled = false;
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
@@ -775,10 +780,14 @@ export class App {
       emit('resources.changed', this.run.resources);
       // One shared applier with the Director + Creation Kit. The old inline copy
       // here dropped `fireEvent` and `game`, so 7 of 16 scenarios were inert from
-      // the main menu (Truth or Dare, both mysteries, Blackout Confessions,
-      // The Refugee Question, Lola's Debt Collection Call…).
+      // the main menu (both mysteries, Blackout Confessions, The Refugee
+      // Question, Lola's Debt Collection Call…).
       applyScenario(this, scenario, { lightingFade: 0.5, cutsceneDelayMs: 600 })
-        .catch((err) => console.error('[boot] scenario failed', scenario.id, err));
+        .catch((err) => console.error('[boot] scenario failed', scenario.id, err))
+        .finally(() => { this.scenarioSettled = true; });
+    } else {
+      // resume-from-save path never calls applyScenario, so it settles immediately
+      this.scenarioSettled = true;
     }
     this._setWeaponModel();   // resume path emits inventory.changed, not .equipped
     dbg('run started', scenario.id);

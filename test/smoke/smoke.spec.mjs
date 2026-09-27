@@ -40,16 +40,29 @@ async function bootToRun(page) {
   // paused, and CutscenePlayer.play() no-ops (`if (this.playing) return`). Tests
   // that ran against that raced the intro and failed for reasons that had
   // nothing to do with what they assert. Skip it and wait for real gameplay.
-  // Retry, because a single Escape races the cutscene's own start: abort() bails
-  // early if `playing` is not true yet, and under software rendering the opening
-  // beats take a while to get going.
-  for (let i = 0; i < 40; i++) {
-    const clear = await page.evaluate(() => {
+  //
+  // Checking "not playing, not paused" alone isn't enough: startRun() kicks off
+  // applyScenario(), which sleeps `cutsceneDelayMs` (600ms) BEFORE calling
+  // app.cutscene.play() — so a check that lands inside that pre-cutscene window
+  // sees "not playing, not paused" and returns early, before the cutscene (and
+  // its pause reason) has even started. Wait on app.scenarioSettled instead,
+  // which app.js only flips true once the opening beat (scenario placement +
+  // its cutscene, or a resumed save) has fully settled.
+  //
+  // Retry Escape, because a single press races the cutscene's own start: abort()
+  // bails early if `playing` is not true yet, and under software rendering the
+  // opening beats take a while to get going.
+  for (let i = 0; i < 60; i++) {
+    const state = await page.evaluate(() => {
       const app = window.__ncld.app;
-      return app.cutscene?.playing === false && !app.loop.paused;
+      return {
+        settled: app.scenarioSettled === true,
+        playing: app.cutscene?.playing === true,
+        paused: app.loop.paused,
+      };
     });
-    if (clear) return errors;
-    await page.keyboard.press('Escape');
+    if (state.settled && !state.playing && !state.paused) return errors;
+    if (state.playing) await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
   }
   throw new Error('the opening cutscene never released the sim');
