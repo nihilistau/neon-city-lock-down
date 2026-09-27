@@ -68,6 +68,12 @@ becomes ordinary furniture instead of a game screen.
   misfire into a bed action.
 - A guest's AI brain now stays held only as long as the bed scene needs it —
   combat starting or the guest dying releases it instead of leaving it stuck.
+- **The smoke suite raced the opening cutscene.** `applyScenario` sleeps 600ms
+  before the intro plays, and the boot helper read "no cutscene, not paused"
+  inside that window — so a test could open a panel just as the intro started,
+  and "only one panel is open" failed on every full run while passing alone.
+  Runs now expose `app.scenarioSettled`, and the helper waits on it. Two full
+  e2e runs: 9/9 both.
 
 ## [0.6.0-alpha.2] — 2026-09-27 — Bonds, not gates
 
