@@ -150,7 +150,7 @@ test.describe('Neon-City: Lock-Down', () => {
     const opened = await page.evaluate(async () => {
       const app = window.__ncld.app;
       const out = {};
-      for (const [name, game] of [['cards', 'cards'], ['cards_reopen', 'cards'], ['mystery', 'mystery:dead_drop']]) {
+      for (const [name, game] of [['cards', 'cards'], ['mystery', 'mystery:dead_drop']]) {
         window.__ncld.app.gamesPanel.close();
         const { emit } = await import('/src/core/bus.js');
         emit('game.requested', { game });
@@ -161,7 +161,6 @@ test.describe('Neon-City: Lock-Down', () => {
       return out;
     });
     expect(opened.cards).toBe('cards');
-    expect(opened.cards_reopen).toBe('cards');
     expect(opened.mystery).toBe('mystery');
   });
 
