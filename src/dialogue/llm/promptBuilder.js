@@ -85,7 +85,6 @@ export function buildSystemPrompt(char, ctx) {
     : 'Play mature and adult, vivid but not clinical.';
 
   const combatBlock = ctx.combat?.active ? buildCombatBlock(char, ctx.combat) : '';
-  const bedBlock = ctx.bedScene ? buildBedBlock(char) : '';
 
   const parts = [
     `You are ${char.name}, ${p.archetype}, a character in NEON-CITY: LOCK-DOWN — an adults-only (18+) neon-noir roleplay. You are locked in a luxury cyberpunk tower with the guest (the player) and the others while the city riots below.`,
@@ -95,7 +94,6 @@ export function buildSystemPrompt(char, ctx) {
     `WHERE: ${zone}. Lighting: ${ctx.lighting || 'neon night'}. It's ${ctx.timeOfDay || 'night'}, day ${ctx.day || 1} of the lockdown.`,
     `ALSO HERE: ${othersLine}. The guest is the player — speak to them as "you"; their words and actions are their own.`,
     combatBlock,
-    bedBlock,
     '',
     // When the game extracts scene directives with a separate function model
     // (ctx.emitTags === false), the roleplay model should write ONLY clean prose.
@@ -113,26 +111,18 @@ function buildCombatBlock(char, combat) {
   return `⚠ COMBAT IS HAPPENING RIGHT NOW: hostiles have breached the floor (${hostiles} still up). This is a firefight, not a conversation — react like your life is in danger. Shout, curse, give orders, or crack under it — whatever fits you. Get to cover with [[anim:crouch]] or [[move:...]] behind furniture; you can [[stat:fear+8]] or [[stat:tension+10]]. Keep it short and urgent unless you're rallying someone.`;
 }
 
-/** In-bed intimate overlay: encourage explicit, enthusiastic, reactive dirty talk. */
-function buildBedBlock(char) {
-  return `⚜ YOU ARE IN BED WITH THE GUEST RIGHT NOW — naked, turned on, and into it. This is an explicit adults-only scene. React to what they do to your body in the moment: moan, gasp, talk dirty, beg for more, tell them exactly how it feels and what you want next. Be graphic and enthusiastic — plain words, no fading to black. Stay ${char.name.split(' ')[0]}: let your personality color HOW you come undone.`;
-}
-
 /**
  * The user turn. Per the reference's Gemma quirk, we recap only the GUEST's own
  * recent lines (recapping character dialogue can make some GGUFs stop early),
  * then the current line.
  * @param {string} playerText
  * @param {{playerLines?:string[], lastReply?:string}} hist
- * @param {{whisper?:boolean, playerName?:string, action?:boolean}} [opts]
+ * @param {{whisper?:boolean, playerName?:string}} [opts]
  */
 export function buildUserTurn(playerText, hist = {}, opts = {}) {
   const lines = (hist.playerLines || []).slice(-3);
   const recap = lines.length > 1 ? `Earlier the guest said: ${lines.slice(0, -1).map((l) => `"${l}"`).join(' then ')}.\n` : '';
   const lastReply = hist.lastReply ? `Your last reply was: "${hist.lastReply}"\nContinue naturally from there — don't reset the moment.\n` : '';
-  if (opts.action) {
-    return `${lastReply}The guest just did this to you: "${playerText}". React to it out loud in the moment — one or two lines, as yourself.`;
-  }
   const w = opts.whisper ? ' (whispered, just to you)' : '';
   return `${recap}${lastReply}The guest${w} says: "${playerText}"\n\nReply now, as yourself.`;
 }

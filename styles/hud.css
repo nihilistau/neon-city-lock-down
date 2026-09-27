@@ -202,17 +202,8 @@
   border: 1px solid var(--panel-edge); }
 .game-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .game-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-.bg-meters { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
-.bg-meter { display: flex; align-items: center; gap: 4px; }
-.bg-bar { display: inline-block; width: 70px; height: 5px; background: rgba(255,255,255,0.1); }
-.bg-fill { display: block; height: 100%; transition: width 0.3s; }
-.bg-gate { color: var(--magenta); }
 .bg-line { min-height: 40px; font-size: 14px; line-height: 1.5; color: var(--text); font-style: italic;
   background: rgba(255,255,255,0.03); padding: 8px 12px; margin: 8px 0; border-left: 2px solid var(--magenta-dim); }
-.bg-tier { margin-bottom: 10px; }
-.bg-tier.locked { opacity: 0.45; }
-.bg-tier.capped { opacity: 0.3; }
-.bg-tier-name { font-size: 10px; letter-spacing: 0.14em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
 .bg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .bg-actions button { font-size: 11px; padding: 5px 10px; }
 .bg-actions button.disabled { opacity: 0.3; }
@@ -339,23 +330,6 @@
 #hit-mark.visible { opacity: 0.95; }
 #hit-mark.crit { border-color: var(--amber); width: 26px; height: 26px; margin: -13px 0 0 -13px; }
 #hit-mark.glance { border-color: var(--cyan); opacity: 0.5; }
-
-/* ── in-scene bed game: docked HUD (non-blocking, sim keeps running) ── */
-#games-panel.bed-hud {
-  position: absolute; top: 0; right: 0; bottom: 0; left: auto;
-  width: 300px; display: flex; align-items: flex-end; justify-content: flex-end;
-  padding: 12px; background: none; pointer-events: none; z-index: var(--z-drawer-top);
-}
-#games-panel.bed-hud .bed-box {
-  pointer-events: auto; width: 276px; max-height: 92vh; overflow-y: auto;
-  background: rgba(8,6,14,0.82); backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,95,168,0.4); box-shadow: 0 0 24px rgba(255,95,168,0.15);
-}
-#games-panel.bed-hud .bg-line { font-style: italic; color: #ffd6ea; min-height: 2.4em; }
-#games-panel.bed-hud .bg-want { font-size: 11px; color: #c9a0ff; margin-top: 6px; }
-#games-panel.bed-hud .bg-ask.ready { background: rgba(200,107,255,0.18); border-color: #c86bff; color: #f0d0ff; width: 100%; margin-top: 6px; }
-#games-panel.bed-hud .bg-climax { color: #ff8fc0; font-weight: 700; letter-spacing: 0.08em; }
-#games-panel.bed-hud .bg-actions button { font-size: 11px; padding: 3px 7px; }
 
 /* ── LLM panel per-character rows ── */
 .llm-charrow { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }

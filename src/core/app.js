@@ -1,7 +1,6 @@
 // @ts-check
 // Composition root. The only module allowed to import everything and wire it up.
 import '../../data/poses/base.js';
-import '../../data/poses/intimate.js';
 import '../../data/poses/combat.js';
 import '../../data/dialogue/intents.js';
 import '../../data/dialogue/lola/fallbacks.js';
@@ -58,8 +57,6 @@ import { VOICE_CAST } from '../../data/voiceScript.js';
 import { CutscenePlayer } from '../cutscene/player.js';
 import { DirectorPanel } from '../ui/director/panel.js';
 import { GamesPanel } from '../ui/gamesPanel.js';
-import { BedGame } from '../games/bedGame.js';
-import { TruthOrDare } from '../games/truthOrDare.js';
 import { Gambits } from '../games/gambits.js';
 import { Mystery } from '../games/mystery.js';
 import { Cards } from '../games/cards.js';
@@ -237,7 +234,7 @@ export class App {
     // threat feeds music tension + ambience riot loudness (throttled)
     on('threat.changed', ({ threat }) => {
       this._threatT = (this._threatT || 0) + 1;
-      if (this._threatT % 20 === 0 && !this.combat.active && !this.bedGame?.active) {
+      if (this._threatT % 20 === 0 && !this.combat.active && !this.bedScene?.busy) {
         this.conductor.setMood({ tension: Math.min(1, threat / 90) });
         this.ambience.setThreat(threat / 100);
       }
@@ -249,16 +246,9 @@ export class App {
     // Emitted by a topic's `effects.game` (src/dialogue/effects.js) and by
     // scenario payloads, so there is ONE place that opens a game rather than
     // one per entry point.
-    on('game.requested', ({ game, charId }) => {
+    on('game.requested', ({ game }) => {
       if (!this.gamesPanel || !game) return;
       if (game === 'cards') this.gamesPanel.cards();
-      else if (game === 'tod') this.gamesPanel.tod();
-      // `bed` carrying a charId came from a DIALOGUE topic and means "with the
-      // person you just asked" — the only reading that makes sense mid-
-      // conversation. Without one it came from a scenario, so offer the picker.
-      else if (game === 'bed') {
-        if (charId) this.gamesPanel.bed(charId); else this.gamesPanel.bedPick();
-      } else if (game.startsWith('bed:')) this.gamesPanel.bed(game.slice(4));
       else if (game.startsWith('mystery:')) this.gamesPanel.mystery(game.slice(8));
     });
 
@@ -289,8 +279,6 @@ export class App {
 
     // keep the hand weapon model in sync with the equipped weapon
     on('inventory.equipped', () => this._setWeaponModel());
-    on('bedgame.started', () => this.conductor.setMood({ intimacy: 0.8, warmth: 0.7, energy: 0.28, tension: 0.05 }));
-    on('bedgame.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
     // blackout visuals + consequences
     on('power.changed', ({ online }) => {
       this.lighting.apply(online ? 'neon_night' : 'blackout_emergency', online ? 2.5 : 0.8);
@@ -641,16 +629,6 @@ export class App {
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);
 
     // games
-    this.bedGame = new BedGame({
-      cast: () => this.cast, explicitness: () => settings.explicitness,
-      nowMinute: () => this.clock.totalMinutes, rng: this.rng.stream('bedgame'),
-      sfx: (id) => playSfx(audio, id),
-    });
-    this.truthOrDare = new TruthOrDare({
-      players: () => Object.values(this.cast).filter((c) => c.id !== 'vox' && c.alive),
-      explicitness: () => settings.explicitness, nowMinute: () => this.clock.totalMinutes,
-      playerName: settings.playerName, rng: this.rng.stream('tod'),
-    });
     // live accessor: a hard-coded 65 meant training never improved social play
     this.gambits = new Gambits({
       rng: this.rng.stream('gambits'),
@@ -1076,9 +1054,9 @@ export class App {
    * gaze and the director camera all read the marker, not the camera), and
    * announce it so the HUD chip and anything else listening can follow.
    *
-   * The elevator and the save loader each open-coded the whole sequence, and
-   * enterBedScene() open-coded ONE step of it — `setActiveFloor('penthouse')` on
-   * its own — which left the lighting rig, the fog, `world.activeFloor` and the
+   * The elevator and the save loader each open-coded the whole sequence, and a
+   * former bed-scene entry point open-coded ONE step of it — `setActiveFloor('penthouse')`
+   * on its own — which left the lighting rig, the fog, `world.activeFloor` and the
    * HUD all still pointing at the floor the player had just left, up to 1200
    * world units away. Three copies of a ritual is how a step goes missing.
    *
@@ -1251,91 +1229,6 @@ export class App {
     emit('char.registered', { character: c });
     feed(`${c.name} returns.`, 'system');
     return true;
-  }
-
-  /**
-   * Stage the bed scene in-world (non-blocking): recline the partner on the bed,
-   * seat the player in first person at the bedside facing them. The sim keeps
-   * running so the avatar performs live.
-   * @param {import('../chars/character.js').Character} partner
-   */
-  enterBedScene(partner) {
-    if (!partner) return;
-    // make sure the alcove floor is active so the bed + partner are visible
-    // the bed lives in the penthouse alcove; setFloor does the WHOLE move,
-    // and movePlayer:false because the bedside eye position is computed below
-    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false });
-    const bed = this.world.getSocket('bed.lie_center');
-    const bedPos = bed ? bed.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
-    this._bedReturn = { camMode: this.cameraRig.mode, lighting: this.lighting.presetId };
-    // eye at the bedside, looking back at the reclined partner
-    const eyeX = bedPos.x + 1.35, eyeZ = bedPos.z + 0.55;
-    // FP forward is (-sin(yaw), -cos(yaw)); solve so it points from eye → bed
-    const yaw = Math.atan2(-(bedPos.x - eyeX), -(bedPos.z - eyeZ));
-    // partner reclines ON the bed surface, body + gaze turned toward the player
-    partner.queue.clear();
-    partner.actor.snapTo(bedPos.x, bedPos.z, Math.atan2(eyeX - bedPos.x, eyeZ - bedPos.z));
-    partner.actor.root.position.y = Math.max(0, bedPos.y - 0.05); // up onto the mattress
-    partner.actor.playClip('bed_recline', 0.5);
-    partner.actor.lookAt(this.playerMarker);
-    this._bedPartner = partner;
-    // warm, low light for the alcove (and mood)
-    this.lighting.apply('candlelit', 1.5);
-    this.cameraRig.setMode('firstPerson');
-    this.cameraRig.fp.placeAt(eyeX, eyeZ, yaw, -0.12);
-    this.playerMarker.position.set(eyeX, 1.4, eyeZ);
-    // The BODY too, not just the eye and the marker. Entering the bed scene from
-    // any floor but the penthouse moved the camera and the marker to the bedside
-    // and left the avatar standing where it was — measured 1190 world units away,
-    // in the basement, still ticking its animator and still what the partner's
-    // gaze and every proximity check resolve against.
-    this.playerActor?.snapTo(eyeX, eyeZ, yaw);
-  }
-
-  /** Tear down the bed scene and restore the camera + lighting. */
-  exitBedScene(partner) {
-    if (partner) {
-      partner.queue.clear();
-      partner.actor.root.position.y = 0;         // back to the floor
-      partner.actor.playClip(partner.persona.personality.idleClip || 'idle_stand', 0.6);
-    }
-    this._bedPartner = null;
-    if (this._bedReturn?.lighting) this.lighting.apply(this._bedReturn.lighting, 1.5);
-    // Restore what they were actually using. This used to send anyone who was
-    // not in firstPerson into 'director' — a spectator mode where WASD is dead
-    // — and setMode PERSISTS the choice, so it survived a reload. The default
-    // camera mode is 'auto', so this hit every player who had not changed it.
-    const back = this._bedReturn?.camMode;
-    this.cameraRig.setMode(back && back !== 'cinematic' ? back : 'auto');
-    this._bedReturn = null;
-  }
-
-  /**
-   * Stream the partner's in-character dirty-talk reaction to a bed action.
-   * Emits 'bedgame.talk' ({frag}|{text,done}); no-op when the LLM is off.
-   * @param {import('../chars/character.js').Character} partner
-   * @param {string} actionPhrase e.g. "traces your jaw"
-   */
-  async bedReaction(partner, actionPhrase) {
-    if (!partner || !this.agent?.enabled) return;
-    if (!(await this.agent.probe())) return;
-    const ctx = {
-      present: [partner], playerName: settings.playerName,
-      lighting: 'candlelit', timeOfDay: this.clock.phase, day: this.clock.day,
-      threat: 0, combat: null, explicitness: settings.explicitness, bedScene: true,
-    };
-    try {
-      // no live fragments — a thinking model would flash its reasoning; show the
-      // finished, cleaned line. Only replace the authored line if we actually got
-      // one (empty → the authored bed line stays; graceful with any model).
-      const out = await this.agent.respond(
-        partner, actionPhrase, ctx, this.convo?.history(partner.id) || {},
-        { action: true });
-      if (out?.text) {
-        emit('bedgame.talk', { text: out.text, done: true });
-        this.convo?.noteReply(partner.id, out.text);
-      }
-    } catch { /* keep the authored line */ }
   }
 
   /** VOX is bodiless — the tower itself. Uses duck-typed actor/queue stubs. */

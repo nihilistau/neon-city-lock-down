@@ -297,20 +297,6 @@ export const CONFIG_DEFAULTS = {
     },
   },
 
-  // ── gameplay: bed-game desire / climax / safeword tuning ──
-  gameplay: {
-    bed: {
-      startTrust: 15, startArousal: 20,   // start gate: needs trust ≥ startTrust OR arousal ≥ startArousal
-      willing: {   // desire-based willingness (bedGame._willing)
-        arousal: 0.42, horniness: 0.30, trust: 0.16, openness: 0.12,   // desire weights
-        tension: 0.22, fear: 0.45,                                     // resistance weights
-        base: 18, perTier: 5,                                          // need = base + tierIndex·perTier
-      },
-      climaxTier: 4, climaxPleasure: 82, climaxArousal: 70,   // climax requires tier ≥ / pleasure ≥ / arousal ≥
-      safewordGap: 30,          // partner withdraws when tension > arousal + gap
-    },
-  },
-
   // ── llm: LM Studio engine knobs. Chat model / temperature / thinking on-off /
   //    per-character interaction live in the LLM panel (settings.llm); this group
   //    is the ADVANCED surface consumed by tools/gameEngine.mjs + the agent. ──

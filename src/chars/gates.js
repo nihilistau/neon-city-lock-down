@@ -25,8 +25,8 @@ export function tierIndex(tier) { return GATE_LADDER.indexOf(tier); }
  * Consent (an in-fiction flag) is separate and required on top for `granted`.
  * @type {Record<GateTier, Partial<Record<StatKey, number>>>}
  */
-// Thresholds are the MINIMUM to even OFFER a tier; the bed game's desire model
-// (bedGame._willing) is the primary willingness check on top. Trust minima are
+// Thresholds are the MINIMUM to even OFFER a tier; the in-scene bed system's
+// desire model is the primary willingness check on top. Trust minima are
 // kept modest so foreplay/pleasure can actually reach them — a dominant, guarded
 // character shouldn't be permanently locked out of intimacy she clearly wants.
 export const TIER_THRESHOLDS = CONFIG_DEFAULTS.chars.gates.thresholds;

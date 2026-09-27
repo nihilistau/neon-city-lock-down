@@ -12,7 +12,6 @@ import { parseSaveEnvelope } from '../../src/core/save.js';
 import { Cards } from '../../src/games/cards.js';
 import { TALK_PROFILES, syllables, sayTalk } from '../../src/audio/talkSynth.js';
 import { applyScenario } from '../../src/sim/scenario.js';
-import { BedGame } from '../../src/games/bedGame.js';
 import { Character } from '../../src/chars/character.js';
 import { Wardrobe } from '../../src/chars/wardrobe.js';
 import { buildSkeleton } from '../../src/humanoid/skeleton.js';
@@ -59,48 +58,6 @@ function stubApp(cast, sink) {
     eventRunner: { fire: async (id) => { sink.fired.push(id); } },
   };
 }
-
-test('staging The Bed Game actually opens the bed engine on a real partner', async () => {
-  // Was: `SCENARIOS.the_bed_game.game === 'bed'` — a constant compared to itself.
-  const cast = makeCast();
-  const sink = { engaged: [], cutscenes: [], fired: [], lighting: null };
-  const app = stubApp(cast, sink);
-  const before = cast.aria.stats.arousal;
-
-  let requested = null;
-  const off = on('game.requested', (p) => { requested = p; });
-  await applyScenario(/** @type {any} */ (app), SCENARIOS.the_bed_game);
-  off();
-
-  // the scenario staged itself for real
-  assert.equal(sink.lighting, 'candlelit', 'the scenario must actually apply its lighting');
-  assert.ok(cast.aria.stats.arousal > before, 'castMoodShifts must reach the real character');
-  assert.ok(requested, 'the scenario never asked for its game');
-
-  // and the payload it asked for is one the bed engine can actually open
-  const partnerId = requested.game.startsWith('bed:') ? requested.game.slice(4) : 'aria';
-  assert.ok(requested.game === 'bed' || requested.game.startsWith('bed:'), `payload ${requested.game}`);
-
-  const game = new BedGame({
-    cast: () => cast, explicitness: () => 'full', nowMinute: () => 0,
-    rng: { pick: (a) => a[0], int: () => 0, range: () => 0, chance: () => false },
-    sfx: () => {},
-  });
-  const opened = game.start(partnerId);
-  assert.equal(opened.ok, true, `bed game refused the scenario's partner: ${opened.reason}`);
-  assert.equal(cast[partnerId].topGate, 'light_touch', 'starting must grant the first rung');
-  const tier1 = opened.state.tiers.find((t) => t.tier === 1);
-  assert.equal(tier1.unlocked, true, 'tier 1 must be open once the scene starts');
-  assert.ok(tier1.actions.every((a) => a.enabled), 'every tier-1 action must be usable');
-  assert.equal(opened.state.tiers.find((t) => t.tier === 3).unlocked, false, 'higher tiers stay shut');
-
-  // a cold partner is refused the next rung; a warmed one is granted it
-  assert.equal(game.askForMore().granted, false, 'a guarded partner must not be escalated on demand');
-  cast[partnerId].applyStats({ arousal: 60, horniness: 45, trust: 40, openness: 40, tension: -30, fear: -20 }, 'test');
-  const asked = game.askForMore();
-  assert.equal(asked.granted, true, `warmed partner still refused (want ${JSON.stringify(asked.want)})`);
-  assert.equal(cast[partnerId].topGate, asked.tier);
-});
 
 test("staging Kai's Card Game places the room and deals a real hand", async () => {
   // Was: `SCENARIOS.kais_card_game.game === 'cards'`.

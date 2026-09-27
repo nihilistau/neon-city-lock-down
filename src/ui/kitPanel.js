@@ -27,7 +27,7 @@ function cheatsheet(cat) {
     'fields: id, title, blurb, lighting, castMoodShifts:{char:{stat:delta}}, placements:{char:[zone,waypoint]}, fireEvent, game',
     `lighting: ${Object.keys(cfg('lighting.presets', {})).join(', ')}`,
     `fireEvent: ${Object.keys(EVENTS).slice(0, 8).join(', ')}…`,
-    'game: "tod" | "bed:<char>" | "mystery:<case>"',
+    'game: "cards" | "mystery:<case>"',
     `zones: ${Object.keys(ZONES).slice(0, 10).join(', ')}…`,
   ];
   if (cat === 'events') return [

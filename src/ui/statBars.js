@@ -33,8 +33,8 @@ export function initStatBars() {
 
   on('combat.started', () => root?.classList.add('hidden'));
   on('combat.resolved', () => root?.classList.remove('hidden'));
-  on('bedgame.started', () => root?.classList.add('hidden'));
-  on('bedgame.ended', () => root?.classList.remove('hidden'));
+  on('bedscene.started', () => root?.classList.add('hidden'));
+  on('bedscene.ended', () => root?.classList.remove('hidden'));
   on('char.registered', ({ character }) => { if (!cards.has(character.id)) addCard(character); });
   on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
   on('char.stat', ({ id, stats }) => updateBars(id, stats));

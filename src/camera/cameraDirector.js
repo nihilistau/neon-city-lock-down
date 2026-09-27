@@ -56,8 +56,8 @@ export class CameraDirector {
     on('combat.resolved', () => { this._pop('action'); this._shake = 0; });
     on('player.health', () => { if (this._top()?.type === 'action') this._shake = cfg('camera.director.shakeOnHit', 0.5); });
     on('event.fired', () => this._push('event', sp('event'), st('event'), {}));
-    on('bedgame.started', () => { this._suspended = true; });
-    on('bedgame.ended', () => { this._suspended = false; });
+    on('bedscene.started', () => { this._suspended = true; });
+    on('bedscene.ended', () => { this._suspended = false; });
   }
 
   /** Shot types with a `_compose_<type>` implementation — the valid `[[cam:x]]` set. */

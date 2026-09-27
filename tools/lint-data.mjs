@@ -55,9 +55,7 @@ async function main() {
   const { EVENTS } = await import('../data/events.js');
   ok(`events: ${Object.keys(EVENTS).length}`);
   const { MYSTERY_CASES } = await import('../data/games/mysteryCases.js');
-  const { BED_ACTIONS } = await import('../data/games/bedActions.js');
-  const { TRUTHS, DARES } = await import('../data/games/todPrompts.js');
-  ok(`games: ${BED_ACTIONS.length} bed actions, ${TRUTHS.length}+${DARES.length} ToD, ${Object.keys(MYSTERY_CASES).length} cases`);
+  ok(`games: ${Object.keys(MYSTERY_CASES).length} cases`);
 
   // referential checks
   const anims = clipRegistry;

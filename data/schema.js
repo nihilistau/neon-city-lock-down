@@ -25,12 +25,12 @@ function validateStatMap(map, where) {
  * @param {any} def
  */
 /** minigames a topic or line may open — see src/dialogue/effects.js */
-const GAME_SET = new Set(['cards', 'tod', 'bed']);
+const GAME_SET = new Set(['cards']);
 
 /** @param {any} g @param {string} where */
 function assertGame(g, where) {
-  assert(typeof g === 'string' && (GAME_SET.has(g) || g.startsWith('mystery:') || g.startsWith('bed:')),
-    `${where} must be one of ${[...GAME_SET].join('|')} or mystery:<case> / bed:<partner>`);
+  assert(typeof g === 'string' && (GAME_SET.has(g) || g.startsWith('mystery:')),
+    `${where} must be one of ${[...GAME_SET].join('|')} or mystery:<case>`);
 }
 
 export function topic(id, def) {

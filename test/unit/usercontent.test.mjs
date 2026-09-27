@@ -78,7 +78,7 @@ test('a well-formed pack registers into the live game', async () => {
   assert.deepEqual(out.dialogue, ['my_topic']);
   assert.equal(seen.length, 1, 'the kit panel is told exactly once');
   assert.equal(Object.keys(SCENARIOS).length, builtInScenarios + 1, 'built-ins are untouched');
-  assert.ok(SCENARIOS.the_bed_game, 'and still there');
+  assert.ok(SCENARIOS.first_night, 'and still there');
 
   // a user event's numeric weight becomes the (run)=>number the scheduler calls
   assert.equal(typeof EVENTS.user_event.weight, 'function');

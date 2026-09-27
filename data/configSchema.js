@@ -158,16 +158,6 @@ export const CONFIG_SCHEMA = {
       dawnStart: num(0, 24), dayStart: num(0, 24), duskStart: num(0, 24), nightStart: num(0, 24),
     },
   },
-  gameplay: {
-    bed: {
-      startTrust: num(0, 100), startArousal: num(0, 100),
-      willing: {
-        arousal: num(0, 2), horniness: num(0, 2), trust: num(0, 2), openness: num(0, 2),
-        tension: num(0, 2), fear: num(0, 2), base: num(0, 100), perTier: num(0, 50),
-      },
-      climaxTier: num(0, 7), climaxPleasure: num(0, 100), climaxArousal: num(0, 100), safewordGap: num(0, 100),
-    },
-  },
   llm: {
     connection: { baseUrl: { type: 'string' }, apiKeyFile: { type: 'string' } },
     models: { function: { type: 'string' }, draft: { type: 'string' } },
