@@ -53,10 +53,13 @@ the wide hero shots, 1250×907 for the rest, JPEG quality 82. Launch flags match
 one to two. Set `NCLD_URL` to point it somewhere other than `http://localhost:8420/?debug=1`.
 
 To add a shot, append an entry to `SHOTS` with a `name`, an output `file`, a `size`, an optional
-`boot` (`menu`, `intro`, or the default `run`) and an async `stage(page)` that arranges the scene.
-Stage through the same hooks a player's actions reach (`debug.setStat`, `app.bedScene.invite`, …)
-so the image shows real game state. Look at every image before committing it: a black frame, a
-half-typed line, or a mid-loading scene means the staging needs more settling time.
+`boot` (`menu`, `intro`, or the default `run`), an async `stage(page)` that arranges the scene, and
+an optional `grab(page, size)` that returns the PNG itself (`stay-the-night` uses it to frame one
+subtitle line; the default is a full-viewport screenshot). Stage through the same hooks a player's
+actions reach (`debug.setStat`, `app.bedScene.invite`, …) so the image shows real game state; call
+the tool's `quiet(page)` first so neither a world event nor a scripted daily beat (dinner at 18:00)
+takes the camera mid-shot. Look at every image before committing it: a black frame, a half-typed
+line, or a mid-loading scene means the staging needs more settling time.
 
 Keep each file under ~450KB. Existing numbers are stable (the README references them); new shots
 take the next free number.

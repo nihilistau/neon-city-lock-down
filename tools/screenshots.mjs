@@ -40,6 +40,8 @@ const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-s
  * @property {{width:number,height:number}} size
  * @property {'menu'|'intro'|'run'} [boot]  how far to boot before staging (default 'run')
  * @property {(page: Page) => Promise<void>} stage  arrange the scene; the capture happens after it returns
+ * @property {(page: Page, size: {width:number,height:number}) => Promise<Buffer>} [grab]
+ *   custom capture returning a PNG at `size` (default: a full-viewport screenshot)
  */
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -92,15 +94,26 @@ async function boot(page, to) {
     const s = await game(page, (app) => ({
       settled: app.scenarioSettled === true, playing: app.cutscene?.playing === true, paused: app.loop.paused,
     }));
-    if (s.settled && !s.playing && !s.paused) { await sleep(1500); return; }
+    if (s.settled && !s.playing && !s.paused) {
+      // the clock chip is filled by the first world.minute; a shot that pauses
+      // the sim straight away (an event choice) could otherwise catch it empty
+      await until(page, 'the HUD clock', () => !!document.getElementById('hud-clock')?.textContent, null, 20000);
+      await sleep(1500);
+      return;
+    }
     if (s.playing) await page.keyboard.press('Escape');
     await sleep(500);
   }
   throw new Error('the opening cutscene never released the sim');
 }
 
-/** Clear the scheduler so a random world event can't land mid-shot. */
-const quiet = (page) => game(page, (app) => { app.scheduler.hold = true; });
+/**
+ * Keep the world still for the shot: no random world event (scheduler held)
+ * and no scripted daily beat. The beats (dinner, sleep, …) are separate from
+ * the scheduler; a dinner cutscene at 18:00 once took the camera mid-shot and
+ * handed it back in a different mode.
+ */
+const quiet = (page) => game(page, (app) => { app.scheduler.hold = true; app._beatPlayable = () => false; });
 
 /**
  * Raise trust + loyalty until a character reaches a bond tier (debug.setStat
@@ -124,19 +137,6 @@ const holdToast = (page) => page.evaluate(() => {
   new MutationObserver(() => { if (!el.classList.contains('visible')) el.classList.add('visible'); })
     .observe(el, { attributes: true, attributeFilter: ['class'] });
 });
-
-/**
- * Turn the first-person eye toward a character: `turn` 1 looks straight at
- * them, 0 keeps the current heading, in between keeps some of the room in frame.
- */
-const lookToward = (page, id, turn, pitch) => game(page, (app, debug, { id, turn, pitch }) => {
-  const fp = app.cameraRig.fp;
-  const t = app.cast[id].actor.root.position;
-  const to = Math.atan2(-(t.x - fp.pos.x), -(t.z - fp.pos.z));   // the eye looks down -Z
-  const d = Math.atan2(Math.sin(to - fp.yaw), Math.cos(to - fp.yaw));
-  fp._targetYaw = fp.yaw = fp.yaw + d * turn;
-  fp._targetPitch = fp.pitch = pitch;
-}, { id, turn, pitch });
 
 /** @type {Shot[]} */
 const SHOTS = [
@@ -224,12 +224,12 @@ const SHOTS = [
     },
   },
   {
-    name: 'bed-together', file: '12-bed-together', size: WIDE,
+    name: 'bed-together', file: '12-bed-together', size: STD,
     stage: async (page) => {
       await quiet(page);
       await bondTo(page, 'aria', 'ally');
       await game(page, (app) => {
-        app.bedScene.use();   // sit
+        app.bedScene.use();   // sit — the real E-on-the-bed path (first person at bed.seat0)
         // Start her in the alcove: under SwiftShader the sim crawls, and the
         // real walk over from the bar takes minutes of wall time.
         const a = app.cast.aria;
@@ -238,14 +238,42 @@ const SHOTS = [
       });
       const r = await game(page, (app) => app.bedScene.invite(app.cast.aria));
       if (!r.ok) throw new Error(`invite refused: ${r.reason}`);
-      await until(page, 'Aria seated on the bed', (app) => app.cast.aria.queue.seatedAt === 'bed.seat1', null, 120000);
-      await sleep(1500);
-      await lookToward(page, 'aria', 0.8, -0.06);
-      await sleep(1500);
+      await until(page, 'Aria seated on the bed',
+        (app) => app.cast.aria.queue.seatedAt === 'bed.seat1' && !app.cast.aria.queue.busy, null, 120000);
+      // In play you see this in first person: the guest beside you, out of
+      // frame. For a picture of BOTH of you, cut to a cinematic camera (the one
+      // non-first-person mode that doesn't get you off the bed) and sit the
+      // player's body on seat0 exactly the way ActorQueue seats a character.
+      await page.evaluate(async () => {
+        const app = window.__ncld.app;
+        const { seatClip, seatRootY } = await import('/src/sim/actors/actorQueue.js');
+        app.cameraRig.setMode('cinematic');
+        const cam = app.stage.camera;
+        const sock = app.world.getSocket('bed.seat0');
+        const w = sock.getWorldPosition(cam.position.clone());
+        const yaw = cam.rotation.clone().setFromQuaternion(sock.getWorldQuaternion(cam.quaternion.clone()), 'YXZ').y;
+        const body = app.playerActor;
+        const clip = seatClip('bed.seat0');
+        body.root.position.set(w.x, seatRootY(w.y, clip), w.z);
+        body.faceYaw(yaw + Math.PI);
+        body.playClip(clip, 0.1);
+        // nothing ticks the body in cinematic mode — settle the pose here
+        for (let i = 0; i < 30; i++) body.update(0.1);
+        // three-quarter view from the foot of the alcove, both seats in frame
+        cam.position.set(-10.4, 2.2, 5.6);
+        cam.lookAt(-12.1, 0.7, 4.1);
+        cam.updateMatrixWorld();
+      });
+      await sleep(2000);
+      const mode = await game(page, (app) => app.cameraRig.mode);
+      if (mode !== 'cinematic') throw new Error(`the camera left the two-shot (mode ${mode})`);
+      // "[E] Lie down" is re-announced on every bed state change and lands on
+      // the player's chest in this framing; hide it for the picture only
+      await page.evaluate(() => { const p = document.getElementById('hud-prompt'); if (p) p.style.visibility = 'hidden'; });
     },
   },
   {
-    name: 'stay-the-night', file: '13-stay-the-night', size: WIDE,
+    name: 'stay-the-night', file: '13-stay-the-night', size: STD,
     stage: async (page) => {
       await quiet(page);
       await bondTo(page, 'lola', 'trusted');
@@ -265,7 +293,44 @@ const SHOTS = [
       // not awaited: it never finishes (see above)
       await game(page, (app) => { app.bedScene.stayNight(app.cast.lola); });
       await until(page, 'the narration line', () => !!document.querySelector('#subtitles .narration'), null, 15000);
-      await sleep(900);
+      await until(page, 'the fade fully down',
+        () => getComputedStyle(document.getElementById('fade')).opacity === '1', null, 15000);
+      await sleep(600);
+    },
+    // Everything but the one line is the fade's flat black, and in the full
+    // frame the line is a thin strip at the bottom. Frame it instead: the
+    // line's own pixels, magnified, centred on the same black. The zoom is CSS
+    // zoom on the subtitle strip, applied only now: a 2x deviceScaleFactor
+    // context made the boot too slow to click through under SwiftShader, and a
+    // late CDP metrics override is undone by Playwright's own emulation.
+    grab: async (page, size) => {
+      await page.evaluate(() => { const st = document.getElementById('subtitles'); if (st) st.style.zoom = '1.6'; });   // one line, still large
+      await sleep(300);
+      const line = await page.locator('#subtitles .narration').screenshot({ timeout: 120000, scale: 'device' });
+      const meta = await sharp(line).metadata();
+      const w = Math.min(meta.width ?? 0, size.width - 80);
+      const fitted = w < (meta.width ?? 0) ? await sharp(line).resize({ width: w }).toBuffer() : line;
+      const fm = await sharp(fitted).metadata();
+      return sharp({ create: { width: size.width, height: size.height, channels: 3, background: '#000000' } })
+        .composite([{ input: fitted,
+          left: Math.round((size.width - (fm.width ?? 0)) / 2),
+          top: Math.round((size.height - (fm.height ?? 0)) / 2) }])
+        .png().toBuffer();
+    },
+  },
+  {
+    name: 'extraction-victory', file: '10-extraction-victory', size: STD,
+    stage: async (page) => {
+      await quiet(page);
+      await bondTo(page, 'lola', 'trusted');
+      await bondTo(page, 'aria', 'ally');
+      // the real end-of-run path: src/sim/death.js endRun → run.death → the summary screen
+      await page.evaluate(async () => {
+        const { endRun } = await import('/src/sim/death.js');
+        endRun(window.__ncld.app, 'extracted');
+      });
+      await page.locator('#ds-again').waitFor({ state: 'visible', timeout: 30000 });
+      await sleep(1200);
     },
   },
 ];
@@ -284,7 +349,9 @@ async function capture(browser, shot) {
     // the DOM overlays (HUD, toasts, subtitles) are captured as they stand.
     // The menu boot has no app loop yet, hence the optional chain.
     await page.evaluate(() => window.__ncld?.app?.loop?.stop());
-    const png = await page.screenshot({ type: 'png', timeout: 120000 });
+    const png = shot.grab
+      ? await shot.grab(page, shot.size)
+      : await page.screenshot({ type: 'png', timeout: 120000 });
     const out = join(OUT, `${shot.file}.jpg`);
     await sharp(png).jpeg({ quality: 82, mozjpeg: true }).toFile(out);
     const kb = Math.round(statSync(out).size / 1024);
