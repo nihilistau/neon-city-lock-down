@@ -13,9 +13,20 @@ import { fitProp } from './props.js';
 import { PROP_DRESSING } from '../../../data/propDressing.js';
 import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
-import { cityWindowsTexture } from '../materials/cityWindows.js';
+import { cityWindowsTexture, cityTowerMaterial } from '../materials/cityWindows.js';
+import { skyDomeMaterial } from '../materials/skyDome.js';
+import { windowOffsets } from '../envMath.js';
 
 const TAU = Math.PI * 2;
+/** Radius of the HDRI sky dome: past the farthest tower (≈95 m) and well inside the camera's 400 m far plane. */
+const DOME_RADIUS = 180;
+/**
+ * Yaw of the dome, radians. The dome folds the Pudong strip of the panorama
+ * around the circle (materials/skyDome.js DOME_STRIP); on the mirrored sphere
+ * the penthouse windows (+z) sit at u = 0.25 and the Oriental Pearl tower lands
+ * at u ≈ 0.27, so a small turn puts it square in the window.
+ */
+const DOME_YAW = 0.13;
 
 const glassMat = () => new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
@@ -56,6 +67,10 @@ export class World3D {
     this.fireSprites = [];
     /** @type {Record<string, THREE.Object3D[]>} non-interactive furniture roots per floor (rc.1 merges them) */
     this.furnitureGroups = {};
+    /** @type {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}[]} */
+    this.exteriors = [];
+    /** @type {THREE.Color|null} the current sky grade (Lighting.skyColor), for domes made later */
+    this._skyGrade = null;
     this.activeFloor = 'penthouse';
     // every library material from here on reads this facade (src/scene3d/materials/pbr.js)
     setPbrAssets(assets);
@@ -740,12 +755,10 @@ export class World3D {
   }
 
   _buildExterior(group, fromRoof = false) {
-    const tex = cityWindowsTexture();
-    // matC is declared FIRST: the loader callbacks below close over it, and it
-    // used to be read in a callback declared above its own `const` — a TDZ read
-    // that only survived because TextureLoader is always async. Any cache hit or
-    // sync path would have thrown a ReferenceError at world build.
-    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
+    // Declared FIRST: the loader callbacks below close over it (a TDZ read that
+    // only survived because TextureLoader is always async bit this once).
+    // The seeded canvas is the first frame and the fallback; windows.jpg replaces it.
+    const matC = cityTowerMaterial(cityWindowsTexture());
     const loader = new THREE.TextureLoader();
     loader.load('/assets/city/windows.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
@@ -755,25 +768,36 @@ export class World3D {
       // about 15cm wide — which aliased into moire that bloom then amplified.
       map.repeat.set(2, 4);
       map.anisotropy = Math.min(8, this.stage.renderer.capabilities.getMaxAnisotropy?.() ?? 1);
-      matC.map = map;
+      matC.emissiveMap = map;
       matC.needsUpdate = true;
     });
+
+    /** @type {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}} */
+    const ext = { group, fromRoof, plate: null, dome: null };
+    this.exteriors.push(ext);
+    // The flat skyline plate is the fallback when there is no HDRI; with one,
+    // the dome replaces it (and setSkyTexture can swap between them live).
     loader.load('/assets/city/skyline.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
-      const plate = new THREE.Mesh(
-        new THREE.PlaneGeometry(90, 40),
-        new THREE.MeshBasicMaterial({ map, fog: true }));
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(90, 40), new THREE.MeshBasicMaterial({ map, fog: true }));
       plate.position.set(4, fromRoof ? 8 : 2, fromRoof ? 42 : 48);
       plate.lookAt(4, fromRoof ? 8 : 2, 0);
+      plate.visible = !ext.dome?.visible;
       group.add(plate);
+      ext.plate = plate;
     });
+    const eq = this.equirectId ? this.assets?.peekEquirect(this.equirectId) ?? null : null;
+    if (eq) this._showDome(ext, eq);
+
+    const COUNT = 80;
     const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mesh = new THREE.InstancedMesh(geo, matC, 80);
+    geo.setAttribute('aWinOffset', new THREE.InstancedBufferAttribute(windowOffsets(COUNT, this.rng), 2));
+    const mesh = new THREE.InstancedMesh(geo, matC, COUNT);
     const m4 = new THREE.Matrix4();
     const quat = new THREE.Quaternion();
     const scale = new THREE.Vector3();
     let i = 0;
-    while (i < 80) {
+    while (i < COUNT) {
       const a = this.rng.range(0, Math.PI * 2);
       const r = this.rng.range(30, 90);
       const x = Math.cos(a) * r + 4;
@@ -791,6 +815,57 @@ export class World3D {
       s.position.set(this.rng.range(-30, 40), this.rng.range(-18, -6), this.rng.range(25, 80));
       group.add(s);
       this.fireSprites.push(s);
+    }
+  }
+
+  /**
+   * The HDRI as the far skyline: a back-faced sphere around the exterior,
+   * behind the instanced towers, unfogged (the towers fade into the fog and
+   * read as silhouettes against it), drawn first and writing no depth — so AO
+   * treats it as sky.
+   * @param {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}} ext
+   * @param {THREE.Texture} eq
+   */
+  _showDome(ext, eq) {
+    if (!ext.dome) {
+      const mat = skyDomeMaterial(eq);
+      if (this._skyGrade) mat.color.copy(this._skyGrade);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(DOME_RADIUS, 48, 24), mat);
+      dome.scale.x = -1;   // seen from inside, a sphere mirrors the panorama; flip it back
+      // horizon a few degrees below eye level: this is floor 45
+      dome.position.set(4, ext.fromRoof ? -12 : -8, ext.fromRoof ? 0 : 8);
+      dome.rotation.y = DOME_YAW;
+      dome.renderOrder = -1;
+      dome.name = 'sky_dome';
+      ext.group.add(dome);
+      ext.dome = dome;
+    } else {
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (ext.dome.material);
+      mat.map = eq;
+      mat.needsUpdate = true;
+    }
+    ext.dome.visible = true;
+    if (ext.plate) ext.plate.visible = false;
+  }
+
+  /**
+   * Live HDRI switch (quality presets): swap the dome's panorama, or fall back
+   * to the flat skyline plate.
+   * @param {THREE.Texture|null} eq
+   */
+  setSkyTexture(eq) {
+    for (const ext of this.exteriors) {
+      if (eq) { this._showDome(ext, eq); continue; }
+      if (ext.dome) ext.dome.visible = false;
+      if (ext.plate) ext.plate.visible = true;
+    }
+  }
+
+  /** @param {THREE.Color} color the preset's sky grade (Lighting.skyColor) */
+  setSkyGrade(color) {
+    this._skyGrade = color.clone();
+    for (const ext of this.exteriors) {
+      if (ext.dome) /** @type {THREE.MeshBasicMaterial} */ (ext.dome.material).color.copy(color);
     }
   }
 

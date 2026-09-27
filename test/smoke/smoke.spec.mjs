@@ -142,6 +142,21 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(r.after).toBeCloseTo(r.target, 5);
   });
 
+  test('the skyline is the HDRI dome, graded by the lighting preset', async ({ page }) => {
+    await bootToRun(page);
+    const r = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const ext = app.world.exteriors.find((e) => !e.fromRoof);
+      const before = ext.dome.material.color.getHex();
+      app.lighting.apply('blackout_emergency', 0.2);
+      await new Promise((res) => setTimeout(res, 2000));
+      return { dome: ext.dome.visible, plate: ext.plate ? ext.plate.visible : false, before, after: ext.dome.material.color.getHex() };
+    });
+    expect(r.dome).toBe(true);
+    expect(r.plate).toBe(false);
+    expect(r.after).not.toBe(r.before);
+  });
+
   test('?noassets=1 boots on procedural fallbacks with no console errors', async ({ page }) => {
     // The asset pipeline is an enhancement. With it switched off entirely the
     // game must still boot, build every floor and render — the same path a

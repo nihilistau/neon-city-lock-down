@@ -221,6 +221,9 @@ export class App {
     this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
     this.lighting = new Lighting(this.stage, this.assets, { hdri, hdriId });
     await this.lighting.ready;   // the env is rebuilt from the HDRI before shaders compile
+    // the exterior dome follows the preset's sky grade, fades included
+    this.lighting.onSkyGrade = (c) => this.world.setSkyGrade(c);
+    this.world.setSkyGrade(this.lighting.skyColor);
     rimPool.init(this.stage.scene);   // fixed light count for the whole run
     // Pay for every floor's shader variants now, behind the loading screen,
     // rather than as a stall each time an elevator door opens.

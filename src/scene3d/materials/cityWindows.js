@@ -26,3 +26,37 @@ export function cityWindowsTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+
+/**
+ * Every tower is one instance of one box, so without this they all read the
+ * window texture at the same place and the skyline repeats itself. Each
+ * instance carries its own offset (InstancedBufferAttribute `aWinOffset`,
+ * see src/scene3d/envMath.js windowOffsets) added to the emissive map UV.
+ * @template {THREE.MeshStandardMaterial} M
+ * @param {M} material
+ * @returns {M}
+ */
+export function patchWindowOffsets(material) {
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 aWinOffset;')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_EMISSIVEMAP\n\tvEmissiveMapUv += aWinOffset;\n#endif');
+  };
+  // the patch changes the program, so it needs its own cache key
+  material.customProgramCacheKey = () => 'city-window-offsets';
+  return material;
+}
+
+/**
+ * The exterior towers: dark lit bodies that catch the HDRI in reflections, with
+ * the windows as EMISSION (they are light sources, not a painted texture).
+ * @param {THREE.Texture} emissiveMap
+ */
+export function cityTowerMaterial(emissiveMap) {
+  // offsets reach past 1, so the texture must wrap rather than smear its edge
+  emissiveMap.wrapS = emissiveMap.wrapT = THREE.RepeatWrapping;
+  return patchWindowOffsets(new THREE.MeshStandardMaterial({
+    color: 0x07080d, roughness: 0.55, metalness: 0.35,
+    emissive: 0xffffff, emissiveMap, emissiveIntensity: 1.25,
+  }));
+}
