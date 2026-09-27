@@ -2,11 +2,24 @@
 // Canvas2D procedural texture factory. All textures are generated, cached by
 // recipe key, and cheap (small canvases, tiling).
 import * as THREE from 'three';
+import { hashStr, mulberry32 } from '../../core/rng.js';
 
 /** @type {Map<string, THREE.CanvasTexture>} */
 const cache = new Map();
 /** derived normal maps, keyed `${albedoKey}|${strength}` — same lifetime as `cache` */
 const normalCache = new Map();
+
+/**
+ * The random stream for ONE texture recipe, seeded by its cache key. Per key,
+ * not one module-wide stream: a texture must not depend on which other
+ * textures happened to be generated before it, or the same concrete would
+ * change whenever a floor started building in a different order.
+ * @param {string} key
+ * @returns {() => number} floats in [0, 1)
+ */
+export function recipeRandom(key) {
+  return mulberry32(hashStr(`texgen:${key}`));
+}
 
 function make(key, size, drawFn, { repeat = 1 } = {}) {
   let tex = cache.get(key);
@@ -17,7 +30,7 @@ function make(key, size, drawFn, { repeat = 1 } = {}) {
   // are then read again by normalFor(). Without this the canvas is GPU-backed
   // and each readback stalls on a GPU->CPU sync; these canvases are drawn once
   // and read twice, so a CPU-backed one is strictly better.
-  drawFn(c.getContext('2d', { willReadFrequently: true }), size);
+  drawFn(c.getContext('2d', { willReadFrequently: true }), size, recipeRandom(key));
   tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -53,7 +66,7 @@ export function normalFor(albedo, strength = 1.5) {
   const px = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, s, s).data;
 
   // Luminance, pre-smoothed with a 3x3 box. The albedo generators dust every
-  // recipe with per-pixel Math.random() noise; Sobel on raw noise yields a
+  // recipe with per-pixel seeded noise; Sobel on raw noise yields a
   // sandpaper normal that reads as shimmer, not relief. The blur keeps the
   // structural edges (grout, seams, weave) and drops the single-pixel grain.
   const lum = new Float32Array(s * s);
@@ -119,29 +132,30 @@ export function surfaced(albedo, strength = 1.5, scale = 1) {
     : { map: albedo };
 }
 
-function noise(ctx, size, alpha, mono = true) {
+/** @param {CanvasRenderingContext2D} ctx @param {number} size @param {number} alpha @param {() => number} rand */
+function noise(ctx, size, alpha, rand, mono = true) {
   const img = ctx.getImageData(0, 0, size, size);
   for (let i = 0; i < img.data.length; i += 4) {
-    const n = (Math.random() - 0.5) * 255 * alpha;
+    const n = (rand() - 0.5) * 255 * alpha;
     img.data[i] += n;
-    img.data[i + 1] += mono ? n : (Math.random() - 0.5) * 255 * alpha;
-    img.data[i + 2] += mono ? n : (Math.random() - 0.5) * 255 * alpha;
+    img.data[i + 1] += mono ? n : (rand() - 0.5) * 255 * alpha;
+    img.data[i + 2] += mono ? n : (rand() - 0.5) * 255 * alpha;
   }
   ctx.putImageData(img, 0, 0);
 }
 
 /** Dark concrete/plaster with subtle grime. */
 export function concreteTex(tint = '#181c2a', repeat = 2) {
-  return make(`concrete:${tint}:${repeat}`, 256, (ctx, s) => {
+  return make(`concrete:${tint}:${repeat}`, 256, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
-    noise(ctx, s, 0.06);
+    noise(ctx, s, 0.06, rand);
     // grime streaks
     ctx.globalAlpha = 0.05;
     for (let i = 0; i < 12; i++) {
-      ctx.fillStyle = Math.random() > 0.5 ? '#000' : '#456';
-      const x = Math.random() * s;
-      ctx.fillRect(x, 0, 2 + Math.random() * 12, s);
+      ctx.fillStyle = rand() > 0.5 ? '#000' : '#456';
+      const x = rand() * s;
+      ctx.fillRect(x, 0, 2 + rand() * 12, s);
     }
     ctx.globalAlpha = 1;
   }, { repeat });
@@ -149,10 +163,10 @@ export function concreteTex(tint = '#181c2a', repeat = 2) {
 
 /** Large dark floor tiles with grout lines and sheen variation. */
 export function tileTex(tint = '#11141f', grout = '#05060a', tiles = 4, repeat = 3) {
-  return make(`tile:${tint}:${tiles}:${repeat}`, 256, (ctx, s) => {
+  return make(`tile:${tint}:${tiles}:${repeat}`, 256, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
-    noise(ctx, s, 0.045);
+    noise(ctx, s, 0.045, rand);
     ctx.strokeStyle = grout;
     ctx.lineWidth = 3;
     const step = s / tiles;
@@ -162,7 +176,7 @@ export function tileTex(tint = '#11141f', grout = '#05060a', tiles = 4, repeat =
     }
     // per-tile sheen variance
     for (let x = 0; x < tiles; x++) for (let y = 0; y < tiles; y++) {
-      ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.03})`;
+      ctx.fillStyle = `rgba(255,255,255,${rand() * 0.03})`;
       ctx.fillRect(x * step + 2, y * step + 2, step - 4, step - 4);
     }
   }, { repeat });
@@ -170,13 +184,13 @@ export function tileTex(tint = '#11141f', grout = '#05060a', tiles = 4, repeat =
 
 /** Brushed metal panels with seams. */
 export function metalTex(tint = '#2a3040', repeat = 2) {
-  return make(`metal:${tint}:${repeat}`, 256, (ctx, s) => {
+  return make(`metal:${tint}:${repeat}`, 256, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
     // brush lines
     ctx.globalAlpha = 0.08;
     for (let y = 0; y < s; y += 2) {
-      ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
+      ctx.fillStyle = rand() > 0.5 ? '#fff' : '#000';
       ctx.fillRect(0, y, s, 1);
     }
     ctx.globalAlpha = 1;
@@ -189,7 +203,7 @@ export function metalTex(tint = '#2a3040', repeat = 2) {
 
 /** Fabric weave for upholstery. */
 export function fabricTex(tint = '#2c2434', repeat = 4) {
-  return make(`fabric:${tint}:${repeat}`, 128, (ctx, s) => {
+  return make(`fabric:${tint}:${repeat}`, 128, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
     ctx.globalAlpha = 0.12;
@@ -202,22 +216,22 @@ export function fabricTex(tint = '#2c2434', repeat = 4) {
       ctx.fillRect(x, 0, 1, s);
     }
     ctx.globalAlpha = 1;
-    noise(ctx, s, 0.05);
+    noise(ctx, s, 0.05, rand);
   }, { repeat });
 }
 
 /** Dark wood planks. */
 export function woodTex(tint = '#2b1e18', repeat = 2) {
-  return make(`wood:${tint}:${repeat}`, 256, (ctx, s) => {
+  return make(`wood:${tint}:${repeat}`, 256, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
     for (let i = 0; i < 40; i++) {
-      ctx.strokeStyle = `rgba(${Math.random() > 0.5 ? '10,5,3' : '90,60,40'},${0.1 + Math.random() * 0.15})`;
-      ctx.lineWidth = 1 + Math.random() * 2;
-      const y = Math.random() * s;
+      ctx.strokeStyle = `rgba(${rand() > 0.5 ? '10,5,3' : '90,60,40'},${0.1 + rand() * 0.15})`;
+      ctx.lineWidth = 1 + rand() * 2;
+      const y = rand() * s;
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.bezierCurveTo(s * 0.3, y + (Math.random() - 0.5) * 14, s * 0.7, y + (Math.random() - 0.5) * 14, s, y);
+      ctx.bezierCurveTo(s * 0.3, y + (rand() - 0.5) * 14, s * 0.7, y + (rand() - 0.5) * 14, s, y);
       ctx.stroke();
     }
     // plank seams
@@ -231,19 +245,19 @@ export function woodTex(tint = '#2b1e18', repeat = 2) {
 
 /** Veined marble for bar tops / vanity. */
 export function marbleTex(tint = '#353b4a', repeat = 1) {
-  return make(`marble:${tint}:${repeat}`, 256, (ctx, s) => {
+  return make(`marble:${tint}:${repeat}`, 256, (ctx, s, rand) => {
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, s, s);
-    noise(ctx, s, 0.05);
+    noise(ctx, s, 0.05, rand);
     for (let i = 0; i < 8; i++) {
-      ctx.strokeStyle = `rgba(220,225,235,${0.06 + Math.random() * 0.10})`;
-      ctx.lineWidth = 1 + Math.random() * 1.5;
+      ctx.strokeStyle = `rgba(220,225,235,${0.06 + rand() * 0.10})`;
+      ctx.lineWidth = 1 + rand() * 1.5;
       ctx.beginPath();
-      let x = Math.random() * s, y = 0;
+      let x = rand() * s, y = 0;
       ctx.moveTo(x, y);
       while (y < s) {
-        x += (Math.random() - 0.5) * 40;
-        y += 10 + Math.random() * 25;
+        x += (rand() - 0.5) * 40;
+        y += 10 + rand() * 25;
         ctx.lineTo(x, y);
       }
       ctx.stroke();

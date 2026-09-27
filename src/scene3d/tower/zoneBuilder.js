@@ -9,29 +9,9 @@ import { Curtains } from './curtains.js';
 import { tileTex, concreteTex, metalTex, surfaced } from '../materials/texGen.js';
 import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
+import { cityWindowsTexture } from '../materials/cityWindows.js';
 
 const TAU = Math.PI * 2;
-
-function cityWindowsTexture() {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 128;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#04050a';
-  ctx.fillRect(0, 0, 64, 128);
-  for (let y = 4; y < 124; y += 8) {
-    for (let x = 4; x < 60; x += 8) {
-      if (Math.random() < 0.42) {
-        ctx.fillStyle = Math.random() < 0.16 ? '#ff6fc0' : (Math.random() < 0.5 ? '#6eefff' : '#ffd9a0');
-        ctx.globalAlpha = 0.35 + Math.random() * 0.65;
-        ctx.fillRect(x, y, 4, 3);
-      }
-    }
-  }
-  ctx.globalAlpha = 1;
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
 
 const glassMat = () => new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
