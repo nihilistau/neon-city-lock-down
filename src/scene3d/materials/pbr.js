@@ -17,34 +17,43 @@ import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced
  * @typedef {object} PbrSpec
  * @property {string|null} set  Poly Haven set id in assets/manifest.json; null = procedural only
  * @property {number} metresPerRepeat
- * @property {string} tint  the canvas tint for the fallback; × gain, the colour multiplier on a loaded set
- * @property {number} gain  linear lift for `tint` on a loaded set. A photographed albedo averages
- *   ~0.2-0.5 linear while the canvas swatch IS the final colour, so the bare tint would crush a
- *   loaded set to black
- * @property {[number, number, number]} [balance]  per-channel multiplier on a loaded set's colour,
- *   for a scan whose own cast fights the tint (the fallback canvas IS the tint, so it never needs one)
- * @property {number} roughness  fallback roughness (a loaded set takes it from its ORM map)
- * @property {number} metalness  metalness; ignored when the set has a metal channel
- * @property {number} normalScale
+ * @property {string} tint  the surface's mean colour. The fallback canvas is painted in it; a loaded
+ *   set is divided by its own measured albedo so the scan averages to it too (see pbrColor)
+ * @property {[number, number, number]} [albedo]  the set's measured mean LINEAR albedo (its _diff.jpg,
+ *   decoded from sRGB). Required when `set` is non-null
+ * @property {number} [scanRoughness]  mean of the set's ORM G channel. The authored roughness is a
+ *   target mean, so a loaded set's scalar is `roughness / scanRoughness`
+ * @property {number} [scanMetalness]  mean of the ORM B channel, for a set whose manifest entry has
+ *   `hasMetal`; the authored metalness is a target mean the same way
+ * @property {number} roughness  the surface's mean roughness (procedural: the scalar itself)
+ * @property {number} metalness  the surface's mean metalness
+ * @property {number} normalScale  normal strength for the fallback's Sobel-derived normal map
+ * @property {number} [scanNormalScale]  normal strength for a loaded set's own normal map (default normalScale)
+ * @property {boolean} [rotate]  swap U and V in the world-UV pass: the plank scan's boards run along V,
+ *   and box projection puts V up the side faces, so without this every panel was vertical slats
  * @property {number} relief  Sobel strength for the fallback's derived normal map
  * @property {(tint:string) => THREE.CanvasTexture} canvas  the procedural albedo, at repeat 1
  */
 
+// albedo / scanRoughness / scanMetalness are MEASURED from the 1K files in assets/pbr/ (mean over a
+// 256x256 downsample; albedo decoded sRGB to linear). Re-measure if a set is re-fetched.
 /** @type {Record<string, PbrSpec>} */
 export const PBR_LIBRARY = {
-  concrete: { set: 'smooth_concrete_floor', metresPerRepeat: 2.5, tint: '#181c2a', gain: 18, roughness: 0.85, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
-  concreteFloor: { set: 'concrete_floor_worn_001', metresPerRepeat: 2.0, tint: '#12151f', gain: 13, roughness: 0.82, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
-  metal: { set: 'metal_plate_02', metresPerRepeat: 1.0, tint: '#2a3040', gain: 14, roughness: 0.4, metalness: 0.7, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
-  metalDark: { set: 'painted_metal_shutter', metresPerRepeat: 1.2, tint: '#151923', gain: 4.5, roughness: 0.5, metalness: 0.6, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
-  tile: { set: 'floor_tiles_08', metresPerRepeat: 2.4, tint: '#11141f', gain: 5, roughness: 0.35, metalness: 0.15, normalScale: 1.0, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
-  marble: { set: 'marble_01', metresPerRepeat: 1.5, tint: '#353b4a', gain: 3, roughness: 0.25, metalness: 0.1, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
-  // the plank scan averages 6:2:1 red:green:blue; with the tint's own warmth on top it read as red
-  // lacquer, so the balance pulls it back to brown (gain re-matched to the tint's luminance)
-  wood: { set: 'plank_flooring_04', metresPerRepeat: 1.8, tint: '#2b1e18', gain: 40, balance: [0.6, 1.2, 1.6], roughness: 0.7, metalness: 0, normalScale: 0.7, relief: 1.8, canvas: (t) => woodTex(t, 1) },
-  fabric: { set: 'dirty_carpet', metresPerRepeat: 0.8, tint: '#2c2434', gain: 33, roughness: 0.9, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
+  concrete: { set: 'smooth_concrete_floor', albedo: [0.092, 0.046, 0.022], scanRoughness: 0.68, metresPerRepeat: 2.5, tint: '#181c2a', roughness: 0.85, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
+  concreteFloor: { set: 'concrete_floor_worn_001', albedo: [0.093, 0.094, 0.089], scanRoughness: 0.54, metresPerRepeat: 2.0, tint: '#12151f', roughness: 0.82, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
+  metal: { set: 'metal_plate_02', albedo: [0.090, 0.066, 0.049], scanRoughness: 0.66, scanMetalness: 0.91, metresPerRepeat: 1.0, tint: '#2a3040', roughness: 0.4, metalness: 0.7, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  metalDark: { set: 'painted_metal_shutter', albedo: [0.217, 0.229, 0.241], scanRoughness: 0.63, metresPerRepeat: 1.2, tint: '#151923', roughness: 0.5, metalness: 0.6, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  // 6 m per repeat = 1.5 m slabs (the scan is 4x4): the penthouse reads as large polished stone,
+  // not a kitchen. The scan's grout relief is deep, so its normal is damped; the canvas keeps 1.0
+  tile: { set: 'floor_tiles_08', albedo: [0.248, 0.182, 0.130], scanRoughness: 0.51, metresPerRepeat: 6.0, tint: '#11141f', roughness: 0.35, metalness: 0.15, normalScale: 1.0, scanNormalScale: 0.35, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
+  // marble_01 is travertine BLOCKS, not veined marble: tables and the fireplace read as masonry and
+  // lost their gloss. The canvas veining at roughness 0.25 is the look; procedural by choice
+  marble: { set: null, metresPerRepeat: 1.5, tint: '#353b4a', roughness: 0.25, metalness: 0.1, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
+  wood: { set: 'plank_flooring_04', albedo: [0.055, 0.018, 0.009], scanRoughness: 0.40, rotate: true, metresPerRepeat: 1.8, tint: '#2b1e18', roughness: 0.7, metalness: 0, normalScale: 0.7, relief: 1.8, canvas: (t) => woodTex(t, 1) },
+  fabric: { set: 'dirty_carpet', albedo: [0.037, 0.030, 0.019], scanRoughness: 0.81, metresPerRepeat: 0.8, tint: '#2c2434', roughness: 0.9, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
   // the quilt weave reads better than any carpet scan at bed scale; procedural by choice
-  bedding: { set: null, metresPerRepeat: 0.6, tint: '#3a3348', gain: 1, roughness: 0.95, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
-  rust: { set: 'rusty_metal_02', metresPerRepeat: 1.2, tint: '#3a4038', gain: 3, roughness: 0.6, metalness: 0.5, normalScale: 0.5, relief: 1.0, canvas: (t) => metalTex(t, 1) },
+  bedding: { set: null, metresPerRepeat: 0.6, tint: '#3a3348', roughness: 0.95, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
+  rust: { set: 'rusty_metal_02', albedo: [0.413, 0.288, 0.136], scanRoughness: 0.42, metresPerRepeat: 1.2, tint: '#3a4038', roughness: 0.6, metalness: 0.5, normalScale: 0.5, relief: 1.0, canvas: (t) => metalTex(t, 1) },
 };
 
 /** Every Poly Haven set the library can use — World3D preloads these before building. */
@@ -74,25 +83,27 @@ export function _resetPbrLibrary() {
 }
 
 /**
- * `tint` × `gain` in linear space, clamped to 1.
- * @param {string} tint @param {number} gain
+ * The colour multiplier that makes a loaded set AVERAGE to `tint`: the tint in
+ * linear space divided, per channel, by the scan's own mean albedo. A scan keeps
+ * its detail (grain, grout, grime) but loses its cast, so a brown concrete scan
+ * under a cool wall tint reads cool, and the clinic's pale tile reads pale: the
+ * palette stays the one the canvases were designed in. Not clamped at 1 (a dark
+ * scan needs a large multiplier); capped so no channel's mean exceeds 0.9.
+ * @param {string} tint @param {[number, number, number]} albedo
  */
-export function pbrTint(tint, gain) {
-  const c = new THREE.Color(tint).multiplyScalar(gain);
-  return c.setRGB(Math.min(1, c.r), Math.min(1, c.g), Math.min(1, c.b));
-}
-
-/**
- * @param {THREE.Color} c @param {[number, number, number]|undefined} b
- */
-function balanced(c, b) {
-  if (!b) return c;
-  return c.setRGB(Math.min(1, c.r * b[0]), Math.min(1, c.g * b[1]), Math.min(1, c.b * b[2]));
+export function pbrColor(tint, albedo) {
+  const c = new THREE.Color(tint);
+  return c.setRGB(Math.min(c.r, 0.9) / albedo[0], Math.min(c.g, 0.9) / albedo[1], Math.min(c.b, 0.9) / albedo[2]);
 }
 
 /**
  * The shared material for a library surface. Identical requests return the
  * same instance (one program, better batching, and — from rc.1 — mergeable).
+ *
+ * SHARED: never mutate the returned material (colour, emissive, opacity...). Every
+ * mesh on every floor drawing that surface would change with it. Clone it for a
+ * one-off, or swap a per-mesh copy in and out the way the picker's hover glow
+ * does (src/scene3d/picking.js setPickGlow).
  * @param {string} name a PBR_LIBRARY key
  * @param {{tint?:string, roughness?:number, metalness?:number}} [o]
  * @returns {THREE.MeshStandardMaterial}
@@ -114,13 +125,16 @@ export function pbrMaterial(name, o = {}) {
     m = new THREE.MeshStandardMaterial({
       map: set.map,
       normalMap: set.normalMap,
-      normalScale: new THREE.Vector2(spec.normalScale, spec.normalScale),
+      normalScale: new THREE.Vector2(spec.scanNormalScale ?? spec.normalScale, spec.scanNormalScale ?? spec.normalScale),
       roughnessMap: set.roughnessMap,
       aoMap: set.aoMap,
       metalnessMap: set.metalnessMap,
-      color: balanced(pbrTint(tint, spec.gain), spec.balance),
-      roughness: 1,                               // the ORM G channel IS the roughness; the scalar multiplies it
-      metalness: set.metalnessMap ? 1 : metalness,
+      color: pbrColor(tint, /** @type {[number, number, number]} */ (spec.albedo)),
+      // the ORM channels carry the variation and the scalar multiplies them, so
+      // authored / measured-mean makes the surface AVERAGE what was authored:
+      // a 0.2 gloss floor override actually lands glossy
+      roughness: Math.min(1, roughness / (spec.scanRoughness ?? 1)),
+      metalness: set.metalnessMap ? Math.min(1, metalness / (spec.scanMetalness ?? 1)) : metalness,
     });
   } else {
     m = new THREE.MeshStandardMaterial({ ...surfaced(spec.canvas(tint), spec.relief, spec.normalScale), roughness, metalness });
@@ -129,6 +143,7 @@ export function pbrMaterial(name, o = {}) {
   m.userData.pbr = name;
   m.userData.source = set ? 'pbr' : 'procedural';
   m.userData.metresPerRepeat = spec.metresPerRepeat;
+  if (spec.rotate) m.userData.uvRotate = true;   // read by materials/worldUV.js
   cache.set(key, m);
   return m;
 }

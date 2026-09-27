@@ -11,7 +11,7 @@ import { installFakeDom } from './helpers/dom.mjs';
 
 installFakeDom();
 const THREE = await import('three');
-const { PBR_LIBRARY, PBR_SET_IDS, pbrMaterial, setPbrAssets, _resetPbrLibrary, pbrTint } =
+const { PBR_LIBRARY, PBR_SET_IDS, pbrMaterial, setPbrAssets, _resetPbrLibrary, pbrColor } =
   await import('../../src/scene3d/materials/pbr.js');
 
 const NAMES = ['concrete', 'concreteFloor', 'metal', 'metalDark', 'tile', 'marble', 'wood', 'fabric', 'bedding', 'rust'];
@@ -50,7 +50,7 @@ test('identical requests share one material; a different tint or roughness does 
   assert.notEqual(pbrMaterial('metal'), pbrMaterial('metal', { roughness: 0.35 }));
 });
 
-test('a loaded set wins, per material: its maps, ORM as roughness + AO, the tint lifted by gain', () => {
+test('a loaded set wins, per material: its maps, ORM as roughness + AO, the tint divided by the scan albedo', () => {
   _resetPbrLibrary();
   const f = facade(['metal_plate_02'], { metal: ['metal_plate_02'] });
   setPbrAssets(f);
@@ -62,9 +62,10 @@ test('a loaded set wins, per material: its maps, ORM as roughness + AO, the tint
   assert.equal(m.roughnessMap, set.roughnessMap);
   assert.equal(m.aoMap, set.roughnessMap);
   assert.equal(m.metalnessMap, set.roughnessMap);
-  assert.equal(m.metalness, 1, 'the metal channel carries metalness');
-  assert.equal(m.roughness, 1, 'the ORM G channel carries roughness');
-  assert.ok(m.color.equals(pbrTint(PBR_LIBRARY.metal.tint, PBR_LIBRARY.metal.gain)));
+  const spec = PBR_LIBRARY.metal;
+  assert.ok(Math.abs(m.metalness - Math.min(1, spec.metalness / spec.scanMetalness)) < 1e-9, 'metal channel x authored/measured');
+  assert.ok(Math.abs(m.roughness - spec.roughness / spec.scanRoughness) < 1e-9, 'ORM G x authored/measured');
+  assert.ok(m.color.equals(pbrColor(spec.tint, spec.albedo)));
   assert.equal(pbrMaterial('wood').userData.source, 'procedural', 'a set the facade does not hold falls back on its own');
 });
 
@@ -91,11 +92,48 @@ test('pointing the library at a new facade drops materials built against the old
   assert.equal(pbrMaterial('tile').userData.source, 'pbr');
 });
 
-test('pbrTint lifts by gain in linear space and clamps at 1', () => {
-  const c = pbrTint('#ffffff', 3);
-  assert.deepEqual([c.r, c.g, c.b], [1, 1, 1]);
-  const d = pbrTint('#101010', 2);
-  assert.ok(d.r > new THREE.Color('#101010').r);
+test('pbrColor makes a scan AVERAGE its tint: tint / albedo per channel, unclamped, capped at a 0.9 mean', () => {
+  const albedo = /** @type {[number, number, number]} */ ([0.09, 0.05, 0.02]);
+  const c = pbrColor('#181c2a', albedo);
+  const t = new THREE.Color('#181c2a');
+  for (const [i, k] of /** @type {const} */ ([[0, 'r'], [1, 'g'], [2, 'b']])) {
+    assert.ok(Math.abs(c[k] * albedo[i] - t[k]) < 1e-9, `${k}: mean = tint`);
+  }
+  assert.ok(c.b > 1, 'a dark scan needs more than 1 and gets it');
+  const w = pbrColor('#ffffff', [0.5, 0.5, 0.5]);
+  assert.ok(Math.abs(w.r * 0.5 - 0.9) < 1e-9, 'no channel mean past 0.9');
+});
+
+test('every loaded set carries its measured albedo and scan roughness', () => {
+  for (const [name, spec] of Object.entries(PBR_LIBRARY)) {
+    if (!spec.set) continue;
+    assert.ok(Array.isArray(spec.albedo) && spec.albedo.length === 3 && spec.albedo.every((x) => x > 0 && x < 1), `${name}.albedo`);
+    assert.ok(spec.scanRoughness > 0 && spec.scanRoughness <= 1, `${name}.scanRoughness`);
+  }
+});
+
+test('an authored roughness override reaches a loaded material', () => {
+  _resetPbrLibrary();
+  setPbrAssets(facade(['floor_tiles_08']));
+  const glossy = pbrMaterial('tile', { roughness: 0.2 });
+  const plain = pbrMaterial('tile');
+  assert.equal(glossy.userData.source, 'pbr');
+  assert.ok(glossy.roughness < plain.roughness, 'the override is not swallowed by a fixed 1');
+  assert.ok(Math.abs(glossy.roughness - 0.2 / PBR_LIBRARY.tile.scanRoughness) < 1e-9);
+  assert.equal(glossy.normalScale.x, PBR_LIBRARY.tile.scanNormalScale, 'the scan uses its own normal strength');
+});
+
+test('marble is procedural by choice: the veins, not the travertine scan', () => {
+  _resetPbrLibrary();
+  setPbrAssets(facade(PBR_SET_IDS));
+  assert.equal(PBR_LIBRARY.marble.set, null);
+  assert.equal(pbrMaterial('marble').userData.source, 'procedural');
+});
+
+test('wood asks the world-UV pass to run its boards horizontally', () => {
+  _resetPbrLibrary();
+  assert.equal(pbrMaterial('wood').userData.uvRotate, true);
+  assert.equal(pbrMaterial('concrete').userData.uvRotate, undefined);
 });
 
 test('every set the library names is a pbr entry in assets/manifest.json', () => {
@@ -108,19 +146,4 @@ test('every set the library names is a pbr entry in assets/manifest.json', () =>
 
 test('an unknown name throws with the list of real ones', () => {
   assert.throws(() => pbrMaterial('velvet'), /unknown PBR material "velvet".*concrete/);
-});
-
-test('a spec’s balance tempers a scan’s own colour cast on a loaded set only', () => {
-  // plank_flooring_04 averages 6:2:1 red:green:blue; times the wood tint's own
-  // warmth the bar read as red lacquer. balance pulls the cast back per channel.
-  _resetPbrLibrary();
-  const spec = PBR_LIBRARY.wood;
-  assert.ok(Array.isArray(spec.balance) && spec.balance.length === 3, 'wood carries a balance');
-  setPbrAssets(facade(['plank_flooring_04']));
-  const m = pbrMaterial('wood');
-  const want = pbrTint(spec.tint, spec.gain);
-  want.setRGB(Math.min(1, want.r * spec.balance[0]), Math.min(1, want.g * spec.balance[1]), Math.min(1, want.b * spec.balance[2]));
-  assert.ok(m.color.equals(want));
-  _resetPbrLibrary();
-  assert.equal(pbrMaterial('wood').userData.source, 'procedural', 'the canvas fallback is the tint itself — no balance');
 });

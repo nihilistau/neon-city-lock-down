@@ -232,7 +232,9 @@ export class World3D {
   _build_penthouse(group, floor) {
     const P = PENTHOUSE;
     const F = P.floor, ceil = P.ceilingY;
-    const floorTex = pbrMaterial('tile');
+    // polished: the penthouse floor is the room's mirror for the neon — the authored 0.2 now
+    // reaches a loaded scan too (pbr.js divides it by the scan's own mean roughness)
+    const floorTex = pbrMaterial('tile', { roughness: 0.2 });
     this._slab(group, F, floorTex);
     this._slab(group, P.balcony, pbrMaterial('concreteFloor', { tint: '#141824', roughness: 0.8 }));
     this._ceiling(group, F, ceil);
