@@ -3,6 +3,65 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.6.0-rc.1] — 2026-09-27 — Nothing left behind
+
+The release candidate for 0.6. Nothing new to play; this pass makes sure no
+trace of the retired content survives in the code, the docs, or the pictures,
+and adds a test that keeps it that way.
+
+### Added
+- **Clean-content guard** (`test/unit/clean-content.test.mjs`) — walks every
+  shipped file under `src/`, `data/`, `config/`, `tools/`, `styles/` and
+  `index.html` and fails `npm test` with `file:line` on any word from the
+  retired adult register. A hit is fixed by rewording, never by loosening the
+  list.
+- **`tools/screenshots.mjs`** — regenerates `docs/screenshots/` from the real
+  game: each named shot boots a fresh headless Chromium (same SwiftShader flags
+  as the e2e suite), stages its scene through the `?debug=1` hooks, and writes
+  a JPEG at the README framing. `node tools/screenshots.mjs [name…]`,
+  `--list` for the names. Documented in `docs/development.md` (new) and
+  AGENTS.md.
+- **New screenshots:** `01-main-menu`, `11-bond-rail` (all four bond tiers on
+  the stat rail, with the "would follow you anywhere" toast), `12-bed-together`
+  (sitting on the bed with an ally beside you), `13-stay-the-night` (the fade
+  and its one narration line).
+
+### Changed
+- **docs/ rewritten for bonds and the bed scene.** `docs/systems/characters-
+  dialogue.md` documents `src/chars/bond.js` (thresholds 35/55/75, hysteresis
+  5) and `src/sim/bedScene.js` (invite needs an ally and you on the bed, stay
+  the night needs trusted, 180 minutes, context gates, guest holds, the bed
+  reservation) in place of the old ladder and the bed game;
+  `scene-audio-ui.md`, `engine-overview.md`, `sim-world-loop.md`, `core.md`,
+  `camera.md`, `humanoid.md`, `scenario-toolkit.md`, `docs/config/chars.md`,
+  the config and creation-kit guides, the demo script and the lmstudio-engine
+  README no longer describe anything that was removed.
+- **Re-captured screenshots** `02` through `06`, `08` and `09` with the new
+  tool: all but the cutscene still showed the 12-stat rail with gate pips, and
+  `08` showed removed outfit and stat buttons in the Director's Cast tab.
+  `10-extraction-victory` is unchanged.
+- The music conductor's `intimacy` mood axis is now `closeness` — it only picks
+  the lydian scale and a longer note decay.
+- Aria's background is consistent everywhere: the README cast table and two of
+  Lola's needling lines (`src/sim/ai/relationships.js`) still called her a
+  "street girl" from before she became a corporate negotiator.
+
+### Removed
+- Dead CSS for the bed game and Truth-or-Dare (`.bg-actions`, `.bg-ask`,
+  `.tod-turn`, `.tod-prompt` in `styles/hud.css`).
+
+### Fixed
+- Leftovers the guard test found on its first run: two comments on the
+  hostile-wardrobe fix (`src/sim/combat/combat.js`, `data/outfits.js`) that
+  still used retired vocabulary.
+- Stale docs: the config reference listed a `gameplay` group that no longer
+  exists (the ten groups include `render`); the humanoid skeleton is 31 bones,
+  not 34; the Cast tab header said "12-stat"; the camera director's comment
+  and `tools/fetch-fonts.mjs` still referred to the bed game and an "adult
+  game".
+- `migrate()` in `src/core/save.js` now says that it mutates the envelope in
+  place and why that's safe (every caller passes a freshly parsed object).
+
 ## [0.6.0-beta.1] — 2026-09-27 — The bed is just a bed
 
 0.6 turns Lock-Down into an all-audiences survival game — sub-project 1 of the 7-part

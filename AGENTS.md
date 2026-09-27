@@ -9,7 +9,7 @@ tower (three.js, no bundler, no build step). The player is locked in a
 penthouse with three autonomous NPCs while riots and faction wars tear up the
 streets below — chat-first roleplay, day/night survival, combat, and
 mini-games, all driven by an offline dialogue engine with an optional LLM
-adapter for surface-text restyling. Current version: **0.6.0-beta.1**, the
+adapter for surface-text restyling. Current version: **0.6.0-rc.1**, the
 first of a 7-part upgrade (see Roadmap below); this sub-project removed every
 18+ system and replaced it with a bond tier.
 
@@ -97,7 +97,7 @@ After any UI change a README screenshot shows, re-run the matching shot
 
 0.6 is sub-project 1 of a 7-part upgrade:
 
-1. Content cleanse + bonds (this sub-project, in progress)
+1. Content cleanse + bonds (this sub-project, at rc.1)
 2. Asset pipeline + render quality
 3. GLTF characters
 4. Survival/lockdown loop

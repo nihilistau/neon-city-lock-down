@@ -3,11 +3,11 @@
 <p align="center"><em>an all-audiences neon-noir 3D roleplay + survival game</em></p>
 
 <p align="center">
-  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-beta.1"><img src="https://img.shields.io/badge/release-v0.6.0--beta.1-39e6ff?labelColor=0a0a12" alt="v0.6.0-beta.1"></a>
+  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-rc.1"><img src="https://img.shields.io/badge/release-v0.6.0--rc.1-39e6ff?labelColor=0a0a12" alt="v0.6.0-rc.1"></a>
 </p>
 
 <blockquote align="center">
-🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-beta.1">v0.6.0-beta.1 — The bed is just a bed</a></b> is out.<br>
+🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-rc.1">v0.6.0-rc.1 — Nothing left behind</a></b> is out.<br>
 0.6 turns Lock-Down into an <b>all-audiences survival game</b> — sub-project 1 of a
 7-part upgrade. The old relationship-escalation systems are gone; in their place
 a <b>bond tier</b> (stranger → ally → trusted → loyal) gates
@@ -224,12 +224,13 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — 242 unit tests (stats, bond, dialogue, combat, sim…)
+npm test                              # node --test — 244 unit tests (stats, bond, dialogue, combat, sim…)
 npm run test:e2e                      # playwright — 9 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
 node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js
 node tools/bake-tts.mjs               # (re)bake voice lines via the voxtral CLI (incremental by hash)
+node tools/screenshots.mjs            # regenerate docs/screenshots/ from the running game
 ```
 
 No bundler. Plain ES modules + an import map; `vendor/three.module.js` is the only
@@ -298,8 +299,8 @@ narration line; nothing shown).
 0.6 is the first of seven planned sub-projects that take Lock-Down from its
 v0.5 base toward a full AAA-style overhaul:
 
-1. **Content cleanse + bonds** (v0.6, in progress) — remove every 18+ system,
-   replace it with the bond tier.
+1. **Content cleanse + bonds** (v0.6, at rc.1) — strip out the old mature-content
+   systems and replace them with the bond tier.
 2. Asset pipeline + render quality
 3. GLTF characters
 4. Survival/lockdown loop

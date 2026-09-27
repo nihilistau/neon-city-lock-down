@@ -29,7 +29,7 @@ software WebGL; `playwright.config.mjs` starts the server itself if one isn't al
 ### The clean-content guard
 
 `test/unit/clean-content.test.mjs` walks every shipped file under `src/`, `data/`, `config/`,
-`tools/`, `styles/` and `index.html` and fails with `file:line` on any word from the retired adult
+`tools/`, `styles/` and `index.html` and fails with `file:line` on any word from the retired content
 register (the game is all-audiences as of v0.6). When it fires, fix the text — reword the comment,
 delete the dead code — never loosen its word list. A word with an unrelated meaning in context gets
 reworded too.
