@@ -8,8 +8,8 @@ import { feed } from '../../core/log.js';
 export const NEEDLE_SPOKEN = {
   lola: {
     aria: [
-      'Sit up straight, street girl. Posture is armor. Yours is currently a suggestion.',
-      'Remind me what an hour of that smile bills these days. I like to know the market.',
+      'Sit up straight, deal-maker. Posture is armor. Yours is currently a suggestion.',
+      'Remind me what an hour of that charm bills a client these days. I like to know the market.',
     ],
     kai: [
       'Cataloguing my weaknesses is a hobby, Mercer. Start paying rent on them or shut up.',
