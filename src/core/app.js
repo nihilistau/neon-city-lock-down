@@ -239,8 +239,8 @@ export class App {
         this.ambience.setThreat(threat / 100);
       }
     });
-    // music matrix: combat and intimacy override the baseline mood
-    on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, intimacy: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
+    // music matrix: combat and the stay-the-night fade override the baseline mood
+    on('combat.started', () => { this.conductor.setMood({ tension: 1, energy: 0.85, closeness: 0, warmth: 0.1 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = true; });
     on('combat.resolved', () => { this.conductor.setMood({ tension: Math.min(1, this.run.threat / 90), energy: 0.35, warmth: 0.45 }); if (this.cameraRig?.fp) this.cameraRig.fp.aiming = false; });
     // ── minigames, reachable from inside a run ────────────────────────────
     // Emitted by a topic's `effects.game` (src/dialogue/effects.js) and by
@@ -693,8 +693,8 @@ export class App {
     on('camera.mode', ({ mode }) => {
       if (mode !== 'firstPerson' && mode !== 'cinematic' && this.bedScene.playerState !== 'none') this.bedScene.getUp();
     });
-    on('bedscene.started', () => this.conductor.setMood({ intimacy: 0.5, warmth: 0.7, energy: 0.2, tension: 0.05 }));
-    on('bedscene.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
+    on('bedscene.started', () => this.conductor.setMood({ closeness: 0.5, warmth: 0.7, energy: 0.2, tension: 0.05 }));
+    on('bedscene.ended', () => this.conductor.setMood({ closeness: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
 
     this.directorPanel = new DirectorPanel(this);
 

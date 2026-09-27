@@ -1,5 +1,5 @@
 // @ts-check
-// Generative music conductor. Mood params (tension/warmth/energy/intimacy 0..1)
+// Generative music conductor. Mood params (tension/warmth/energy/closeness 0..1)
 // select mode/tempo/active layers; a lookahead scheduler ("tale of two clocks":
 // 25ms tick scheduling 120ms ahead on the audio clock) keeps timing sample-
 // accurate; transitions land on bar boundaries so mood changes feel musical.
@@ -13,7 +13,7 @@ export class Conductor {
   constructor(engine, rng) {
     this.engine = engine;
     this.rng = rng;
-    this.mood = { tension: 0.25, warmth: 0.4, energy: 0.3, intimacy: 0 };
+    this.mood = { tension: 0.25, warmth: 0.4, energy: 0.3, closeness: 0 };
     this._target = { ...this.mood };
     this.playing = false;
     this._timer = 0;
@@ -27,7 +27,7 @@ export class Conductor {
   get bpm() { return 72 + this.mood.energy * 36; }
   get scale() {
     if (this.mood.tension > 0.6) return SCALES.phrygian;
-    if (this.mood.intimacy > 0.5) return SCALES.lydian;
+    if (this.mood.closeness > 0.5) return SCALES.lydian;
     if (this.mood.warmth > 0.55) return SCALES.dorian;
     return SCALES.aeolian;
   }
@@ -99,7 +99,7 @@ export class Conductor {
       const semi = scale[this._arpIdx % scale.length] + oct * 12;
       arp(ctx, out, mtof(ROOT + 24 + semi), t, {
         level: 0.04 + m.energy * 0.04,
-        decay: 0.2 + m.intimacy * 0.25,
+        decay: 0.2 + m.closeness * 0.25,
       });
     }
 
