@@ -12,6 +12,8 @@
     "lint:config": "node tools/lint-config.mjs",
     "vendor:three": "node tools/vendor-three.mjs",
     "lint:assets": "node tools/lint-assets.mjs",
+    "assets:fetch": "node tools/fetch-assets.mjs",
+    "assets:verify": "node tools/fetch-assets.mjs --verify",
     "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run lint && npm run test:e2e"

@@ -1,3 +1,525 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "id": "shanghai_bund_2k",
+      "kind": "hdri",
+      "source": "Poly Haven — shanghai_bund (Andreas Mischok)",
+      "license": "CC0",
+      "urls": {
+        "hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/shanghai_bund_2k.hdr"
+      },
+      "transform": {},
+      "files": [
+        {
+          "path": "assets/hdri/shanghai_bund_2k.hdr",
+          "role": "hdr",
+          "bytes": 6467753,
+          "sha256": "ed4be21489e86a915bc872072e7e6d83c163a2d2fbb1c260979f7b9224a3322b"
+        }
+      ]
+    },
+    {
+      "id": "shanghai_bund_1k",
+      "kind": "hdri",
+      "source": "Poly Haven — shanghai_bund (Andreas Mischok)",
+      "license": "CC0",
+      "urls": {
+        "hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/shanghai_bund_1k.hdr"
+      },
+      "transform": {},
+      "files": [
+        {
+          "path": "assets/hdri/shanghai_bund_1k.hdr",
+          "role": "hdr",
+          "bytes": 1640377,
+          "sha256": "77276a6b67cbf09611efc46e55871eead34e1fc6fa107db412207b91cf74697e"
+        }
+      ]
+    },
+    {
+      "id": "concrete_floor_worn_001",
+      "kind": "pbr",
+      "source": "Poly Haven — concrete_floor_worn_001",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/concrete_floor_worn_001/concrete_floor_worn_001_diff.jpg",
+          "role": "diff",
+          "bytes": 105730,
+          "sha256": "f1c5ad93d0db07b6442c195f9d3464c90b5bde53f9e69f618de7d21bb3ff5824"
+        },
+        {
+          "path": "assets/pbr/concrete_floor_worn_001/concrete_floor_worn_001_nor.jpg",
+          "role": "nor",
+          "bytes": 112938,
+          "sha256": "51636089689ddeb133410463f00fd7bc6ce04b6c9280d00f0c48a7e2487c371f"
+        },
+        {
+          "path": "assets/pbr/concrete_floor_worn_001/concrete_floor_worn_001_orm.jpg",
+          "role": "orm",
+          "bytes": 138887,
+          "sha256": "d79fe7662752a6ccdd83ad29fbd511ced03f4b72ef4909f01ae777e8a0bd66e6"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "smooth_concrete_floor",
+      "kind": "pbr",
+      "source": "Poly Haven — smooth_concrete_floor",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/smooth_concrete_floor/smooth_concrete_floor_diff.jpg",
+          "role": "diff",
+          "bytes": 193221,
+          "sha256": "d2b6748a6182fed6af38b3aa212708205b7772814db6c8988ee6fd76ce4972d5"
+        },
+        {
+          "path": "assets/pbr/smooth_concrete_floor/smooth_concrete_floor_nor.jpg",
+          "role": "nor",
+          "bytes": 88321,
+          "sha256": "c52e279af13691f24d05671643afaf737f3976787bd338efaede37fc75ef730a"
+        },
+        {
+          "path": "assets/pbr/smooth_concrete_floor/smooth_concrete_floor_orm.jpg",
+          "role": "orm",
+          "bytes": 80052,
+          "sha256": "a3f82560a1a99ffecd98b370f2d4f5977fbe34afba719db3f8c9d02a23fef7b8"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "metal_plate_02",
+      "kind": "pbr",
+      "source": "Poly Haven — metal_plate_02",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_rough_1k.jpg",
+        "metal": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_metal_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/metal_plate_02/metal_plate_02_diff.jpg",
+          "role": "diff",
+          "bytes": 131341,
+          "sha256": "3a9796d2f485ebd283e342a832b59f77d21bac01465fffd86fd468988f7a60cb"
+        },
+        {
+          "path": "assets/pbr/metal_plate_02/metal_plate_02_nor.jpg",
+          "role": "nor",
+          "bytes": 50019,
+          "sha256": "6ebecc120f78d65a723843d6fd8bd5d58fb1155a6f3c601338b61fe5b197f00c"
+        },
+        {
+          "path": "assets/pbr/metal_plate_02/metal_plate_02_orm.jpg",
+          "role": "orm",
+          "bytes": 282204,
+          "sha256": "e3543f37f3ee9690417d35a685a4a556a85afc1d6c683a19b2228c1937085bfb"
+        }
+      ],
+      "hasMetal": true
+    },
+    {
+      "id": "painted_metal_shutter",
+      "kind": "pbr",
+      "source": "Poly Haven — painted_metal_shutter",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_metal_shutter/painted_metal_shutter_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_metal_shutter/painted_metal_shutter_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_metal_shutter/painted_metal_shutter_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_metal_shutter/painted_metal_shutter_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/painted_metal_shutter/painted_metal_shutter_diff.jpg",
+          "role": "diff",
+          "bytes": 144823,
+          "sha256": "3e4a73cce067ce7f90179cd89a7a35a1fedb99f8d4902239b7bd36d21f330563"
+        },
+        {
+          "path": "assets/pbr/painted_metal_shutter/painted_metal_shutter_nor.jpg",
+          "role": "nor",
+          "bytes": 224027,
+          "sha256": "1fc567ff398ca582ba6f8404de6973a6bf5dd67002432241fa087977dac4de81"
+        },
+        {
+          "path": "assets/pbr/painted_metal_shutter/painted_metal_shutter_orm.jpg",
+          "role": "orm",
+          "bytes": 112783,
+          "sha256": "34b4794378a5d9e2fda33f89183e43957ec525dab6166198ea48ace2b793bb0e"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "floor_tiles_08",
+      "kind": "pbr",
+      "source": "Poly Haven — floor_tiles_08",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/floor_tiles_08/floor_tiles_08_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/floor_tiles_08/floor_tiles_08_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/floor_tiles_08/floor_tiles_08_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/floor_tiles_08/floor_tiles_08_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/floor_tiles_08/floor_tiles_08_diff.jpg",
+          "role": "diff",
+          "bytes": 149877,
+          "sha256": "a0a6d670bf18bed7f86a69fe89c9ad14cf7bc184716bc04ede4d03a4beb822be"
+        },
+        {
+          "path": "assets/pbr/floor_tiles_08/floor_tiles_08_nor.jpg",
+          "role": "nor",
+          "bytes": 118347,
+          "sha256": "9504ec643d5990eef7c63b830536a33d83519d19f7966b9d843ff9c9ae056eac"
+        },
+        {
+          "path": "assets/pbr/floor_tiles_08/floor_tiles_08_orm.jpg",
+          "role": "orm",
+          "bytes": 54809,
+          "sha256": "4f32f603388616a7d5c67e0de16c1c938f2662781247bbbff736c7ce67169c5a"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "marble_01",
+      "kind": "pbr",
+      "source": "Poly Haven — marble_01",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/marble_01/marble_01_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/marble_01/marble_01_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/marble_01/marble_01_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/marble_01/marble_01_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/marble_01/marble_01_diff.jpg",
+          "role": "diff",
+          "bytes": 108522,
+          "sha256": "8946263e542030c493587dd40450326ec0a68303ce806854eaed08c73f73c377"
+        },
+        {
+          "path": "assets/pbr/marble_01/marble_01_nor.jpg",
+          "role": "nor",
+          "bytes": 39474,
+          "sha256": "d3fb08053143b2704eb32a3f604b11545ab9a95b8cb8add4565503d7d3285903"
+        },
+        {
+          "path": "assets/pbr/marble_01/marble_01_orm.jpg",
+          "role": "orm",
+          "bytes": 40403,
+          "sha256": "4e4c14e51d26ca0a33bb37e0bda9a6ba80d636bdb0a4ed87e1b96ee269902430"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "plank_flooring_04",
+      "kind": "pbr",
+      "source": "Poly Haven — plank_flooring_04",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plank_flooring_04/plank_flooring_04_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plank_flooring_04/plank_flooring_04_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plank_flooring_04/plank_flooring_04_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plank_flooring_04/plank_flooring_04_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/plank_flooring_04/plank_flooring_04_diff.jpg",
+          "role": "diff",
+          "bytes": 100838,
+          "sha256": "7e6897d4331a5e376856dcf24aa97f67fb1fade38ff8898f381a876f0876a048"
+        },
+        {
+          "path": "assets/pbr/plank_flooring_04/plank_flooring_04_nor.jpg",
+          "role": "nor",
+          "bytes": 29729,
+          "sha256": "a9edbd6ae7f3d4db01738c217ffddaa48d3eec5887fcfc6c0e36e5d078ceada9"
+        },
+        {
+          "path": "assets/pbr/plank_flooring_04/plank_flooring_04_orm.jpg",
+          "role": "orm",
+          "bytes": 161420,
+          "sha256": "03d4b3c94d7380e8d0a36d2f428baeeecab444915827627b75d480d835422908"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "dirty_carpet",
+      "kind": "pbr",
+      "source": "Poly Haven — dirty_carpet",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_carpet/dirty_carpet_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_carpet/dirty_carpet_nor_gl_1k.jpg",
+        "rough": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_carpet/dirty_carpet_rough_1k.jpg",
+        "ao": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_carpet/dirty_carpet_ao_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/dirty_carpet/dirty_carpet_diff.jpg",
+          "role": "diff",
+          "bytes": 296067,
+          "sha256": "3e4e58808c14f222571a1d0333af627e17062f419db11209435e5b630b8d3417"
+        },
+        {
+          "path": "assets/pbr/dirty_carpet/dirty_carpet_nor.jpg",
+          "role": "nor",
+          "bytes": 400716,
+          "sha256": "b3d12ed294b46ee1f308618976fc0bf7479223d3b8128bcba1e9721e5abba49f"
+        },
+        {
+          "path": "assets/pbr/dirty_carpet/dirty_carpet_orm.jpg",
+          "role": "orm",
+          "bytes": 250002,
+          "sha256": "28b2c53f64f4ced52935452c8d737e6fcdb5d2bdaf26ab5a06cc8da2b2286295"
+        }
+      ],
+      "hasMetal": false
+    },
+    {
+      "id": "rusty_metal_02",
+      "kind": "pbr",
+      "source": "Poly Haven — rusty_metal_02",
+      "license": "CC0",
+      "urls": {
+        "diff": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_diff_1k.jpg",
+        "nor": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_nor_gl_1k.jpg",
+        "arm": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_arm_1k.jpg"
+      },
+      "transform": {
+        "size": 1024,
+        "quality": 82,
+        "normalQuality": 90,
+        "pack": "orm"
+      },
+      "files": [
+        {
+          "path": "assets/pbr/rusty_metal_02/rusty_metal_02_diff.jpg",
+          "role": "diff",
+          "bytes": 201229,
+          "sha256": "6c7639bc831ae91d4251f7b0e0af0b066047d6ac5dd250b919d0717656d54509"
+        },
+        {
+          "path": "assets/pbr/rusty_metal_02/rusty_metal_02_nor.jpg",
+          "role": "nor",
+          "bytes": 174107,
+          "sha256": "8421a8f6772297a7f95096a27698a1f33cba74e9a7e404c5f41202a386d2a3cc"
+        },
+        {
+          "path": "assets/pbr/rusty_metal_02/rusty_metal_02_orm.jpg",
+          "role": "orm",
+          "bytes": 139862,
+          "sha256": "64a90a69a676a85dc66ddad1eccac216cb95ecddd0e7f7c77e7b2d82cf8f11a3"
+        }
+      ],
+      "hasMetal": true
+    },
+    {
+      "id": "kenney_furniture",
+      "kind": "gltf",
+      "source": "Kenney — Furniture Kit 1.0 (kenney.nl)",
+      "license": "CC0",
+      "urls": {
+        "zip": "https://kenney.nl/media/pages/assets/furniture-kit/440e0608a4-1677580847/kenney_furniture-kit.zip",
+        "page": "https://kenney.nl/assets/furniture-kit"
+      },
+      "transform": {
+        "pick": [
+          {
+            "as": "books",
+            "match": "books"
+          },
+          {
+            "as": "plant_small",
+            "match": "plantSmall"
+          },
+          {
+            "as": "laptop",
+            "match": "laptop"
+          },
+          {
+            "as": "trashcan",
+            "match": "trashcan"
+          },
+          {
+            "as": "box_closed",
+            "match": "cardboardBoxClosed"
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "assets/props/kenney_furniture/books.glb",
+          "role": "model",
+          "name": "books",
+          "bytes": 6864,
+          "sha256": "b8dc56e5d29f6fc1f4727fccb1b9642627fee9942c48060a00034e98df02701c"
+        },
+        {
+          "path": "assets/props/kenney_furniture/box_closed.glb",
+          "role": "model",
+          "name": "box_closed",
+          "bytes": 5400,
+          "sha256": "4af079dca52960912764574950f0549ff2ae1224b3db1528718629473a2d5d81"
+        },
+        {
+          "path": "assets/props/kenney_furniture/laptop.glb",
+          "role": "model",
+          "name": "laptop",
+          "bytes": 5540,
+          "sha256": "5fa8a1f4a71ab8d82ef64da77a6973ffd350c6d4557516069a4ffd4bb8d808af"
+        },
+        {
+          "path": "assets/props/kenney_furniture/plant_small.glb",
+          "role": "model",
+          "name": "plant_small",
+          "bytes": 8224,
+          "sha256": "2b9c022feb47be857b2c4fdc29f36522766ba9b70c578c31d7c05d71b4377d15"
+        },
+        {
+          "path": "assets/props/kenney_furniture/trashcan.glb",
+          "role": "model",
+          "name": "trashcan",
+          "bytes": 6452,
+          "sha256": "e0ccc1fe50cbd05386477fdff527171d1cf7c0de2ba7ff3233f8d9561feb2561"
+        }
+      ]
+    },
+    {
+      "id": "kenney_industrial",
+      "kind": "gltf",
+      "source": "Kenney — City Kit (Industrial) 2.0 (kenney.nl)",
+      "license": "CC0",
+      "urls": {
+        "zip": "https://kenney.nl/media/pages/assets/city-kit-industrial/0ec35b139d-1788171848/kenney_city-kit-industrial_2.0.zip",
+        "page": "https://kenney.nl/assets/city-kit-industrial"
+      },
+      "transform": {
+        "pick": [
+          {
+            "as": "tank",
+            "match": "tank"
+          },
+          {
+            "as": "solar_panel",
+            "match": "solar"
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "assets/props/kenney_industrial/solar_panel.glb",
+          "role": "model",
+          "name": "solar_panel",
+          "bytes": 13964,
+          "sha256": "0b10fa196480181d22734e4971f068e2909fb5835fab1857d26748e39b3b6bb1"
+        },
+        {
+          "path": "assets/props/kenney_industrial/tank.glb",
+          "role": "model",
+          "name": "tank",
+          "bytes": 31436,
+          "sha256": "9e955732e4ef9ccff4a4d6967d29d8a7d2f9ed16c903923f2568216d9f0b50d2"
+        },
+        {
+          "path": "assets/props/kenney_industrial/Textures/colormap.png",
+          "role": "dependency",
+          "bytes": 11986,
+          "sha256": "950f4f891ebd05a2affac810e6eeb0fea1511bc39039b65a3cbf2e17d17bc6a2"
+        }
+      ]
+    },
+    {
+      "id": "neon_noir",
+      "kind": "lut",
+      "source": "Generated by tools/lib/lut.mjs (neonNoir grade) for this project",
+      "license": "CC0",
+      "urls": {},
+      "transform": {
+        "generate": "neonNoir",
+        "size": 33
+      },
+      "files": [
+        {
+          "path": "assets/luts/neon_noir.cube",
+          "role": "cube",
+          "bytes": 754756,
+          "sha256": "2fe43ed94137355d2dd1d36e52015e8f7274805f15487bb4805f2511049f31fa"
+        }
+      ]
+    }
+  ]
 }
