@@ -241,11 +241,18 @@ test.describe('Neon-City: Lock-Down', () => {
     const errors = await bootToRun(page);
     // use() cycles the bed: standing -> sitting (first person), sitting ->
     // lying down, lying down -> back up on your feet.
-    const states = await page.evaluate(() => {
-      const b = window.__ncld.app.bedScene;
-      return [b.use(), b.use(), b.use()];
+    const r = await page.evaluate(() => {
+      const app = window.__ncld.app;
+      const b = app.bedScene;
+      const startMode = app.cameraRig.mode;
+      const states = [b.use(), b.use(), b.use()];
+      return { states, startMode, seated: app.cameraRig.fp.seated, mode: app.cameraRig.mode };
     });
-    expect(states).toEqual(['sitting', 'lying', 'none']);
+    expect(r.states).toEqual(['sitting', 'lying', 'none']);
+    // getting up hands back the seat lock and the camera you had before
+    expect(r.seated).toBe(false);
+    expect(r.mode).toBe(r.startMode === 'cinematic' ? 'auto' : r.startMode);
+    if (r.startMode !== 'firstPerson') expect(r.mode).not.toBe('firstPerson');
     expect(errors).toEqual([]);
   });
 
