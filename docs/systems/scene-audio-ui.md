@@ -30,6 +30,26 @@ pattern for any new presentation layer.
   **Gotcha:** each pull uses a large **invisible hit-proxy** box (`material.visible=false` still raycasts)
   so the center-screen FP crosshair can actually land on it — the brass tie-back ring alone is too small.
 
+### Asset facade (`src/assets/`)
+- **`assets.js` — `createAssets({loaders, enabled, base, fetchJson, manifestTimeoutMs, log})`** —
+  the one door for binary assets. `init()` reads `assets/manifest.json` (10 s timeout); then
+  `loadPBR(id)` → `{map, normalMap, roughnessMap, aoMap, metalnessMap}` (one ORM texture shared by
+  roughness/AO/metal), `loadTexture(id, role)`, `loadEquirect(id)` / `loadHDRI(id)` (PMREM),
+  `loadGLTF('pack/model')` (a fresh clone per call), `loadLUT(id)`, `preload([{kind, id}])`, the
+  synchronous `peekPBR/peekEquirect/peekGLTF/peekLUT`, `setAnisotropy(n)` and `textures()`.
+  **Contract:** every load resolves to `null` on any failure (unknown id, missing file, throwing
+  decoder or clone, no manifest), warns once per asset via `console.warn`, and never rejects —
+  every caller builds its procedural version on `null`. The app holds it as `app.assets`, with
+  `app.assetsReady` the settled `init()`.
+- **`?noassets=1`** — `enabled: false`: no manifest fetch, no loader import, every load `null`; the
+  whole game renders procedurally with zero asset requests (a smoke test asserts it).
+- **`loaders.js` — `browserLoaders(renderer)`** — lazily imports the vendored addons: GLTFLoader with
+  Draco (`vendor/three/addons/libs/draco/gltf/`) and meshopt, HDRLoader (half-float), LUTCubeLoader,
+  a lazily built PMREMGenerator, and SkeletonUtils' skeleton-aware `clone`.
+- **Nothing outside the manifest is ever requested.** A browser logs every 404 as a console error
+  and the e2e suite fails on console errors, so the facade throws (→ `null`) for an id or role the
+  manifest does not list instead of guessing a URL.
+
 ## Audio (`src/audio/`)
 - **`engine.js` — `class AudioEngine` (singleton `audio`)** — WebAudio bus graph
   (`music/ambience/sfx/voice/ui` → masterGain → compressor → destination). `unlock()` (from a user gesture —

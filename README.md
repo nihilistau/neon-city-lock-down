@@ -226,17 +226,23 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — 252 unit tests (stats, bond, dialogue, combat, sim…)
-npm run test:e2e                      # playwright — 10 end-to-end tests in a real headless browser
+npm test                              # node --test — 313 unit tests (stats, bond, dialogue, combat, sim…)
+npm run test:e2e                      # playwright — 12 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
 node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js
+node tools/lint-assets.mjs            # assets/manifest.json: sha256, CC0 licences, 40 MB budget
+node tools/fetch-assets.mjs --verify  # check the committed CC0 assets (no download)
+node tools/fetch-assets.mjs           # (re)fetch + transform assets listed in the manifest (dev, needs network)
+node tools/vendor-three.mjs           # (re)vendor three@0.185.0 addons + Node shims (dev, needs network)
+node tools/blender/run.mjs inspect <model>   # headless Blender: inspect / convert (--lod) / preview (optional, dev)
 node tools/bake-tts.mjs               # (re)bake voice lines via the voxtral CLI (incremental by hash)
 node tools/screenshots.mjs            # regenerate docs/screenshots/ from the running game
 ```
 
-No bundler. Plain ES modules + an import map; `vendor/three.module.js` is the only
-vendored library. Content lives in `data/` as validated ES modules; engine code
+No bundler. Plain ES modules + an import map; three.js and the handful of its
+example addons listed in `vendor/three/addons/VENDORED.json` are the only
+vendored code. Content lives in `data/` as validated ES modules; engine code
 in `src/` as many small focused modules.
 
 **Continuous integration.** Every push to `master` and `overhaul/**`, and every
@@ -249,7 +255,9 @@ into `master` and on manual dispatch, uploading `test-results/` on failure.
 
 ```
 index.html            importmap + UI mounts
+assets/               CC0 assets from tools/fetch-assets.mjs (manifest.json: sha256, licence, 40 MB budget)
 src/core/             loop, bus, clock, rng, settings, save, script interpreter, config (YAML), userContent
+src/assets/           the asset facade (null-on-failure loaders) + browser loader set
 src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains, bedScene, relationships
 src/chars/            stats, bond, mood, memory, wardrobe (pure logic) + Character aggregate
 src/dialogue/         normalize/intents/tone parser, topic graph, selector, effects,
@@ -268,7 +276,8 @@ config/               editable engine tuning per group — camera, combat, sim, 
                       world, lighting, llm, render, voice (docs/config/)
 user/                 your authored scenarios/events/cutscenes/dialogue + saved voices (gitignored)
 tools/                serve (+ configApi/userApi/gameEngine/llmProxy), serverConfig, sidecar (voice
-                      server), bake-tts, lint-data, lint-config
+                      server), bake-tts, lint-data, lint-config, lint-assets, fetch-assets,
+                      vendor-three, blender/ (headless Blender runner)
 scripts/voice/        setup-voxtral, clone_voice.py (voice-cloning add-on)
 third_party/voxtral/  vendored Voxtral TTS fork — source (binary + 2.7GB weights gitignored)
 test/                 node --test unit suites + a headless smoke contract
@@ -308,7 +317,9 @@ v0.5 base toward a full AAA-style overhaul:
 
 1. **Content cleanse + bonds** (v0.6.0, done) — strip out the old mature-content
    systems and replace them with the bond tier.
-2. **Asset pipeline + render quality** — next.
+2. **Asset pipeline + render quality** — in progress (v0.7.0-alpha.1: the
+   vendored three.js addons, the CC0 asset set and the null-on-failure asset
+   facade; the procedural look is still what ships).
 3. GLTF characters
 4. Survival/lockdown loop
 5. Combat and stealth
@@ -323,3 +334,6 @@ this project via the xAI image API and processed by `tools/gen-art.mjs`; every
 one has its prompt and processing recorded in `tools/art/manifest.mjs`, so any
 of them can be regenerated from source. Oxanium and IBM Plex Sans are vendored
 under the SIL Open Font License. three.js is vendored under its MIT license.
+The HDRI and PBR textures are CC0 from Poly Haven and the prop models are CC0
+from Kenney; each is listed with its source in assets/manifest.json. The
+three.js example addons in vendor/three/addons/ are MIT, like three.js itself.

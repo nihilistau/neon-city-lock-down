@@ -3,6 +3,54 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.7.0-alpha.1] — 2026-09-27 — Plumbing
+
+The first stage of sub-project 2 (asset pipeline + render quality). Nothing
+looks different yet: this release adds the tools and the runtime seam the
+rest of 0.7 loads real assets through, with the procedural look as the
+fallback everywhere.
+
+### Added
+- **`tools/vendor-three.mjs`** — vendors three@0.185.0 example addons
+  (GLTFLoader, DRACOLoader + the glTF Draco decoder, meshopt, HDRLoader,
+  LUTCubeLoader, BufferGeometryUtils, SkeletonUtils, SMAAPass, LUTPass,
+  RoundedBoxGeometry) from the pinned npm tarball, following relative imports
+  transitively. It refuses an unresolved import, records every file in
+  `vendor/three/addons/VENDORED.json`, and generates `node_modules/three/addons/*`
+  shims so unit tests import `three/addons/…` exactly like the browser.
+- **`tools/fetch-assets.mjs` + `assets/manifest.json`** — downloads and
+  transforms the CC0 set: Poly Haven's `shanghai_bund` HDRI (1K + 2K), nine
+  1K PBR sets (AO/roughness/metalness packed into one ORM map), a selection of
+  Kenney Furniture Kit and City Kit (Industrial) models, and a generated
+  neon-noir `.cube` LUT. Every file is recorded with sha256 + bytes; the tool
+  is idempotent and `--verify` checks without downloading.
+- **`tools/lint-assets.mjs`** (in `npm run lint`) — manifest schema, sha256 of
+  every file, no stray files, CC0 on every entry, and the **40 MB budget**
+  (also asserted by `test/unit/asset-manifest.test.mjs`).
+- **`src/assets/assets.js`** — the asset facade. Every loader resolves to
+  `null` on failure and warns once, so every caller falls back to procedural;
+  `?noassets=1` switches the pipeline off without a single request.
+- **`tools/blender/`** — a headless Blender runner (dev tool; the game never
+  runs Blender). `node tools/blender/run.mjs inspect|convert|preview` reports a
+  model's objects, tris, materials, bones, actions and bounds; converts
+  `.glb`/`.gltf`/`.fbx`/`.obj`/`.blend` to a Y-up GLB with an optional Decimate
+  LOD (`--lod 0.5`) and `--apply-scale`; and renders a framed 512² EEVEE preview
+  (Workbench fallback). It finds Blender through `BLENDER_EXE`, `PATH` or the
+  install folders; its round-trip tests skip where Blender is absent (CI).
+- New screenshot shots `bar`, `rooftop`, `exterior`, a `--out` flag, and the
+  v0.6 "before" set in `docs/screenshots/v0.6/`.
+- `.glb`, `.gltf`, `.bin`, `.cube`, `.wasm` MIME types in `tools/serve.mjs`.
+
+### Fixed
+- Network timeouts: `tools/fetch-assets.mjs` aborts a stalled download after
+  60 s and `tools/vendor-three.mjs` the tarball after 120 s, each naming the
+  URL; the facade gives up on the manifest after 10 s and goes procedural
+  instead of stalling `assetsReady` forever.
+- The archive reader fails loudly on a corrupt tar/zip, and extraction refuses
+  any path outside its root.
+- A model clone that throws resolves `loadGLTF`/`peekGLTF` to `null` instead of
+  rejecting.
+
 ## [0.6.0] — 2026-09-27 — Clean slate
 
 Sub-project 1 of 7 is done: Neon-City: Lock-Down is now an all-audiences

@@ -18,7 +18,7 @@ root) and `debug` (stat, bond, outfit, event, save/load and camera helpers; see 
 
 ```bash
 npm test            # node --test — every unit suite under test/unit/
-npm run lint        # lint-data.mjs (content + cross-references) + lint-config.mjs (config vs schema)
+npm run lint        # lint-data.mjs (content + cross-references) + lint-config.mjs (config vs schema) + lint-assets.mjs
 npm run test:e2e    # playwright — test/smoke/, a real headless Chromium against the real game
 npm run test:all    # all three
 ```
@@ -33,6 +33,39 @@ software WebGL; `playwright.config.mjs` starts the server itself if one isn't al
 register (the game is all-audiences as of v0.6). When it fires, fix the text — reword the comment,
 delete the dead code — never loosen its word list. A word with an unrelated meaning in context gets
 reworded too.
+
+## Assets and vendored addons
+
+Two dev tools download third-party code and assets; their outputs are committed, so a clone runs
+without either. **The game never downloads at runtime** — it serves only what is in the repo.
+
+```bash
+node tools/lint-assets.mjs            # (in npm run lint) manifest schema, sha256 of every file, no strays, CC0, 40 MB budget
+node tools/fetch-assets.mjs --verify  # sha256-check the committed assets; downloads nothing (npm run assets:verify)
+node tools/fetch-assets.mjs [<id>…]   # fetch + transform missing/stale entries → assets/**, rewrites their "files" in the manifest
+node tools/vendor-three.mjs           # three@0.185.0 addons → vendor/three/addons/** + VENDORED.json, and the Node shims in node_modules/three/addons/
+```
+
+`fetch-assets` caches downloads in `node_modules/.cache/ncld-assets/`, is idempotent (a verified
+entry is skipped; `--force <id>` re-fetches) and `--list <id>` prints the models inside a glTF
+entry's zip. Both tools time out a stalled download (60 s per asset file, 120 s for the three
+tarball) and name the URL.
+
+`assets/manifest.json` is the source of truth. Each entry has an `id`, a `kind` (`hdri`, `pbr`,
+`gltf`, `lut`), a `source`, a `license`, the `urls` it downloads, the `transform` applied (resize,
+ORM packing, model picks) and the `files` it produced, each with `path`, `role`, `bytes` and
+`sha256`. The **40 MB budget** (summed over listed files) and the **CC0 licence** on every entry are
+enforced by `npm run lint` and by `test/unit/asset-manifest.test.mjs`.
+
+To add an asset:
+
+1. Add a manifest entry with `"files": []`.
+2. Run `node tools/fetch-assets.mjs <id>`.
+3. Run `npm run lint` (sha256, licence, budget, no strays).
+4. Commit the manifest and the new files together.
+
+Addons are added the same way: list them in `tools/vendor-three.mjs`, run it, commit `vendor/` and
+the shims — never copy an addon in by hand.
 
 ## Screenshots
 

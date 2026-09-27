@@ -9,19 +9,19 @@ tower (three.js, no bundler, no build step). The player is locked in a
 penthouse with three autonomous NPCs while riots and faction wars tear up the
 streets below — chat-first roleplay, day/night survival, combat, and
 mini-games, all driven by an offline dialogue engine with an optional LLM
-adapter for surface-text restyling. Current version: **0.6.0**, the
-first of a 7-part upgrade (see Roadmap below); this sub-project removed every
-18+ system and replaced it with a bond tier.
+adapter for surface-text restyling. Current version: **0.7.0-alpha.1**, sub-project 2 of the 7-part upgrade (asset pipeline + render quality).
 
 ## Run / test / lint
 
 ```bash
 node tools/serve.mjs 8420   # or double-click run.bat on Windows
 npm test                    # node --test — unit suites
-npm run lint                # lint-data.mjs + lint-config.mjs
+npm run lint                # lint-data.mjs + lint-config.mjs + lint-assets.mjs
 npm run test:e2e            # playwright — end-to-end smoke suite
 npm run test:all            # unit + lint + e2e
 node tools/screenshots.mjs  # regenerate docs/screenshots/ (server on 8420; see docs/development.md)
+npm run assets:verify       # sha256-check the committed CC0 assets (no download)
+node tools/fetch-assets.mjs # fetch/transform manifest assets; node tools/vendor-three.mjs for three addons
 ```
 
 CI (`.github/workflows/ci.yml`) runs unit tests + lint on every push to
@@ -58,6 +58,12 @@ After any UI change a README screenshot shows, re-run the matching shot
   sitting/lying/none, seated guests, reservation against double occupancy).
   Nothing in it reaches into the DOM or three.js directly; `app.js` wires it to
   the camera, scheduler, and cast.
+- **`src/assets/assets.js`** — the only way a binary asset (HDRI, PBR set,
+  glTF, LUT) enters the game. Every loader resolves to `null` on failure and
+  warns once; every caller MUST handle `null` by building the procedural
+  version. `?noassets=1` forces that path for the whole game. Assets are added
+  only through `assets/manifest.json` + `tools/fetch-assets.mjs` (CC0 only,
+  40 MB budget, sha256-checked by `npm run lint`).
 
 ## Blender (dev tool, optional)
 
@@ -110,7 +116,10 @@ node tools/blender/run.mjs preview <in> <out.png>                  # 512² EEVEE
   TypeScript.
 - Comments explain *why*, not *what*.
 - Plain ES modules + an import map. No bundler, no framework.
-  `vendor/three.module.js` is the only vendored runtime library.
+  `vendor/three.module.js` plus the addons recorded in
+  `vendor/three/addons/VENDORED.json` are the only vendored runtime code — add
+  addons with `tools/vendor-three.mjs`, never by hand. Node resolves
+  `three/addons/*` through the generated `node_modules/three/addons/` shims.
 - Commit trailer for agent commits: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Workflow
@@ -131,10 +140,10 @@ node tools/blender/run.mjs preview <in> <out.png>                  # 512² EEVEE
 
 ## Roadmap
 
-0.6 is sub-project 1 of a 7-part upgrade:
+0.7 is sub-project 2 of a 7-part upgrade:
 
-1. Content cleanse + bonds (v0.6.0, done)
-2. Asset pipeline + render quality (next)
+1. Content cleanse + bonds (v0.6, released)
+2. Asset pipeline + render quality (this sub-project, at alpha.1)
 3. GLTF characters
 4. Survival/lockdown loop
 5. Combat and stealth
