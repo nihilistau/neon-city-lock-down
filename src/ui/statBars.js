@@ -36,7 +36,7 @@ export function initStatBars() {
   on('char.registered', ({ character }) => { if (!cards.has(character.id)) addCard(character); });
   on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
   on('char.stat', ({ id, stats, bond }) => { updateBars(id, stats); if (bond) setBondChip(id, bond); });
-  on('char.mood', ({ id, mood }) => { const c = cards.get(id); if (c) c.querySelector('.mood').textContent = mood; });
+  on('char.mood', ({ id, mood }) => { const c = cards.get(id); if (c) { const m = /** @type {HTMLElement} */ (c.querySelector('.mood')); m.textContent = mood; m.title = mood; } });   // title: a long mood is ellipsised in the header
   on('bond.changed', ({ id, to }) => setBondChip(id, to));
 }
 

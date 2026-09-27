@@ -106,7 +106,7 @@
 #statbars {
   position: absolute; left: 12px;
   display: flex; flex-direction: column; gap: 6px;
-  width: 186px; overflow-y: auto; padding-right: 2px;
+  width: 200px; overflow-y: auto; padding-right: 2px;
   pointer-events: auto; z-index: var(--z-world);
   scrollbar-width: thin;
   /* Position and cap are MEASURED at runtime by layoutLeftColumn() in
@@ -131,18 +131,19 @@
 .sb-card.collapsed .sb-row.hero { display: flex; }
 .sb-card.collapsed .sb-bars { display: grid; grid-template-columns: 1fr 1fr; }
 .sb-card[data-id="vox"].collapsed .sb-bars { display: none; }
-.sb-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; cursor: pointer; }
-.sb-head::before { content: '▾ '; color: var(--text-dim); font-size: 9px; }
-.sb-card.collapsed .sb-head::before { content: '▸ '; }
-.sb-name { color: var(--accent, var(--cyan)); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
-.sb-head .mood { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.sb-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; cursor: pointer; }   /* gap: name · mood · chip never touch */
+.sb-head::before { content: '▾'; color: var(--text-dim); font-size: 9px; }
+.sb-card.collapsed .sb-head::before { content: '▸'; }
+.sb-name { color: var(--accent, var(--cyan)); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap; flex-shrink: 0; }
+.sb-head .mood { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* a long mood yields before the name or the chip does */
 .sb-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 8px; }
 .sb-row { display: flex; align-items: center; gap: 4px; }
 .sb-label { font-size: 8px; color: var(--text-dim); width: 48px; text-transform: uppercase; }
 .sb-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
 .sb-fill { display: block; height: 100%; width: 0; transition: width 0.35s ease; }
 .sb-val { font-size: 8px; color: var(--text-dim); width: 15px; text-align: right; font-family: var(--mono); }
-.sb-bond { margin-left: auto; padding: 0 var(--s-1, 4px); border-radius: var(--r-sm, 3px);
+.sb-bond { margin-left: auto; flex-shrink: 0; padding: 0 var(--s-1, 4px); border-radius: var(--r-sm, 3px);
   font: 600 10px/16px var(--font, sans-serif); text-transform: uppercase; letter-spacing: .06em;
   color: var(--text-dim, #9aa3b5); border: 1px solid currentColor; }
 .sb-bond[data-tier="ally"] { color: var(--cyan, #39e6ff); }
