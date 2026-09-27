@@ -6,7 +6,9 @@
 import { readFile } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateManifest, verifyFiles, strayFiles, totalBytes, ASSET_BUDGET_BYTES } from './lib/manifest.mjs';
+import { validateManifest, verifyFiles, strayFiles, totalBytes, ASSET_BUDGET_BYTES, checkPropRefs } from './lib/manifest.mjs';
+import { PROP_DRESSING } from '../data/propDressing.js';
+import { PBR_LIBRARY } from '../src/scene3d/materials/pbr.js';
 
 const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 let failed = 0;
@@ -20,6 +22,7 @@ const manifest = JSON.parse(await readFile(join(ROOT, 'assets', 'manifest.json')
 report('manifest schema, licences, budget', validateManifest(manifest));
 report('every file matches its sha256', await verifyFiles(manifest, ROOT));
 report('no unlisted files in the pipeline dirs', (await strayFiles(manifest, ROOT)).map((p) => `${p}: not in assets/manifest.json`));
+report('prop dressing names real models and skins', checkPropRefs(manifest, PROP_DRESSING, Object.keys(PBR_LIBRARY)));
 
 const mb = (n) => (n / 1048576).toFixed(2);
 console.log(`\n  ${manifest.entries.length} entries, ${mb(totalBytes(manifest))} MB of the ${mb(ASSET_BUDGET_BYTES)} MB budget\n`);

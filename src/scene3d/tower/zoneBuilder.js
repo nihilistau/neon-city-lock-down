@@ -9,6 +9,8 @@ import { Curtains } from './curtains.js';
 import { pbrMaterial, setPbrAssets } from '../materials/pbr.js';
 import { applyWorldUVsTo } from '../materials/worldUV.js';
 import { assetsForFloor } from './floorAssets.js';
+import { fitProp } from './props.js';
+import { PROP_DRESSING } from '../../../data/propDressing.js';
 import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
 import { cityWindowsTexture } from '../materials/cityWindows.js';
@@ -101,6 +103,7 @@ export class World3D {
     this._collectSolids(group, floor.id);
     this.stage.scene.add(group);
     this._buildFurniture(floor.id);
+    this._dressProps(floor.id);
     // one texture repeat per N metres on every box of this floor, whatever its size
     applyWorldUVsTo(group);
   }
@@ -867,6 +870,32 @@ export class World3D {
           // not interactive: nothing addresses it after build, so rc.1 may batch it
           this.furnitureGroups[zone.floor].push(item.group);
         }
+      }
+    }
+  }
+
+  /**
+   * Place this floor's Kenney clutter (data/propDressing.js). A model the
+   * facade does not hold is skipped outright — clutter is optional detail,
+   * and a placeholder box would be worse than the empty surface.
+   * @param {string} floorId
+   */
+  _dressProps(floorId) {
+    if (!this.assets) return;
+    const group = this.floorGroups[floorId];
+    for (const p of PROP_DRESSING) {
+      if (p.floor !== floorId) continue;
+      const model = this.assets.peekGLTF(p.asset);
+      if (!model) continue;
+      const prop = fitProp(model, p.height, pbrMaterial(p.skin));
+      prop.position.set(p.at[0], p.y ?? 0, p.at[1]);
+      prop.rotation.y = p.ry ?? 0;
+      prop.userData.dressing = p.asset;
+      group.add(prop);
+      this.furnitureGroups[floorId].push(prop);
+      if (p.solid) {
+        prop.updateMatrixWorld(true);
+        this.collidersByFloor[floorId].push(new THREE.Box3().setFromObject(prop));
       }
     }
   }
