@@ -7,11 +7,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { SCENARIOS } from '../../data/scenarios.js';
+import { OUTFITS } from '../../data/outfits.js';
 import { parseSaveEnvelope } from '../../src/core/save.js';
 import { Cards } from '../../src/games/cards.js';
 import { TALK_PROFILES, syllables, sayTalk } from '../../src/audio/talkSynth.js';
 import { applyScenario } from '../../src/sim/scenario.js';
 import { Character } from '../../src/chars/character.js';
+import { Wardrobe } from '../../src/chars/wardrobe.js';
+import { buildSkeleton } from '../../src/humanoid/skeleton.js';
 import { EventRunner } from '../../src/sim/eventRunner.js';
 import { Mystery } from '../../src/games/mystery.js';
 import { updateObjectives } from '../../src/sim/objectives.js';
@@ -107,13 +110,46 @@ test('a dominant Kai cheats the deck, and the cheat is what wins him the trick',
   assert.equal(meek.play('high').cheated, false, 'low dominance must never cheat');
 });
 
-test('no character has an undress outfit state', async () => {
-  const { OUTFITS } = await import('../../data/outfits.js');
+test('no character has an undress outfit state', () => {
   for (const [id, recipes] of Object.entries(OUTFITS)) {
     for (const bad of ['none', 'underwear']) {
       assert.ok(!(bad in recipes), `${id} still has outfit "${bad}"`);
     }
   }
+});
+
+test('the wardrobe dresses a real body: parenting, visibility, and refusals', () => {
+  // Was: `assert.ok(OUTFITS.player.street_armor)`. The explicitness-cap render
+  // substitution this test used to also cover (_renderId, __ncldExplicitness)
+  // is gone along with the cap itself — see data/outfits.js and wardrobe.js.
+  const persona = { ...lola };
+  const rig = buildSkeleton(persona.body);
+  const char = { id: 'lola', name: 'Lola', persona, actor: { rig, root: new THREE.Group() } };
+
+  const w = new Wardrobe(/** @type {any} */ (char));
+  assert.ok(w.available().length >= 8, 'lola needs the full outfit matrix');
+
+  assert.equal(w.change('street_armor'), true);
+  assert.equal(w.current, 'street_armor');
+  const armor = w.layers.street_armor;
+  assert.equal(armor.length, OUTFITS.lola.street_armor.pieces.length, 'one mesh per recipe piece');
+  assert.ok(armor.every((m) => m.visible), 'the worn layer must be visible');
+  assert.ok(armor.every((m) => char.actor.root.children.includes(m)), 'garments must be parented to the body');
+
+  assert.equal(w.change('sleepwear'), true);
+  assert.ok(w.layers.street_armor.every((m) => !m.visible), 'switching outfits flips visibility — exactly one layer renders at a time');
+  assert.ok(w.layers.sleepwear.every((m) => m.visible));
+  assert.equal(w.change('sleepwear'), false, 'changing into what you already wear is a no-op');
+  assert.equal(w.current, 'sleepwear', 'a no-op change leaves the current outfit unchanged');
+
+  const before = w.current;
+  assert.equal(w.change('none'), false, '"none" is no longer a real outfit state and is refused like any unknown id');
+  assert.equal(w.current, before, 'a refused change leaves the current outfit untouched');
+  assert.equal(w.change('nonsense_outfit'), false, 'unknown outfits are refused');
+  assert.equal(w.current, before, 'a refused change leaves the current outfit untouched');
+
+  assert.equal(Wardrobe.supports('lola'), true, 'a dressed character supports wardrobes');
+  assert.equal(Wardrobe.supports('vox'), false, 'the tower has no body to dress');
 });
 
 test('parseSaveEnvelope accepts a versioned envelope and rejects garbage', () => {

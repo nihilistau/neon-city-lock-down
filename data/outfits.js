@@ -67,7 +67,7 @@ export const OUTFITS = {
   // Combat spawned bare skinned bodies with an accessory kit on top: a hoodie
   // hood over a naked torso, a backpack strapped to bare shoulders, a visor on
   // an otherwise unclothed merc. Three archetypes, one recipe each — hostiles
-  // never change clothes, so a full 10-state matrix would be dead data.
+  // never change clothes, so a full 8-state matrix would be dead data.
   // Palettes stay desaturated and dark so a hostile silhouette reads instantly
   // against the cast's saturated wardrobe under the same neon.
   hostile_rioter: {

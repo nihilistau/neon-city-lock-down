@@ -213,7 +213,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 }
 .wm-rule.mag { background: linear-gradient(90deg, transparent, var(--magenta), transparent); box-shadow: 0 0 8px rgba(255, 63, 164, 0.4); }
 
-/* full-screen overlay screens (gate, death, menus) */
+/* full-screen overlay screens (death, menus) */
 .screen {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -291,7 +291,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
   --z-picker:     47;   /* transient pickers (elevator) — BELOW full screens, so
                            the pause menu can always be reached over one */
   --z-transition: 48;   /* elevator fade */
-  --z-screen:     50;   /* full-screen panels: menu, save, codex, kit, gate */
+  --z-screen:     50;   /* full-screen panels: menu, save, codex, kit */
   --z-choice:     60;   /* a blocking event choice outranks everything */
 }
 
