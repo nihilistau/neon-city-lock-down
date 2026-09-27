@@ -370,11 +370,15 @@ test('everyday chat does not trigger the bed intents; bed phrasings still do', a
   const { matchIntents } = await import('../../src/dialogue/parser/intents.js');
   const { normalize } = await import('../../src/dialogue/parser/normalize.js');
   const top = (t) => matchIntents(normalize(t))[0]?.id;
-  for (const t of ['what are we doing tonight?', 'stay with me, we need to guard the door', 'come here', 'come here, look at this']) {
-    assert.ok(!['bed_stay', 'bed_invite'].includes(top(t)), `"${t}" must not be a bed intent (got ${top(t)})`);
+  for (const t of ['what are we doing tonight?', 'stay with me, we need to guard the door', 'come here', 'come here, look at this',
+    'im going to bed', 'where is the bed', 'nice bed', 'the bed alcove is clear', 'you should get some rest']) {
+    assert.ok(!['bed_stay', 'bed_invite', 'bed_dismiss'].includes(top(t)), `"${t}" must not be a bed intent (got ${top(t)})`);
   }
   assert.equal(top('stay the night'), 'bed_stay');
   assert.equal(top('come sit with me'), 'bed_invite');
+  assert.equal(top('come sit on the bed'), 'bed_invite');
+  assert.equal(top('goodnight'), 'bed_dismiss');
+  assert.equal(top('you can go'), 'bed_dismiss');
 });
 
 test('the save menu refuses to open during the stay-the-night fade', async () => {

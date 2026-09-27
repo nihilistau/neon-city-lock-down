@@ -12,12 +12,13 @@ import { registerIntents } from '../../src/dialogue/parser/intents.js';
 // "tonight") hijacked everyday chat — "what are we doing tonight?" asked
 // someone to stay the night (test/unit/bedscene.test.mjs probes this).
 registerIntents([
-  { id: 'bed_invite', keywords: ['bed'],
-    phrases: ['come sit', 'sit with me', 'sit on the bed', 'come to bed', 'join me on the bed'], base: 0.6 },
+  // no bare 'bed' keyword: "nice bed" / "im going to bed" are not invitations
+  { id: 'bed_invite', keywords: [],
+    phrases: ['come sit', 'sit with me', 'sit on the bed', 'come sit on the bed', 'join me on the bed'], base: 0.6 },
   { id: 'bed_stay', keywords: [],
     phrases: ['stay the night', 'stay tonight', 'spend the night', 'sleep here'], base: 0.65 },
   { id: 'bed_dismiss', keywords: [],
-    phrases: ['you can go', 'goodnight', 'good night', 'get some rest'], base: 0.55 },
+    phrases: ['you can go', 'goodnight', 'good night'], base: 0.55 },
 ]);
 
 /** One narration line per stay, per character. Implied, never described. */
