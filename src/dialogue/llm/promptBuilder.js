@@ -67,7 +67,7 @@ HARD RULES:
  * @param {import('../../chars/character.js').Character} char
  * @param {{ present:import('../../chars/character.js').Character[], playerName:string,
  *          zoneLabel?:string, lighting?:string, timeOfDay?:string, day?:number,
- *          threat?:number, combat?:any, explicitness?:string }} ctx
+ *          threat?:number, combat?:any }} ctx
  */
 export function buildSystemPrompt(char, ctx) {
   const p = char.persona;
@@ -79,10 +79,6 @@ export function buildSystemPrompt(char, ctx) {
     : 'no one else — you are alone with the guest';
 
   const zone = ctx.zoneLabel || ZONE_LABEL[char.queue?.zone] || 'the penthouse';
-  const explicit = ctx.explicitness || 'mature';
-  const spice = explicit === 'full' ? 'Hold nothing back when the moment turns explicit.'
-    : explicit === 'suggestive' ? 'Keep the explicit beats suggestive and implied rather than graphic.'
-    : 'Play mature and adult, vivid but not clinical.';
 
   const combatBlock = ctx.combat?.active ? buildCombatBlock(char, ctx.combat) : '';
 
@@ -90,7 +86,7 @@ export function buildSystemPrompt(char, ctx) {
     `You are ${char.name}, ${p.archetype}, a character in NEON-CITY: LOCK-DOWN — an adults-only (18+) neon-noir roleplay. You are locked in a luxury cyberpunk tower with the guest (the player) and the others while the city riots below.`,
     p.bio ? `WHO YOU ARE: ${p.bio.replace(/\s+/g, ' ').trim()}` : '',
     `Right now you feel ${mood}, and physically you are ${describeState(char.stats)}.`,
-    `INTIMACY: you've welcomed ${top}.${consent ? ' You have given consent for intimacy.' : ' You have NOT consented to intimacy yet — escalation past teasing is your genuine in-character choice.'}${offered.length ? ` You've hinted you're open to: ${offered.join(', ')}.` : ''} ${spice}`,
+    `INTIMACY: you've welcomed ${top}.${consent ? ' You have given consent for intimacy.' : ' You have NOT consented to intimacy yet — escalation past teasing is your genuine in-character choice.'}${offered.length ? ` You've hinted you're open to: ${offered.join(', ')}.` : ''}`,
     `WHERE: ${zone}. Lighting: ${ctx.lighting || 'neon night'}. It's ${ctx.timeOfDay || 'night'}, day ${ctx.day || 1} of the lockdown.`,
     `ALSO HERE: ${othersLine}. The guest is the player — speak to them as "you"; their words and actions are their own.`,
     combatBlock,

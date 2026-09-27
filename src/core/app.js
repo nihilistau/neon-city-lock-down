@@ -93,7 +93,6 @@ import { LOADOUTS } from '../../data/items.js';
 import { buildRefugee } from '../../data/cast/refugee.js';
 import { registerRefugeeTopics } from '../../data/dialogue/refugee.js';
 import { showMainMenu } from '../ui/mainMenu.js';
-import { showGate18 } from '../ui/gate18.js';
 import { initModalStack } from '../ui/modalStack.js';
 import { addCodex } from '../sim/meta.js';
 import { applyScenario } from '../sim/scenario.js';
@@ -133,7 +132,6 @@ export class App {
     this.mode = 'boot';
     /** @type {Record<string, Character>} */
     this.cast = {};
-    globalThis.__ncldExplicitness = settings.explicitness;
 
     this.loop = new Loop({
       clock: this.clock,
@@ -151,11 +149,6 @@ export class App {
     initModalStack();   // one panel at a time; Escape is a universal "back"
     const unlock = () => audio.unlock();
     document.addEventListener('pointerdown', unlock, { once: true });
-    // 18+ gate first. v0.4 dropped it while README/package.json/docs still
-    // advertised one, and the game ships explicit adult content. The click is
-    // also the autoplay gesture the audio bus needs.
-    await showGate18();
-    audio.unlock();
     const choice = await showMainMenu(this);   // boot scene renders behind the menu
     audio.unlock();
     emit('game.entered', {});
@@ -623,7 +616,6 @@ export class App {
         timeOfDay: () => this.clock.phase,
         threat: () => this.run.threat,
         combat: () => this.combat,
-        explicitness: () => settings.explicitness,
       },
     });
     this.chatPanel = new ChatPanel(this.dialogue, this.cast);

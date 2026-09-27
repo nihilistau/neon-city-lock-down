@@ -24,7 +24,7 @@ test('alias tags map onto the real vocabulary', () => {
   assert.equal(sanitizeTags('[[emote:happy]]'), '[[face:smile]]');
   assert.equal(sanitizeTags('[[anim:beckon]]'), '[[anim:gesture_lean_in]]');
   assert.equal(sanitizeTags('[[move:bedroom]]'), '[[move:bed_alcove]]');
-  assert.equal(sanitizeTags('[[coverage:nude]]'), '[[outfit:none]]');
+  assert.equal(sanitizeTags('[[coverage:full]]'), '[[outfit:evening_wear]]');
 });
 
 test('invalid anim/move values are dropped, not passed through', () => {

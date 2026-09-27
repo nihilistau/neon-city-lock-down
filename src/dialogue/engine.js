@@ -130,7 +130,6 @@ export class DialogueEngine {
       day: this.day(),
       threat: this.stageCtx.threat?.(),
       combat: this.stageCtx.combat?.(),
-      explicitness: this.stageCtx.explicitness?.() || globalThis.__ncldExplicitness,
     };
   }
 

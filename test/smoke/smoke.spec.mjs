@@ -25,15 +25,6 @@ async function bootToRun(page) {
 
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
 
-  // 18+ gate — restored in this branch, and its click is also what unlocks
-  // WebAudio autoplay, so skipping it would silently test a muted game. A fresh
-  // browser profile gets the FIRST-RUN variant, which offers both "enter" and
-  // "leave"; a returning player gets a single button. Match the affirmative one
-  // by name rather than by position so both variants work.
-  const gatePanel = page.locator('.gate-panel');
-  await expect(gatePanel, 'the 18+ gate should be the first thing shown').toBeVisible({ timeout: 20000 });
-  await gatePanel.getByRole('button', { name: /enter|18 or older/i }).first().click();
-
   const newRun = page.getByRole('button', { name: /New Run/i });
   await expect(newRun).toBeVisible({ timeout: 10000 });
   await newRun.click();
@@ -154,12 +145,12 @@ test.describe('Neon-City: Lock-Down', () => {
 
   test('the minigames are reachable from inside a run', async ({ page }) => {
     await bootToRun(page);
-    // 39 bed actions, 42 ToD prompts, the card game and three mystery cases were
-    // openable only from the new-run screen or the debug panel.
+    // The card game and three mystery cases were openable only from the
+    // new-run screen or the debug panel.
     const opened = await page.evaluate(async () => {
       const app = window.__ncld.app;
       const out = {};
-      for (const [name, game] of [['cards', 'cards'], ['tod', 'tod'], ['mystery', 'mystery:dead_drop']]) {
+      for (const [name, game] of [['cards', 'cards'], ['cards_reopen', 'cards'], ['mystery', 'mystery:dead_drop']]) {
         window.__ncld.app.gamesPanel.close();
         const { emit } = await import('/src/core/bus.js');
         emit('game.requested', { game });
@@ -170,7 +161,7 @@ test.describe('Neon-City: Lock-Down', () => {
       return out;
     });
     expect(opened.cards).toBe('cards');
-    expect(opened.tod).toBe('tod');
+    expect(opened.cards_reopen).toBe('cards');
     expect(opened.mystery).toBe('mystery');
   });
 

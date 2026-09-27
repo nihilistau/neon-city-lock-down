@@ -80,9 +80,9 @@ export class SaveMenu {
       if (!act) return;
       if (act === 'close') this.close();
       // Real settings, not the debug drawer. This button used to open the
-      // Director panel's settings tab — i.e. the only route to volume,
-      // explicitness and sensitivity was a developer tool, sitting next to
-      // god-mode stat sliders.
+      // Director panel's settings tab — i.e. the only route to volume and
+      // sensitivity was a developer tool, sitting next to god-mode stat
+      // sliders.
       if (act === 'settings') this._showSettings();
       if (act === 'director') {
         this.close();

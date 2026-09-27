@@ -385,8 +385,8 @@ test('every character in OUTFITS has a default outfit and buildable recipes', ()
     assert.ok(DEFAULT_OUTFIT[id], `${id} has outfit recipes but no DEFAULT_OUTFIT`);
     assert.ok(OUTFITS[id][DEFAULT_OUTFIT[id]], `${id}'s default outfit is not a real state`);
   }
-  // Kai has always had all ten states; he just never had a Wardrobe built
-  assert.equal(Object.keys(OUTFITS.kai).length, 10);
+  // Kai has always had the full outfit matrix; he just never had a Wardrobe built
+  assert.equal(Object.keys(OUTFITS.kai).length, 8);
 });
 
 for (const persona of CAST) {

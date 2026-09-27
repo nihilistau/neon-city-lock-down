@@ -1,7 +1,6 @@
 // @ts-check
-// Outfit recipes per character — the 10-state matrix. The `none` state renders
-// as a towel or robe unless the explicitness cap is 'full' (wardrobe.js handles
-// the substitution). Pieces are procedural primitives skinned to the body.
+// Outfit recipes per character — the 8-state matrix. Pieces are procedural
+// primitives skinned to the body.
 
 /** shared piece builders keyed by intent */
 const dress = (color, hem, metal = 0.1) => ({ piece: 'dress', color, roughness: 0.45, metalness: metal, opts: { hem } });
@@ -22,8 +21,6 @@ export const OUTFITS = {
     sleepwear: { pieces: [top('#2c2434', 0.95), shorts('#2c2434')], warmth: 0.35 },
     robe: { pieces: [robeP('#3a1420')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
-    underwear: { pieces: [top('#241820', 0.95), shorts('#241820')], warmth: 0.1 },
-    none: { pieces: [], warmth: 0.05 },
   },
   aria: {
     street_armor: { pieces: [top('#4a3a5c', 0.7), leggings('#2e2438'), { piece: 'jacket', color: '#3a2c4a', roughness: 0.6 }], warmth: 0.75 },
@@ -34,8 +31,6 @@ export const OUTFITS = {
     sleepwear: { pieces: [top('#d4c2e8', 0.95), shorts('#c9a6e8')], warmth: 0.35 },
     robe: { pieces: [robeP('#b89ad0')], warmth: 0.4 },
     towel: { pieces: [towelP('#e0d4c4')], warmth: 0.2 },
-    underwear: { pieces: [top('#c9a6e8', 0.95), shorts('#c9a6e8')], warmth: 0.1 },
-    none: { pieces: [], warmth: 0.05 },
   },
   kai: {
     street_armor: { pieces: [top('#2a2418', 0.6), leggings('#1a160e'), { piece: 'jacket', color: '#2c2416', roughness: 0.5 }], warmth: 0.8 },
@@ -46,8 +41,6 @@ export const OUTFITS = {
     sleepwear: { pieces: [shorts('#2c2820')], warmth: 0.3 },
     robe: { pieces: [robeP('#2c2416')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
-    underwear: { pieces: [shorts('#1a160e')], warmth: 0.1 },
-    none: { pieces: [], warmth: 0.05 },
   },
   player: {
     street_armor: { pieces: [top('#1a2834', 0.5), leggings('#121820'), { piece: 'jacket', color: '#15222c', roughness: 0.45, metalness: 0.28 }], warmth: 0.8 },
@@ -58,8 +51,6 @@ export const OUTFITS = {
     sleepwear: { pieces: [top('#243040', 0.95), shorts('#1c242c')], warmth: 0.3 },
     robe: { pieces: [robeP('#1c2830')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
-    underwear: { pieces: [shorts('#1a2028')], warmth: 0.1 },
-    none: { pieces: [], warmth: 0.05 },
   },
   refugee: {
     street_armor: { pieces: [top('#3a342c', 0.85), leggings('#2a241c'), { piece: 'jacket', color: '#2c281e', roughness: 0.75 }], warmth: 0.7 },
@@ -70,8 +61,6 @@ export const OUTFITS = {
     sleepwear: { pieces: [top('#3a342c', 0.95), shorts('#2a241c')], warmth: 0.3 },
     robe: { pieces: [robeP('#3a342c')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
-    underwear: { pieces: [shorts('#2a241c')], warmth: 0.1 },
-    none: { pieces: [], warmth: 0.05 },
   },
 
   // ── hostiles ────────────────────────────────────────────────────────────

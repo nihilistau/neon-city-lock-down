@@ -1,5 +1,5 @@
 // @ts-check
-// Settings tab: explicitness cap, audio volumes, LLM adapter, TTS sidecar.
+// Settings tab: audio volumes, LLM adapter, TTS sidecar.
 import { settings, setSetting } from '../../core/settings.js';
 import { appearanceBlock } from '../appearance.js';
 
@@ -7,13 +7,6 @@ import { appearanceBlock } from '../appearance.js';
 export function tabSettings(el, app) {
   const vol = settings.volumes;
   el.innerHTML = `
-    <div class="dir-section">
-      <div class="dir-label">EXPLICITNESS CAP</div>
-      <div class="dir-row" id="st-exp">
-        ${['suggestive', 'mature', 'full'].map((x) =>
-          `<button data-exp="${x}" class="${settings.explicitness === x ? 'active' : ''}">${x}</button>`).join('')}
-      </div>
-    </div>
     <div class="dir-section">
       <div class="dir-label">SUBTITLE SIZE</div>
       <div class="dir-row"><input type="range" min="0.7" max="1.6" step="0.1" value="${settings.subtitleScale || 1}" id="st-subs"></div>
@@ -58,13 +51,6 @@ export function tabSettings(el, app) {
   look.el.appendChild(lookHint);
   el.insertBefore(look.el, el.firstChild);
 
-  el.querySelector('#st-exp').addEventListener('click', (e) => {
-    const btn = /** @type {HTMLElement} */ (e.target);
-    if (!btn.dataset?.exp) return;
-    setSetting('explicitness', btn.dataset.exp);
-    globalThis.__ncldExplicitness = btn.dataset.exp;
-    el.querySelectorAll('[data-exp]').forEach((b) => b.classList.toggle('active', b === btn));
-  });
   el.querySelectorAll('[data-vol]').forEach((input) => {
     input.addEventListener('input', () => {
       setSetting(`volumes.${input.dataset.vol}`, Number(input.value));

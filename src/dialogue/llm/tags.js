@@ -48,8 +48,8 @@ const FACE_ALIAS = {
   eyebrow: 'brow', seductive: 'smirk', sultry: 'smirk', tease: 'smirk', bite_lip: 'pout',
   flushed: 'blush', wide_eyes: 'open',
 };
-const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel', 'underwear', 'none']);
-const COVERAGE_MAP = { full: 'evening_wear', outer_off: 'underwear', lingerie: 'underwear', partial: 'towel', nude: 'none', naked: 'none', robe: 'robe', towel: 'towel' };
+const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel']);
+const COVERAGE_MAP = { full: 'evening_wear', partial: 'towel', robe: 'robe', towel: 'towel' };
 const STATS = new Set(['arousal', 'pleasure', 'happiness', 'horniness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
 const GATE_TIERS = new Set(['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved']);
 
