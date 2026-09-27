@@ -9,7 +9,7 @@ tower (three.js, no bundler, no build step). The player is locked in a
 penthouse with three autonomous NPCs while riots and faction wars tear up the
 streets below — chat-first roleplay, day/night survival, combat, and
 mini-games, all driven by an offline dialogue engine with an optional LLM
-adapter for surface-text restyling. Current version: **0.7.0-alpha.1**, sub-project 2 of the 7-part upgrade (asset pipeline + render quality).
+adapter for surface-text restyling. Current version: **0.7.0-alpha.2**, sub-project 2 of the 7-part upgrade (asset pipeline + render quality).
 
 ## Run / test / lint
 
@@ -64,6 +64,14 @@ After any UI change a README screenshot shows, re-run the matching shot
   version. `?noassets=1` forces that path for the whole game. Assets are added
   only through `assets/manifest.json` + `tools/fetch-assets.mjs` (CC0 only,
   40 MB budget, sha256-checked by `npm run lint`).
+- **`src/scene3d/materials/pbr.js`** — every shell and furniture surface is a
+  named library material (`pbrMaterial(name, {tint, roughness, metalness})`),
+  shared per key, carrying `userData.metresPerRepeat` for world UVs. Add a
+  surface to the library rather than building a one-off MeshStandardMaterial.
+  **The returned material is shared — never mutate it** (clone before
+  changing anything on it); its tint IS the displayed colour (measured
+  against the scan's own mean albedo), and its roughness is honoured against
+  the scan's measured `scanRoughness`, not overwritten.
 
 ## Blender (dev tool, optional)
 
@@ -143,7 +151,7 @@ node tools/blender/run.mjs preview <in> <out.png>                  # 512² EEVEE
 0.7 is sub-project 2 of a 7-part upgrade:
 
 1. Content cleanse + bonds (v0.6, released)
-2. Asset pipeline + render quality (this sub-project, at alpha.1)
+2. Asset pipeline + render quality (this sub-project, at alpha.2)
 3. GLTF characters
 4. Survival/lockdown loop
 5. Combat and stealth

@@ -80,6 +80,10 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
     <td><img src="docs/screenshots/10-extraction-victory.jpg" alt="Extraction ending"><br><sub><b>Perma-death & endings</b> — survive to the extraction, or don't. A run summary either way.</sub></td>
     <td></td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/v0.6/03-penthouse-lounge.jpg" alt="Penthouse lounge, v0.6"><br><sub><b>Before (v0.6)</b> — the penthouse lounge on the old canvas textures.</sub></td>
+    <td><img src="docs/screenshots/03-penthouse-lounge.jpg" alt="Penthouse lounge, alpha.2"><br><sub><b>After (alpha.2)</b> — the same lounge on the PBR material library: world-scale UVs, bevelled hero furniture, measured tint and roughness.</sub></td>
+  </tr>
 </table>
 
 <sub>Every image is captured from the running game by <code>node tools/screenshots.mjs</code> — see <a href="docs/development.md">docs/development.md</a>.</sub>
@@ -108,8 +112,10 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   skeletons with parametric skinning, physically-shaded skin (sheen) and hair
   (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
   (procedural gait, pose clips, additive breathing, gaze). 14 zones across 7
-  floors, elevator transit, 10 lighting presets, time-of-day, a procedural city
-  backdrop, rain, news-ticker monitors, and **openable velvet curtains** that draw
+  floors built from a PBR material library (Poly Haven scans, procedural
+  fallback) with world-scale UVs and bevelled hero furniture, elevator
+  transit, 10 lighting presets, time-of-day, a procedural city backdrop,
+  rain, news-ticker monitors, and **openable velvet curtains** that draw
   across the glass to shut out the city.
 - **New-game flow & roguelike.** A main menu picks from 15 scenarios (three earned by play) and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
@@ -226,7 +232,7 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — 313 unit tests (stats, bond, dialogue, combat, sim…)
+npm test                              # node --test — 363 unit tests (stats, bond, dialogue, combat, sim…)
 npm run test:e2e                      # playwright — 12 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references

@@ -30,6 +30,68 @@ pattern for any new presentation layer.
   **Gotcha:** each pull uses a large **invisible hit-proxy** box (`material.visible=false` still raycasts)
   so the center-screen FP crosshair can actually land on it — the brass tie-back ring alone is too small.
 
+### Materials (`src/scene3d/materials/`)
+- **`pbr.js` — `PBR_LIBRARY` + `pbrMaterial(name, {tint, roughness, metalness})`** — every shell and
+  furniture surface is one of these named entries, keyed by tint/roughness/metalness and cached, so
+  identical requests share one `THREE.MeshStandardMaterial` instance:
+
+  | name | Poly Haven set | metres/repeat |
+  | --- | --- | --- |
+  | `concrete` | `smooth_concrete_floor` | 2.5 |
+  | `concreteFloor` | `concrete_floor_worn_001` | 2.0 |
+  | `metal` | `metal_plate_02` | 1.0 |
+  | `metalDark` | `painted_metal_shutter` | 1.2 |
+  | `tile` | `floor_tiles_08` | 6.0 (1.5 m slabs; scan is 4×4) |
+  | `marble` | *(procedural only — `marble_01` is travertine blocks, not veined marble)* | 1.5 |
+  | `wood` | `plank_flooring_04` (`rotate: true`) | 1.8 |
+  | `fabric` | `dirty_carpet` | 0.8 |
+  | `bedding` | *(procedural only — reads better than any carpet scan at bed scale)* | 0.6 |
+  | `rust` | `rusty_metal_02` | 1.2 |
+
+  **Hybrid rule:** when the asset pipeline has decoded a set's textures
+  (`src/assets/assets.js`), `pbrMaterial` builds a `MeshStandardMaterial` from its
+  albedo/normal/ORM (AO/roughness/metalness) maps; otherwise it falls back to the
+  matching `texGen.js` canvas + Sobel normal map. A missing file, `?noassets=1`, or
+  a Node test all take the procedural path — never an untextured box.
+  Colour and roughness are **measured, not guessed**: each entry records the set's
+  own mean linear albedo and ORM roughness/metalness means, and a loaded set's
+  colour is `tint / albedo` per channel (capped so no channel's mean exceeds 0.9)
+  and its roughness/metalness scalars are `authored / scanRoughness` (/
+  `scanMetalness`) — so **the tint IS the displayed colour** on a loaded set too,
+  and an **authored roughness override is honoured** (a 0.2-gloss floor actually
+  renders glossy) instead of being overwritten by the scan's own values.
+  **The returned material is SHARED — never mutate it** (clone it, or swap a
+  per-mesh copy in and out the way `picking.js`'s hover glow does).
+- **`worldUV.js` — `applyWorldUVsTo(root)`** — rewrites UVs so every box, cylinder
+  (arc-length unroll + plan-view caps), sphere, and scaled mesh gets one texture
+  repeat per `material.userData.metresPerRepeat` metres, so a 2.4 m counter and a
+  0.3 m shelf show grain at the same scale. `World3D` runs it once per floor after
+  that floor's meshes are built. A material with `userData.uvRotate` (the `wood`
+  entry's `rotate: true`) gets U/V swapped so its plank boards run along the
+  panel instead of standing as vertical slats.
+- **Bevels** — `tower/furniture.js`'s `box(group, material, w, h, d, x, y, z, ry,
+  { bevel })` swaps in `RoundedBoxGeometry` above a ~2 mm bevel (`HERO = 0.02`,
+  `SOFT = 0.045`) so hero pieces (couch, armchairs, bed, tables, counters, desks)
+  catch a highlight on their edges; colliders and sockets are computed from the
+  same box dimensions and are unaffected.
+- **Seeded texGen (`texGen.js` — `recipeRandom(key)`)** — every procedural
+  recipe (concrete, wood grain, city-window skyline, …) draws from a
+  `mulberry32` stream seeded from `texgen:${key}` instead of `Math.random()`, so
+  the same cache key always paints the same texture across boots — required for
+  reproducible screenshots and visual review.
+- **Prop dressing (`tower/props.js` — `fitProp(model, height, material)`,
+  `data/propDressing.js`)** — a Kenney model clone is baked to world geometry,
+  centred on its own footprint, scaled uniformly to a real `height` in metres,
+  re-skinned with one library material (Kenney's atlas UVs mean nothing to a
+  tiled PBR texture, so `fitProp` re-runs `applyWorldUVs` on it), and placed. Each
+  prop is opt-in per floor in `propDressing.js`; if the source model failed to
+  load, the prop is simply **absent — never a placeholder**.
+- **Per-floor preload (`tower/zoneBuilder.js` — `World3D.create(...)`)** — the
+  async factory awaits every PBR set (`PBR_SET_IDS`) and prop model a floor needs
+  before building that floor's Group, and the floor stays hidden until its build
+  finishes, so nothing pops in as textures or models arrive late. The synchronous
+  constructor still builds procedurally (no await) so unit tests stay fast.
+
 ### Asset facade (`src/assets/`)
 - **`assets.js` — `createAssets({loaders, enabled, base, fetchJson, manifestTimeoutMs, log})`** —
   the one door for binary assets. `init()` reads `assets/manifest.json` (10 s timeout); then

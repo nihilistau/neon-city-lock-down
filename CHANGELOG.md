@@ -3,6 +3,46 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.7.0-alpha.2] — 2026-09-28 — Surfaces
+
+The tower stops looking like untextured boxes. Every shell and furniture
+surface comes from a named PBR library backed by Poly Haven scans, with the
+old canvas textures as the fallback per surface.
+
+### Added
+- **PBR material library** (`src/scene3d/materials/pbr.js`) — `concrete`,
+  `concreteFloor`, `metal`, `metalDark`, `tile`, `marble`, `wood`, `fabric`,
+  `bedding`, `rust`. Each is a 1K Poly Haven set (albedo, normal, packed
+  AO/roughness/metalness) when the asset pipeline has it, and the texGen
+  canvas + Sobel normal map otherwise. Colour and roughness are measured
+  against each scan's own mean, so a loaded set's tint is the displayed
+  colour and an authored roughness override still holds.
+- **World-scale UVs** (`src/scene3d/materials/worldUV.js`) — one texture repeat
+  per N metres on every box, cylinder (arc-length unroll + plan-view caps),
+  sphere, and scaled mesh, so a 2.4 m counter and a 0.3 m shelf show their
+  grain at the same scale.
+- **Bevelled hero furniture** — couch, armchairs, bed, tables, counters and
+  desks use RoundedBoxGeometry, so their edges catch a highlight. Colliders and
+  sockets are unchanged.
+- **Kenney prop dressing** (`data/propDressing.js`) — books, a plant, a bin, a
+  laptop, boxes, a rooftop tank and solar panel, fitted to real heights and
+  re-skinned with library materials. Opt-in per prop; absent (never a
+  placeholder) if the model did not load.
+- `World3D.create()` preloads each floor's assets before building it, so
+  nothing pops in; floors stay hidden until the build finishes.
+
+### Fixed
+- Procedural textures were drawn with `Math.random()`, so every boot painted
+  different concrete, wood grain and skyline windows. Each recipe now seeds its
+  own stream from its cache key.
+- The hover glow no longer mutates shared materials: the picker clones a
+  mesh's material once, glows the clone, and releases it (including when a
+  hostile is removed mid-hover). A cinematic camera hovers nothing, fixing the
+  bed two-shot washed flat cyan by a stale hover.
+- Outfit layout: a top worn with a bottom tucks under the waistband instead of
+  showing a bare skin band at the hip; shorts run to just above the knee, and
+  the shirtless swim/sleep states got a top.
+
 ## [0.7.0-alpha.1] — 2026-09-27 — Plumbing
 
 The first stage of sub-project 2 (asset pipeline + render quality). Nothing
