@@ -53,7 +53,7 @@ registerTopics([
         text: "[[anim:gesture_cross_arms]] [[face:neutral]] Running on fumes and spite. [[look:player]] The spite's the part that lasts.",
         fx: { dominance: 1 } },
       { when: { statGte: { trust: 45 } },
-        text: "[[face:blush:0.3]] [[face:smirk]] [[look:player]] Restless. [[anim:gesture_lean_in]] Do something about that or stop asking.",
+        text: "[[face:blush:0.3]] [[face:smirk]] [[look:player]] Restless. [[anim:gesture_lean_in]] Forty floors and nothing to shoot. Find me a problem worth solving or stop asking.",
         fx: { happiness: 2, trust: 1 } },
       { when: { flag: 'lola_named' },
         text: "[[face:grit]] [[anim:gesture_cross_arms]] There's a bounty rumour with my name on it and forty floors between me and the street. [[look:player]] So. Excellent.",
@@ -217,7 +217,7 @@ registerTopics([
     cond: { flag: 'lola_flirting', bondAtLeast: 'ally' },
     lines: [
       { when: { statGte: { trust: 45 } },
-        text: "[[face:blush:0.5]] [[anim:gesture_lean_in]] [[look:player]] ...You don't scare easy. Good. Come here, then. Slowly. I bruise people who rush me.",
+        text: "[[face:blush:0.5]] [[anim:gesture_lean_in]] [[look:player]] ...You don't scare easy. Good. Keep that up and I might start telling you things. Don't rush it. I bruise people who rush me.",
         fx: { happiness: 2, trust: 1 } },
       { text: "[[face:smirk]] [[face:blush:0.3]] Easy, legend. [[look:player]] The night's long and I don't reward impatience. Impress me first.",
         fx: { tension: 2 } },

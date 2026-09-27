@@ -13,6 +13,10 @@ const BANNED = [
   /\barousal\b/i, /\bhorniness\b/i, /\bhorny\b/i, /\berotic\b/i, /\b18\+/, /adults?-only/i,
   /\bnaked\b/i, /\bnude\b/i, /\bexplicitness\b/i, /\bgateTier\b/, /\bbed_(recline|reach|arch|straddle|climax)\b/,
   /\bdirty[- ]talk\b/i, /\btalk dirty\b/i, /\bsafeword\b/i, /\bdepraved\b/i, /\blingerie\b/i,
+  // Aria's old escort-coded backstory (she is a corporate negotiator now) and
+  // the last physical come-ons (v0.6.0 final fix wave)
+  /\bexpensive company\b/i, /\bher clients used\b/i, /\brich men feel\b/i, /\bsomeone warm at a cold party\b/i,
+  /\bcome here, then\. slowly\b/i, /\bdo something about that or stop asking\b/i,
 ];
 // the guard's own word list, and vendored third-party code
 const SKIP = [/^vendor\//, /node_modules/, /test\/unit\/clean-content/];
