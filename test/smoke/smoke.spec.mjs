@@ -237,6 +237,18 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(result.elapsed).toBeLessThan(20000);
   });
 
+  test('bed: sit, lie down, get up — no console errors', async ({ page }) => {
+    const errors = await bootToRun(page);
+    // use() cycles the bed: standing -> sitting (first person), sitting ->
+    // lying down, lying down -> back up on your feet.
+    const states = await page.evaluate(() => {
+      const b = window.__ncld.app.bedScene;
+      return [b.use(), b.use(), b.use()];
+    });
+    expect(states).toEqual(['sitting', 'lying', 'none']);
+    expect(errors).toEqual([]);
+  });
+
   test('death ends the run and records it', async ({ page }) => {
     await bootToRun(page);
     const result = await page.evaluate(async () => {
