@@ -9,6 +9,7 @@
 //   { array:'number', len? }                                  — array of a type
 //   { map: <node> }                                           — free-form key → node
 //   { <key>: <node>, ... }                                    — fixed-shape object
+//   { open: true, <key>: <node>, ... }                        — checks the listed keys, tolerates others
 
 const num = (min, max) => ({ type: 'number', min, max });
 
@@ -98,7 +99,17 @@ export const CONFIG_SCHEMA = {
   lighting: {
     // presets/tod are deep free-form structures (colors, intensities, pulse variants);
     // validated as present objects — the game tolerates missing fields (falls back).
-    presets: { map: { any: true } },
+    // Except `ibl`: its numbers go straight into PMREM and the sky dome, where a
+    // bad value is not a crash but a white-out or a black sky, so range-check it.
+    presets: {
+      map: {
+        open: true,
+        ibl: {
+          envIntensity: num(0, 3), rotation: { type: 'number' },
+          skyTint: num(0, 0xffffff), skyExposure: num(0, 4),
+        },
+      },
+    },
     tod: { array: 'object', minLen: 2 },   // need ≥2 keyframes to interpolate
     envIntensity: num(0, 3),
     hemiScale: num(0, 2),
@@ -203,6 +214,7 @@ function checkNode(node, val, path, errs) {
   // fixed-shape object
   if (typeof val !== 'object' || Array.isArray(val)) return errs.push(`${path}: expected object`);
   for (const [k, v] of Object.entries(val)) {
+    if (node.open && (k === 'open' || !(k in node))) continue;
     if (!(k in node)) { errs.push(`${path}.${k}: unknown key`); continue; }
     checkNode(node[k], v, `${path}.${k}`, errs);
   }
