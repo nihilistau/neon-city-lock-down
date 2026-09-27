@@ -122,7 +122,7 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   };
 
   const save = buildSave(app, '');
-  assert.equal(save.version, 1);
+  assert.equal(save.version, 2);
   assert.equal(save.meta.day, 4);
   assert.equal(save.meta.playerName, 'Nyx');
   assert.match(save.meta.label, /Day 4/);
@@ -261,11 +261,11 @@ test('a save from another version is refused, loudly and quietly', () => {
   const app = makeApp();
   const save = buildSave(app);
 
-  assert.throws(() => applySave(/** @type {any} */ (app), { ...save, version: 2 }),
-    /save version 2 unsupported/, 'applySave must refuse a future save');
+  assert.throws(() => applySave(/** @type {any} */ (app), { ...save, version: 3 }),
+    /save version 3 unsupported/, 'applySave must refuse a future save');
   assert.throws(() => applySave(/** @type {any} */ (app), { ...save, version: 0 }), /unsupported/);
 
-  assert.deepEqual(parseSaveEnvelope({ ...save, version: 2 }), { ok: false, reason: 'version' });
+  assert.deepEqual(parseSaveEnvelope({ ...save, version: 3 }), { ok: false, reason: 'version' });
   assert.equal(parseSaveEnvelope({ ...save, run: undefined }).reason, 'shape');
   assert.equal(parseSaveEnvelope({ ...save, clock: undefined }).reason, 'shape');
   assert.equal(parseSaveEnvelope({ ...save, characters: undefined }).reason, 'shape');
@@ -273,7 +273,7 @@ test('a save from another version is refused, loudly and quietly', () => {
   assert.equal(parseSaveEnvelope(JSON.stringify(save)).reason, 'not_object', 'a string is not an envelope');
   assert.equal(parseSaveEnvelope(save).ok, true);
 
-  // migrate is the forward path; today it is identity, and must stay total
+  // migrate is the forward path; v2 saves need no migration
   assert.equal(migrate(save), save);
 
   // importSave turns all of that into a result rather than a throw
@@ -349,4 +349,35 @@ test('rng restore reaches streams the loading session has not created yet', () =
     (() => { const r = new Rng('lockdown-seed'); const e = r.stream('events');
       for (let i = 0; i < 9; i++) e.next(); return r.serialize(); })())));
   assert.equal(fresh.stream('events').next(), expected);
+});
+
+test('a v0.5 (version 1) save with retired intimacy state migrates and loads', () => {
+  const app = makeApp();
+  const v2 = buildSave(app);
+  const legacy = JSON.parse(JSON.stringify(v2));
+  legacy.version = 1;
+  for (const c of Object.values(legacy.characters)) {
+    c.stats = { ...c.stats, arousal: 70, pleasure: 40, horniness: 55 };
+    c.gates = { light_touch: 'granted', kiss: 'offered' };
+    c.consent = { ladder: {}, withdrawn: false, safeword: false };
+    c.wardrobe = { current: 'none' };
+    delete c.bond;
+  }
+  const m = migrate(legacy);
+  assert.equal(m.version, 2);
+  for (const c of Object.values(m.characters)) {
+    assert.ok(!('gates' in c) && !('consent' in c));
+    assert.ok(!('arousal' in c.stats) && !('pleasure' in c.stats) && !('horniness' in c.stats));
+    assert.equal(c.wardrobe, undefined);
+  }
+  assert.doesNotThrow(() => applySave(app, legacy));
+  assert.equal(Object.keys(app.cast.lola.stats).length, 9);
+  assert.ok(app.cast.lola.bond);
+});
+
+test('a v1 envelope imports via parseSaveEnvelope after migration', () => {
+  const app = makeApp();
+  const v2 = buildSave(app);
+  const legacy = { ...v2, version: 1 };
+  assert.equal(parseSaveEnvelope(legacy).ok, true, 'v1 envelopes must migrate then validate');
 });

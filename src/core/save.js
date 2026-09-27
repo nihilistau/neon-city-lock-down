@@ -3,8 +3,9 @@
 // run state, characters (stats/bond/memory/position/wardrobe/brain), lighting.
 // Autosave is deleted on death — perma-death is real.
 
+import { STAT_KEYS } from '../chars/stats.js';
 
-const VERSION = 1;
+const VERSION = 2;
 const SLOT_PREFIX = 'ncld.slot.';
 export const AUTOSAVE_KEY = 'ncld.autosave';
 
@@ -39,14 +40,34 @@ export function buildSave(app, label = '') {
   };
 }
 
+/** outfit states retired with the v0.6 content cleanse */
+const RETIRED_OUTFITS = new Set(['none', 'underwear']);
+
 /**
- * Migrate an older save envelope forward to the current VERSION. Add a case per
- * version bump; each step upgrades v→v+1. Unknown-shaped saves fail loudly.
+ * Migrate an older save envelope forward to the current VERSION. Each case
+ * upgrades v→v+1. Unknown-shaped saves fail loudly in applySave.
  * @param {any} save
  */
 export function migrate(save) {
-  let s = save;
-  // (future) while (s.version < VERSION) { switch (s.version) { case 1: ...; s.version = 2; } }
+  const s = save;
+  while (s && s.version < VERSION) {
+    switch (s.version) {
+      case 1: {
+        // v0.6 retired the intimacy ladder and three stats. Old runs keep
+        // everything else; the bond tier re-derives from trust + loyalty.
+        for (const c of Object.values(s.characters || {})) {
+          delete c.gates;
+          delete c.consent;
+          if (c.stats) c.stats = Object.fromEntries(Object.entries(c.stats).filter(([k]) => STAT_KEYS.includes(/** @type {any} */ (k))));
+          if (c.wardrobe && RETIRED_OUTFITS.has(c.wardrobe.current)) delete c.wardrobe;
+        }
+        s.version = 2;
+        break;
+      }
+      default:
+        return s;   // unknown version: applySave rejects it
+    }
+  }
   return s;
 }
 
@@ -149,6 +170,7 @@ export function exportSave(app) {
  */
 export function parseSaveEnvelope(raw) {
   if (!raw || typeof raw !== 'object') return { ok: false, reason: 'not_object' };
+  raw = migrate(raw);
   if (raw.version !== VERSION) return { ok: false, reason: 'version' };
   if (!raw.run || typeof raw.run !== 'object') return { ok: false, reason: 'shape' };
   if (!raw.clock || typeof raw.clock !== 'object') return { ok: false, reason: 'shape' };
