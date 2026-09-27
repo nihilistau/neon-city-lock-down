@@ -11,9 +11,11 @@ const LEX = {
     'threat', 'threaten', 'liar', 'lie', 'coward', 'weak', 'pathetic', 'useless', 'enemy',
     'shoot', 'hurt', 'attack', 'angry', 'furious', 'disgust', 'despise', 'ugly'],
   command: ['do', 'go', 'come', 'stop', 'give', 'get', 'move', 'now', 'must', 'will', 'obey',
-    'kneel', 'strip', 'tell', 'show', 'bring', 'sit', 'stand', 'wait', 'listen', 'drink'],
-  flirt: ['kiss', 'touch', 'want', 'need', 'desire', 'tease', 'seduce', 'body', 'lips', 'skin',
-    'bed', 'close', 'closer', 'hot', 'sexy', 'naughty', 'dirty', 'crave'],
+    'tell', 'show', 'bring', 'sit', 'stand', 'wait', 'listen', 'drink'],
+  // PG-13 flirtation only (the game is all-audiences). Entries are STEMS — see
+  // normalize.js stem(): 'charming' → 'charm', 'dancing' → 'danc', 'gorgeous' → 'gorgeou'.
+  flirt: ['kiss', 'flirt', 'tease', 'wink', 'charm', 'cute', 'pretty', 'handsome', 'gorgeou',
+    'date', 'dance', 'danc', 'blush', 'want', 'need', 'close', 'closer'],
   fear: ['scared', 'afraid', 'help', 'please', 'run', 'hide', 'danger', 'panic', 'terrified'],
 };
 
