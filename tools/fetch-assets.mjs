@@ -44,6 +44,7 @@ const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const ASSETS = resolve(ROOT, 'assets');
 const MANIFEST = join(ROOT, 'assets', 'manifest.json');
 const CACHE = join(ROOT, 'node_modules', '.cache', 'ncld-assets');
+const DOWNLOAD_TIMEOUT_MS = 60_000;
 const mb = (n) => (n / 1048576).toFixed(2);
 
 /** @param {string} url */
@@ -51,9 +52,19 @@ async function download(url) {
   const cached = join(CACHE, createHash('sha256').update(url).digest('hex').slice(0, 24));
   if (existsSync(cached)) return readFile(cached);
   console.log(`    ↓ ${url}`);
-  const res = await fetch(url, { headers: { 'User-Agent': 'neon-city-lock-down fetch-assets' } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  // A stalled CDN must fail the run, not hang it — and say which URL stalled.
+  let buf;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'neon-city-lock-down fetch-assets' },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    buf = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') throw new Error(`timed out after ${DOWNLOAD_TIMEOUT_MS / 1000} s: ${url}`);
+    throw err;
+  }
   await mkdir(CACHE, { recursive: true });
   await writeFile(cached, buf);
   return buf;

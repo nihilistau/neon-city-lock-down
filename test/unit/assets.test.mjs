@@ -206,3 +206,31 @@ test('a manifest that fails to load degrades every asset to null', async () => {
   assert.equal(calls.length, 0);
   assert.ok(logs.some((l) => /manifest/.test(l)));
 });
+
+test('a manifest request that never answers times out: init settles, every asset degrades to null', async () => {
+  const logs = [];
+  const assets = createAssets({
+    loaders: null, log: (m) => logs.push(m), manifestTimeoutMs: 20,
+    fetchJson: () => new Promise(() => {}),
+  });
+  await assets.init();   // would hang forever without the timeout
+  assert.equal(await assets.loadPBR('rock'), null);
+  assert.ok(logs.some((l) => /manifest unavailable.*timed out/.test(l)), logs.join('\n'));
+});
+
+test('the default fetchJson aborts a hung fetch after the timeout and never rejects', async () => {
+  const realFetch = globalThis.fetch;
+  /** @type {AbortSignal|undefined} */
+  let seen;
+  globalThis.fetch = /** @type {any} */ ((_url, init) => { seen = init?.signal; return new Promise(() => {}); });
+  try {
+    const logs = [];
+    const assets = createAssets({ loaders: null, log: (m) => logs.push(m), manifestTimeoutMs: 20 });
+    await assets.init();
+    assert.ok(seen, 'the manifest fetch carries an AbortSignal');
+    assert.ok(logs.some((l) => /manifest unavailable/.test(l)));
+    assert.equal(await assets.loadLUT('grade'), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

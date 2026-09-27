@@ -39,7 +39,8 @@ import * as THREE from 'three';
  *   loaders?: AssetLoaders | Promise<AssetLoaders|null> | null,
  *   enabled?: boolean,
  *   base?: string,
- *   fetchJson?: (url:string) => Promise<any>,
+ *   fetchJson?: (url:string, signal?:AbortSignal) => Promise<any>,
+ *   manifestTimeoutMs?: number,
  *   log?: (msg:string) => void,
  * }} [opts]
  */
@@ -47,8 +48,11 @@ export function createAssets(opts = {}) {
   const enabled = opts.enabled !== false;
   const base = opts.base ?? '/';
   const log = opts.log ?? ((m) => console.warn(m));
-  const fetchJson = opts.fetchJson ?? (async (url) => {
-    const res = await fetch(url, { cache: 'no-store' });
+  // A hung manifest request must not stall `await assetsReady` forever: past
+  // this, the manifest counts as unavailable and the whole game goes procedural.
+  const manifestTimeoutMs = opts.manifestTimeoutMs ?? 10_000;
+  const fetchJson = opts.fetchJson ?? (async (url, signal) => {
+    const res = await fetch(url, { cache: 'no-store', signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   });
@@ -136,11 +140,23 @@ export function createAssets(opts = {}) {
         log('[assets] disabled (?noassets=1) — every surface uses its procedural fallback');
         return;
       }
+      /** @type {ReturnType<typeof setTimeout>|undefined} */
+      let timer;
       try {
-        const m = await fetchJson(manifestUrl);
+        // The race covers an injected fetchJson that ignores the signal, too.
+        const ctl = new AbortController();
+        const timeout = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            ctl.abort();
+            reject(new Error(`timed out after ${manifestTimeoutMs} ms`));
+          }, manifestTimeoutMs);
+        });
+        const m = await Promise.race([fetchJson(manifestUrl, ctl.signal), timeout]);
         for (const e of m?.entries ?? []) entries.set(e.id, e);
       } catch (err) {
         warnOnce('manifest', `manifest unavailable (${err instanceof Error ? err.message : err}) — every asset falls back to procedural`);
+      } finally {
+        clearTimeout(timer);
       }
     },
 

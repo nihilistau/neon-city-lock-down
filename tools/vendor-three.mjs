@@ -56,15 +56,23 @@ const ADDONS = [
   'geometries/RoundedBoxGeometry.js',
 ];
 
+const TARBALL_TIMEOUT_MS = 120_000;
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 
 async function tarball() {
   const cached = join(CACHE, `three-${VERSION}.tgz`);
   if (existsSync(cached)) return readFile(cached);
   console.log(`  ↓ ${TARBALL}`);
-  const res = await fetch(TARBALL);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${TARBALL}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  // The tarball is ~10 MB; a stalled registry must fail the run, not hang it.
+  let buf;
+  try {
+    const res = await fetch(TARBALL, { signal: AbortSignal.timeout(TARBALL_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${TARBALL}`);
+    buf = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') throw new Error(`timed out after ${TARBALL_TIMEOUT_MS / 1000} s: ${TARBALL}`);
+    throw err;
+  }
   await mkdir(CACHE, { recursive: true });
   await writeFile(cached, buf);
   return buf;
