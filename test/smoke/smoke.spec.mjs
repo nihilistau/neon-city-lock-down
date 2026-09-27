@@ -17,13 +17,13 @@ import { test, expect } from '@playwright/test';
 const URL = process.env.NCLD_URL || 'http://localhost:8420/?debug=1';
 
 /** Boot to a live run and hand back the page. Fails loudly rather than timing out silently. */
-async function bootToRun(page) {
+async function bootToRun(page, url = URL) {
   /** @type {string[]} */
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   const newRun = page.getByRole('button', { name: /New Run/i });
   await expect(newRun).toBeVisible({ timeout: 10000 });
@@ -83,6 +83,37 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(state.lights).toBeGreaterThan(0);
     // an ignorable-error allowlist would defeat the point; there should be none
     expect(errors, `console errors during boot:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('a normal boot raises zero pageerror events', async ({ page }) => {
+    // Regression guard for R1: startRun() now awaits this.assetsReady before
+    // the world/cameraRig/lighting/combatFx exist, and render() dereferences
+    // them when mode==='run'. If that guard regresses, a normal (non-
+    // ?noassets) boot throws a TypeError from render() on every frame while
+    // the (real, async) loader import is in flight — a failure the
+    // ?noassets=1 path can't catch, because there the loader promise is null
+    // and settles as a same-tick microtask.
+    /** @type {string[]} */
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    await bootToRun(page);
+    expect(pageErrors, `pageerror events during a normal boot:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
+  test('?noassets=1 boots on procedural fallbacks with no console errors', async ({ page }) => {
+    // The asset pipeline is an enhancement. With it switched off entirely the
+    // game must still boot, build every floor and render — the same path a
+    // clone with a missing or corrupt asset takes.
+    const errors = await bootToRun(page, `${URL}&noassets=1`);
+    const state = await page.evaluate(() => ({
+      enabled: window.__ncld.app.assets.enabled,
+      mode: window.__ncld.app.mode,
+      floor: window.__ncld.app.world.activeFloor,
+    }));
+    expect(state.enabled).toBe(false);
+    expect(state.mode).toBe('run');
+    expect(state.floor).toBe('penthouse');
+    expect(errors, `console errors during a no-assets boot:\n${errors.join('\n')}`).toEqual([]);
   });
 
   test('the control hint is visible — it shipped hidden once', async ({ page }) => {

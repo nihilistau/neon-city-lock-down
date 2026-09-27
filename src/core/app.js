@@ -22,6 +22,8 @@ import { settings } from './settings.js';
 import { setDebugLogging, dbg, feed } from './log.js';
 import { emit, on } from './bus.js';
 import { Stage } from '../scene3d/stage.js';
+import { createAssets } from '../assets/assets.js';
+import { browserLoaders } from '../assets/loaders.js';
 import { CombatFx } from '../scene3d/combatFx.js';
 import { PostFX } from '../scene3d/postfx.js';
 import { BootScene } from '../scene3d/bootScene.js';
@@ -127,6 +129,22 @@ export class App {
     this.clock = new GameClock();
     this.rng = new Rng(Date.now());
     this.stage = new Stage(/** @type {HTMLCanvasElement} */(document.getElementById('gl')));
+
+    // The asset facade. `?noassets=1` forces every loader to its procedural
+    // fallback without a single request — the switch the e2e suite uses to
+    // prove the game boots with no asset pipeline at all. A loader set that
+    // fails to import degrades the same way: warned once, then null.
+    const noAssets = params.get('noassets') === '1';
+    this.assets = createAssets({
+      enabled: !noAssets,
+      loaders: noAssets ? null : browserLoaders(this.stage.renderer).catch((err) => {
+        console.warn('[assets] loaders unavailable — procedural fallbacks only', err);
+        return null;
+      }),
+    });
+    /** settles (never rejects) once the manifest is read */
+    this.assetsReady = this.assets.init();
+
     this.postfx = new PostFX(this.stage);
     this.bootScene = new BootScene(this.stage, this.rng.stream('boot'));
 
@@ -173,12 +191,21 @@ export class App {
     this._startOpts = opts;
     this.bootScene.dispose();
     this.bootScene = null;
-    this.mode = 'run';
     // False from the moment a run starts until the opening beat (scenario
     // placement + its cutscene, or a resumed save) has fully settled. Tests
     // and any other code that must not act until the opening beat is done
     // should wait on this rather than inferring it from cutscene state.
     this.scenarioSettled = false;
+
+    // Settle the asset facade before building the world. NOTE: this.mode is
+    // NOT yet 'run' here — render() dereferences this.cameraRig/this.lighting
+    // /this.combatFx when mode==='run', and none of those exist until further
+    // down this method. Flipping mode here (as this line historically did)
+    // makes render() throw every frame during this await, invisible under
+    // ?noassets=1 (resolves as a microtask) but real on a normal boot with an
+    // async loader import. this.mode flips to 'run' right after this.cameraRig
+    // is constructed below; render() also guards on `this.cameraRig` existing.
+    await this.assetsReady;
 
     this.world = new World3D(this.stage, this.rng.stream('world'));
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
@@ -201,6 +228,7 @@ export class App {
     this.lighting.apply('neon_night', 0.01);
 
     this.cameraRig = new CameraRig(this.stage, this.world);
+    this.mode = 'run';   // see the note above assetsReady — must land after cameraRig exists
     this.picker = new Picker(this.stage, this.cameraRig);
     initHud();
     initStatBars();
@@ -1393,7 +1421,9 @@ export class App {
   render(dt) {
     const dtSec = dt * 0.001;
     if (this.mode === 'boot' && this.bootScene) this.bootScene.update(dt);
-    if (this.mode === 'run') {
+    // Guarded on this.cameraRig too: mode flips to 'run' partway through the
+    // (now async) startRun(), before cameraRig/lighting/combatFx exist.
+    if (this.mode === 'run' && this.cameraRig) {
       this.cameraRig.update(dtSec);
       this.lighting.update(dtSec);
       this.combatFx.update(dtSec, this.stage.camera);
