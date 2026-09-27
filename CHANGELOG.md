@@ -58,6 +58,14 @@ and adds a test that keeps it that way.
 - Aria's background is consistent everywhere: the README cast table and two of
   Lola's needling lines (`src/sim/ai/relationships.js`) still called her a
   "street girl" from before she became a corporate negotiator.
+- **CI** (`.github/workflows/ci.yml`) — unit tests + lint run on every push to
+  `master`/`overhaul/**` and every pull request into `master`; a Playwright
+  e2e job runs on pull requests into `master` and on manual dispatch.
+- **10 end-to-end tests.** A bed smoke test (`test/smoke/smoke.spec.mjs`)
+  drives `bedScene.use()` through sit, lie down, and get up and asserts no
+  console errors.
+- The `flirt` intent (`data/dialogue/intents.js`) no longer weights `desire`
+  or `touch` — its last two physical-cue keywords.
 
 ### Removed
 - Dead CSS for the bed game and Truth-or-Dare (`.bg-actions`, `.bg-ask`,

@@ -9,7 +9,7 @@ registerIntents([
   { id: 'compliment', weighted: [['beautiful', 2], ['gorgeous', 2], ['stunning', 2], ['pretty', 1.5], ['cute', 1.5], ['hot', 1.5], ['amazing', 1], ['incredible', 1], ['smart', 1], ['impressive', 1.5]], phrases: ['you look', 'i like you'] },
   { id: 'insult', weighted: [['stupid', 2], ['idiot', 2], ['pathetic', 2], ['weak', 1.5], ['coward', 2], ['ugly', 1.5], ['useless', 2], ['bitch', 1.5]], phrases: ['shut up', 'you suck'] },
   { id: 'threaten', weighted: [['kill', 2.5], ['shoot', 2], ['hurt', 1.5], ['threat', 2], ['gun', 1], ['die', 1.5]], phrases: ['ill kill', 'or else', 'watch yourself', 'dont test me'] },
-  { id: 'flirt', weighted: [['kiss', 2], ['want', 1], ['desire', 2], ['tease', 1.5], ['touch', 1.5], ['closer', 1.5]], phrases: ['come here', 'come closer', 'get closer'] },
+  { id: 'flirt', weighted: [['kiss', 2], ['want', 1], ['tease', 1.5], ['closer', 1.5]], phrases: ['come here', 'come closer', 'get closer'] },
   { id: 'backoff', keywords: ['stop', 'no', 'wait', 'enough', 'slow'], phrases: ['back off', 'slow down', 'not yet', 'give me space'], base: 0.5 },
   { id: 'ask_past', phrases: ['your past', 'your story', 'where are you from', 'who were you', 'tell me about yourself', 'your job', 'what do you do'], keywords: ['backstory', 'history', 'fixer'] },
   { id: 'ask_lockdown', keywords: ['lockdown', 'riot', 'outside', 'city', 'curfew', 'trapped', 'siege'], phrases: ['out there', 'the streets', 'whats happening'] },
