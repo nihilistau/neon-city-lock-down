@@ -78,9 +78,10 @@ export function migrate(save) {
 export function applySave(app, save) {
   save = migrate(save);
   if (save.version !== VERSION) throw new Error(`save version ${save.version} unsupported`);
-  // The bed state is not saved — a load always starts standing. Get up first so
-  // the first-person seated lock and any seated guest don't outlive the load.
-  app.bedScene?.getUp();
+  // The bed state is not saved — a load always starts standing. Reset (not
+  // getUp, which is a no-op while standing) so the first-person seated lock and
+  // every guest — seatedAt included — are cleared before the queues are.
+  app.bedScene?.reset();
   app.clock.deserialize(save.clock);
   // buildSave() has always captured rng state and applySave() never restored it,
   // so a seeded run stopped being reproducible the instant you loaded it. In

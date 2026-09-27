@@ -641,12 +641,16 @@ export class App {
       narration: (id) => narrationFor(id, this.rng.stream('bed')),
       player: () => this.run.player,
       brain: (id) => this.brains[id],
+      others: () => Object.values(this.cast),
     });
     // On the bed, E drives the bed wherever you are looking — lying down points
     // the eye at the ceiling, where the picker has nothing to hover.
     const pickInteract = this.cameraRig.fp.onInteract;
-    this.cameraRig.fp.onInteract = () => {
-      if (this.bedScene.playerState !== 'none') this.bedScene.use();
+    this.cameraRig.fp.onInteract = (e) => {
+      const onBed = this.bedScene.playerState !== 'none';
+      // a held E auto-repeats: without this it cycles sit → lie → up → sit…
+      if (e?.repeat && (onBed || this.picker.hovered === this._bedTarget)) return;
+      if (onBed) this.bedScene.use();
       else pickInteract?.();
     };
     on('bedscene.state', ({ player }) => {
@@ -655,22 +659,34 @@ export class App {
       const h = player !== 'none' ? this._bedTarget : this.picker.hovered;
       emit('pick.hover', h ? { id: h.id, prompt: h.prompt } : null);
     });
+    // a seated guest's brain is held until they are dismissed (non-persistent)
     on('bedscene.guest', ({ id, seated }) => {
       const b = this.brains[id];
-      if (!b) return;
-      // hold the guest's brain while seated (a day is effectively "until dismissed").
-      // Drop any in-flight action first: engage() clears a busy queue that still
-      // has a pending action, and that queue now holds the walk to the bed.
-      if (seated) { b._pendingAction = null; b.engage(this.clock.totalMinutes + 1440); }
-      else b.engagedUntil = this.clock.totalMinutes;
+      if (seated) b?.hold(); else b?.release();
     });
+    const bedHint = (text) => emit('hud.alert', { text, kind: 'info' });
+    /** @param {{ok:boolean, reason?:string}} r */
+    const bedRefused = (r) => {
+      if (r.reason === 'player') bedHint('Sit on the bed first.');
+      else if (r.reason === 'full') bedHint('There is only room for one more.');
+    };
     on('bed.requested', ({ action, charId }) => {
       const c = this.cast[charId];
       if (!c) return;
-      if (action === 'invite') this.bedScene.invite(c);
+      if (action === 'dismiss') { this.bedScene.dismiss(c); return; }
+      // a fight, an event or a cutscene outranks the bed — nothing moves
+      if (this.combat?.active) { bedHint('Not in the middle of a fight.'); return; }
+      if (this.run.activeEventId || this.cutscene?.playing) { bedHint('Not now — something is happening.'); return; }
+      if (action === 'invite') bedRefused(this.bedScene.invite(c));
       else if (action === 'stay') {
-        this.bedScene.stayNight(c).catch((e) => console.error('[bed] stay the night failed', e));
-      } else if (action === 'dismiss') this.bedScene.dismiss(c);
+        this.bedScene.stayNight(c).then(bedRefused)
+          .catch((e) => console.error('[bed] stay the night failed', e));
+      }
+    });
+    // switching the camera out of first person (C) gets you off the bed; the
+    // cutscene's temporary 'cinematic' hands back to first person afterwards
+    on('camera.mode', ({ mode }) => {
+      if (mode !== 'firstPerson' && mode !== 'cinematic' && this.bedScene.playerState !== 'none') this.bedScene.getUp();
     });
     on('bedscene.started', () => this.conductor.setMood({ intimacy: 0.5, warmth: 0.7, energy: 0.2, tension: 0.05 }));
     on('bedscene.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
@@ -1212,11 +1228,9 @@ export class App {
     this._bedReturn = null;
   }
 
-  /** Nobody — player, invited guest or another NPC — is on the bed (AI sleep). */
+  /** Nobody — player, guest, or an NPC on or heading to it — is using the bed (AI sleep). */
   _bedFree() {
-    const b = this.bedScene;
-    if (!b || b.playerState !== 'none' || b.guests.length) return false;
-    return !Object.values(this.cast).some((o) => o.queue?.seatedAt?.startsWith('bed.'));
+    return this.bedScene?.isFree() ?? false;
   }
 
   /**
@@ -1226,7 +1240,10 @@ export class App {
    */
   _fade(on) {
     let el = document.getElementById('fade');
-    if (!el) { el = document.createElement('div'); el.id = 'fade'; document.getElementById('ui').appendChild(el); }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'fade'; document.getElementById('ui').appendChild(el);
+      void el.offsetWidth;   // commit opacity 0 first, or the very first fade snaps to black
+    }
     el.classList.toggle('on', on);
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     return new Promise((r) => setTimeout(r, reduced ? 50 : 1200));
@@ -1236,6 +1253,7 @@ export class App {
    * One line of narration in the subtitle strip, held long enough to read.
    * Nothing in src/ui renders subtitles from a bus event — the cutscene player
    * writes #subtitles directly — so this does the same (as text, not HTML).
+   * Appended, then removed: whatever the strip already held is left alone.
    * @param {string} text
    * @returns {Promise<void>}
    */
@@ -1244,7 +1262,7 @@ export class App {
     const line = document.createElement('div');
     line.className = 'line narration';
     line.textContent = text;
-    strip?.replaceChildren(line);
+    strip?.appendChild(line);
     feed(text, 'info');
     return new Promise((r) => setTimeout(() => { line.remove(); r(); }, Math.min(6000, 1800 + text.length * 45)));
   }

@@ -21,6 +21,24 @@ export class Brain {
     this.engagedUntil = 0;      // game-minute until which dialogue holds the floor
     this._pendingAction = null; // action whose satisfy fires when queue drains
     this._cooldown = ctx.rng.range(1, 4); // minutes before first plan
+    // Held by a scene (the bed guest seat) until released. Deliberately NOT
+    // serialized: the scene that holds it isn't saved either, so a load must
+    // never restore a hold nobody will release.
+    this._held = false;
+  }
+
+  /**
+   * Suspend autonomous behaviour until release(). Drops the in-flight action
+   * without touching the queue — the holder has already queued what it wants
+   * (e.g. the walk to the bed), and engage() would clear that.
+   */
+  hold() {
+    this._held = true;
+    this._pendingAction = null;
+  }
+
+  release() {
+    this._held = false;
   }
 
   /** Mark the character as engaged (dialogue). @param {number} untilMinute */
@@ -42,7 +60,7 @@ export class Brain {
 
     if (!this.c.alive) return;
     if (this.ctx.combatActive()) return;
-    if (nowMinute < this.engagedUntil) return;
+    if (this._held || nowMinute < this.engagedUntil) return;
 
     // action completion: queue drained with a pending action → collect payoff
     if (this._pendingAction && !this.c.queue.busy) {

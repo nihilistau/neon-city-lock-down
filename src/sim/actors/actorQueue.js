@@ -106,6 +106,13 @@ export class ActorQueue {
   gotoSocket(socketRef) { return this.push({ type: 'gotoSocket', args: [socketRef] }); }
   sit(socketRef) { this.gotoSocket(socketRef); return this.push({ type: 'sit', args: [socketRef] }); }
   stand() { return this.push({ type: 'stand', args: [] }); }
+  /**
+   * Stand up immediately rather than in queue order. clear() deliberately does
+   * NOT touch seatedAt (callers such as dialogue engagement clear the queue of
+   * someone who should stay seated), so a queued stand() followed by a clear()
+   * would leave seatedAt stale — src/sim/bedScene.js uses this instead.
+   */
+  standNow() { if (this.seatedAt && !this.frozen) this._standUp(); }
   playClip(id, fade, holdSec) { return this.push({ type: 'playClip', args: [id, fade, holdSec] }); }
   face(expr) { return this.push({ type: 'face', args: [expr] }); }
   look(target) { return this.push({ type: 'look', args: [target] }); }

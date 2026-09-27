@@ -65,7 +65,7 @@ export class FirstPersonControls {
     this.pitch = 0;
     this.pos = new THREE.Vector3(-1, EYE, 2);
     this.keys = new Set();
-    /** @type {(() => void)|null} set by picking — fires on E */
+    /** @type {((e?: KeyboardEvent) => void)|null} set by picking — fires on E */
     this.onInteract = null;
     /** While seated (bed), movement keys stand the player up instead of walking. */
     this.seated = false;
@@ -120,7 +120,7 @@ export class FirstPersonControls {
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
       this.keys.add(e.code);
-      if (e.code === 'KeyE' && this.onInteract) this.onInteract();
+      if (e.code === 'KeyE' && this.onInteract) this.onInteract(e);
       if (e.code === 'KeyR' && this.onReload) this.onReload();
       if (e.code === 'Space' && this.onAction) { e.preventDefault(); this.onAction(); }
     };

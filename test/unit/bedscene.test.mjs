@@ -3,10 +3,12 @@
 // reclining; "stay the night" is a fade, one narration line and a time skip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BedScene, bedPrompt, STAY_MINUTES, GUEST_SEAT } from '../../src/sim/bedScene.js';
+import { BedScene, bedPrompt, bedUsers, STAY_MINUTES, GUEST_SEAT } from '../../src/sim/bedScene.js';
 import { Scheduler } from '../../src/sim/scheduler.js';
 import { newRunState } from '../../src/sim/world.js';
-import { resetBus, on } from '../../src/core/bus.js';
+import { resetBus, on, emit } from '../../src/core/bus.js';
+import { Brain } from '../../src/sim/ai/brain.js';
+import { ACTIONS } from '../../src/sim/ai/actionCatalog.js';
 
 function fakeChar(id, tier) {
   const order = ['stranger', 'ally', 'trusted', 'loyal'];
@@ -69,10 +71,11 @@ test('getUp from sitting releases the player and stands guests up', () => {
   assert.ok(kai.queue.log.includes('stand'));
 });
 
-test('invite: a stranger refuses; an ally sits beside you and warms a little', () => {
+test('invite (player on the bed): a stranger refuses; an ally sits beside you and warms a little', () => {
   resetBus();
   const { p } = ports();
   const b = new BedScene(p);
+  b.use();   // invite and stay need the player on the bed
   const lola = fakeChar('lola', 'stranger');
   assert.deepEqual(b.invite(lola), { ok: false, reason: 'bond' });
   assert.equal(lola.queue.log.length, 0);
@@ -90,6 +93,7 @@ test('invite: a stranger refuses; an ally sits beside you and warms a little', (
 test('only one guest seat: a second invite is turned away as full', () => {
   resetBus();
   const b = new BedScene(ports().p);
+  b.use();   // invite and stay need the player on the bed
   b.invite(fakeChar('aria', 'ally'));
   assert.deepEqual(b.invite(fakeChar('kai', 'ally')), { ok: false, reason: 'full' });
 });
@@ -97,6 +101,7 @@ test('only one guest seat: a second invite is turned away as full', () => {
 test('stay the night needs trusted', async () => {
   resetBus();
   const b = new BedScene(ports().p);
+  b.use();   // invite and stay need the player on the bed
   assert.deepEqual(await b.stayNight(fakeChar('kai', 'ally')), { ok: false, reason: 'bond' });
 });
 
@@ -104,6 +109,7 @@ test('stay the night: fade, narrate, skip 180 min with the scheduler held, then 
   resetBus();
   const { p, calls, player, needs, scheduler } = ports();
   const b = new BedScene(p);
+  b.use();   // invite and stay need the player on the bed
   const aria = fakeChar('aria', 'trusted');
   const seen = [];
   on('bedscene.started', () => seen.push('started'));
@@ -127,6 +133,7 @@ test('stay the night always releases the scheduler, even if a port throws', asyn
   resetBus();
   const { p, scheduler } = ports({ skip: () => { throw new Error('boom'); } });
   const b = new BedScene(p);
+  b.use();   // invite and stay need the player on the bed
   await assert.rejects(b.stayNight(fakeChar('aria', 'trusted')));
   assert.equal(scheduler.hold, false);
   assert.equal(b.busy, false);
@@ -161,4 +168,175 @@ test('bed dialogue: a refusal never carries a bed action; the granted line does'
       assert.equal(selectLine(getTopic(`${id}.bed.dismiss`), c, 0, rng).bed, 'dismiss');
     }
   }
+});
+
+// ── fix round 1: context gates, holds, reservation, reset ─────────────────
+
+/** A queue that behaves like ActorQueue for bed purposes: commands land in `queue`. */
+function realishChar(id, tier = 'ally', seatedAt = null) {
+  const c = /** @type {any} */ (fakeChar(id, tier));
+  c.queue = {
+    log: [], queue: [], current: null, seatedAt,
+    clear() { this.log.push('clear'); this.queue.length = 0; this.current = null; },
+    gotoSocket(s) { this.queue.push({ type: 'gotoSocket', args: [s] }); },
+    sit(s) { this.gotoSocket(s); this.queue.push({ type: 'sit', args: [s] }); },
+    stand() { this.log.push('stand'); this.queue.push({ type: 'stand', args: [] }); },
+    standNow() { this.log.push('standNow'); this.seatedAt = null; },
+    wait(n) { this.queue.push({ type: 'wait', args: [n] }); },
+    goto(z, w) { this.queue.push({ type: 'goto', args: [z, w] }); },
+    playClip(clip) { this.queue.push({ type: 'playClip', args: [clip] }); },
+    call(fn) { this.queue.push({ type: 'call', args: [fn] }); },
+  };
+  return c;
+}
+
+test('invite and stay need the player on the bed', async () => {
+  resetBus();
+  const b = new BedScene(ports().p);
+  const aria = fakeChar('aria', 'trusted');
+  assert.deepEqual(b.invite(aria), { ok: false, reason: 'player' });
+  assert.deepEqual(await b.stayNight(aria), { ok: false, reason: 'player' });
+  assert.equal(aria.queue.log.length, 0, 'a refusal moves nobody');
+  assert.deepEqual(b.guests, []);
+});
+
+test('asking a second character to stay makes the current guest give up the seat', async () => {
+  resetBus();
+  const b = new BedScene(ports().p);
+  b.use();
+  const kai = fakeChar('kai', 'ally');
+  const aria = fakeChar('aria', 'trusted');
+  b.invite(kai);
+  assert.deepEqual(await b.stayNight(aria), { ok: true });
+  assert.deepEqual(b.guests, ['aria']);
+  assert.ok(kai.queue.log.includes('stand'));
+});
+
+test('dismiss is ignored during the stay-the-night fade', async () => {
+  resetBus();
+  /** @type {() => void} */
+  let release = () => {};
+  const gate = new Promise((r) => { release = () => r(undefined); });
+  const b = new BedScene(ports({ narrate: () => gate }).p);
+  b.use();
+  const aria = fakeChar('aria', 'trusted');
+  const stay = b.stayNight(aria);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(b.busy, true);
+  b.dismiss(aria);
+  assert.deepEqual(b.guests, ['aria'], 'no dismissing under the black');
+  release();
+  await stay;
+});
+
+test('a guest who dies frees the seat; combat gets every guest up', () => {
+  resetBus();
+  const b = new BedScene(ports().p);
+  b.use();
+  const aria = realishChar('aria');
+  b.invite(aria);
+  aria.alive = false;
+  emit('char.died', { id: 'aria' });
+  assert.deepEqual(b.guests, [], 'the dead do not keep the seat');
+  const kai = realishChar('kai');
+  assert.deepEqual(b.invite(kai), { ok: true }, 'and the seat is free again');
+  emit('combat.started', {});
+  assert.deepEqual(b.guests, []);
+  assert.ok(kai.queue.log.includes('standNow'));
+});
+
+test('reset (load) clears everything even while standing, seatedAt included', () => {
+  resetBus();
+  const { p, calls } = ports();
+  const aria = realishChar('aria');
+  const b = new BedScene({ ...p, others: () => [aria] });
+  b.use();
+  b.invite(aria);
+  aria.queue.seatedAt = GUEST_SEAT;   // she reached the seat
+  b.playerState = 'none';             // standing: getUp() would be a no-op here
+  b.busy = true;
+  b.reset();
+  assert.deepEqual(b.guests, []);
+  assert.equal(b.busy, false);
+  assert.equal(aria.queue.seatedAt, null, 'standing up clears seatedAt immediately');
+  assert.equal(b.isFree(), true);
+  // and from lying: the player is released
+  b.use(); b.use();
+  b.reset();
+  assert.equal(b.playerState, 'none');
+  assert.equal(calls.released, 1);
+});
+
+test('sleep reserves the bed: two sleep decisions in the same minute, one bed', () => {
+  resetBus();
+  const lola = realishChar('lola');
+  const kai = realishChar('kai');
+  const b = new BedScene({ ...ports().p, others: () => [lola, kai] });
+  const sleep = /** @type {any} */ (ACTIONS.find((a) => a.id === 'sleep'));
+  const ctx = { bedFree: () => b.isFree() };
+  sleep.exec(lola, ctx);
+  sleep.exec(kai, ctx);
+  assert.ok(lola.queue.queue.some((c) => c.type === 'sit' && c.args[0] === 'bed.lie_center'), 'the first sleeper takes the bed');
+  assert.ok(!kai.queue.queue.some((c) => String(c.args?.[0]).startsWith('bed.')), 'the second goes to the window');
+  assert.deepEqual(bedUsers([lola, kai]).map((c) => c.id), ['lola']);
+});
+
+test('sitting down makes an NPC sleeper get up and leave the bed', () => {
+  resetBus();
+  const lola = realishChar('lola', 'ally', 'bed.lie_center');
+  const b = new BedScene({ ...ports().p, others: () => [lola] });
+  const evicted = [];
+  on('bedscene.evicted', (e) => evicted.push(e.id));
+  b.use();
+  assert.equal(lola.queue.seatedAt, null);
+  assert.deepEqual(evicted, ['lola']);
+});
+
+/** @param {any} char */
+function brainFor(char) {
+  return new Brain(char, /** @type {any} */ ({
+    rng: { range: () => 0, next: () => 0.5 },
+    others: () => [], threat: () => 0, sfx: () => {}, combatActive: () => false,
+  }));
+}
+
+test('a held brain does not act, and the hold is never saved', () => {
+  const mk = () => {
+    const c = realishChar('aria');
+    c.stats = { happiness: 50, openness: 50, dominance: 50, trust: 50, tension: 50, energy: 20, sobriety: 80, loyalty: 50, fear: 20 };
+    c.queue.busy = false;
+    c.memory = { hasFlag: () => false };
+    return c;
+  };
+  const free = mk();
+  brainFor(free).tick(10, 1);
+  assert.ok(free.queue.queue.length > 0, 'control: an unheld brain picks an action');
+
+  const held = mk();
+  const hb = brainFor(held);
+  hb.hold();
+  hb.tick(10, 1);
+  assert.equal(held.queue.queue.length, 0, 'held: nothing is queued');
+  assert.equal(JSON.stringify(hb.serialize()).includes('held'), false, 'the hold is not serialized');
+  // a load restores into a fresh brain — no hold comes back with it
+  const loaded = brainFor(mk());
+  loaded.deserialize(JSON.parse(JSON.stringify(hb.serialize())));
+  assert.equal(loaded._held, false);
+  hb.release();
+  hb.tick(11, 1);
+  assert.ok(held.queue.queue.length > 0, 'released: it acts again');
+});
+
+test('everyday chat does not trigger the bed intents; bed phrasings still do', async () => {
+  await import('../../data/dialogue/intents.js');
+  await import('../../data/dialogue/games.js');
+  await import('../../data/dialogue/bed.js');
+  const { matchIntents } = await import('../../src/dialogue/parser/intents.js');
+  const { normalize } = await import('../../src/dialogue/parser/normalize.js');
+  const top = (t) => matchIntents(normalize(t))[0]?.id;
+  for (const t of ['what are we doing tonight?', 'stay with me, we need to guard the door', 'come here', 'come here, look at this']) {
+    assert.ok(!['bed_stay', 'bed_invite'].includes(top(t)), `"${t}" must not be a bed intent (got ${top(t)})`);
+  }
+  assert.equal(top('stay the night'), 'bed_stay');
+  assert.equal(top('come sit with me'), 'bed_invite');
 });

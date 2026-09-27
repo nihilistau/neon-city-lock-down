@@ -414,7 +414,7 @@
    narration line reads on the black. */
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
   transition: opacity var(--dur-slow, 1.2s) ease; z-index: var(--z-transition); }
-#fade.on { opacity: 1; }
+#fade.on { opacity: 1; pointer-events: auto; }   /* nothing is clickable under the black */
 @media (prefers-reduced-motion: reduce) { #fade { transition: none; } }
 /* raised only while a narration line shows, so ordinary subtitles keep their layer */
 #subtitles:has(.line.narration) { z-index: calc(var(--z-transition) + 1); }

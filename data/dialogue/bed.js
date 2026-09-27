@@ -8,13 +8,16 @@ import { topic, onIntent } from '../schema.js';
 import { registerTopics } from '../../src/dialogue/topics.js';
 import { registerIntents } from '../../src/dialogue/parser/intents.js';
 
+// Bed-explicit phrasings only. Generic ones ("come here", "stay with me",
+// "tonight") hijacked everyday chat — "what are we doing tonight?" asked
+// someone to stay the night (test/unit/bedscene.test.mjs probes this).
 registerIntents([
   { id: 'bed_invite', keywords: ['bed'],
-    phrases: ['come sit', 'sit with me', 'join me', 'come here', 'sit on the bed', 'come to bed'], base: 0.6 },
-  { id: 'bed_stay', keywords: ['tonight'],
-    phrases: ['stay the night', 'stay with me', 'stay tonight', 'dont go', "don't go"], base: 0.65 },
+    phrases: ['come sit', 'sit with me', 'sit on the bed', 'come to bed', 'join me on the bed'], base: 0.6 },
+  { id: 'bed_stay', keywords: [],
+    phrases: ['stay the night', 'stay tonight', 'spend the night', 'sleep here'], base: 0.65 },
   { id: 'bed_dismiss', keywords: [],
-    phrases: ['you can go', 'goodnight', 'get some rest', 'leave me be'], base: 0.55 },
+    phrases: ['you can go', 'goodnight', 'good night', 'get some rest'], base: 0.55 },
 ]);
 
 /** One narration line per stay, per character. Implied, never described. */
