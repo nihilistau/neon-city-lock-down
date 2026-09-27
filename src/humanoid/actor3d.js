@@ -84,7 +84,7 @@ export class Actor3D {
     this.downed = !!v;
   }
 
-  /** set arousal/energy tempo scalar (drives tempoScaled clips + breath) */
+  /** set energy/tension tempo scalar (drives tempoScaled clips + breath) */
   setTempo(t) { this.animator.tempo = t; }
 
   /** @param {number} v 0..1 rim intensity — claims a slot from the shared pool */

@@ -43,12 +43,12 @@ const FACE_ALIAS = {
   happy: 'smile', warm: 'smile', laugh: 'grin', laughing: 'grin', angry: 'glare',
   anger: 'glare', furious: 'glare', mad: 'glare', sad: 'frown', hurt: 'frown',
   surprised: 'open', shock: 'open', shocked: 'open', gasp: 'open', raise_brow: 'brow',
-  eyebrow: 'brow', seductive: 'smirk', sultry: 'smirk', tease: 'smirk', bite_lip: 'pout',
+  eyebrow: 'brow', tease: 'smirk', bite_lip: 'pout',
   flushed: 'blush', wide_eyes: 'open',
 };
 const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel']);
 const COVERAGE_MAP = { full: 'evening_wear', partial: 'towel', robe: 'robe', towel: 'towel' };
-const STATS = new Set(['arousal', 'pleasure', 'happiness', 'horniness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
+const STATS = new Set(['happiness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
 
 const TAG_RE = /\[\[\s*([a-zA-Z_]+)\s*(?::([^\]]*))?\]\]/g;
 
@@ -81,7 +81,7 @@ function canonTag(type, arg) {
       return t ? `[[look:${t}]]` : '';
     }
     case 'stat': {
-      // [[stat:arousal+10]] / [[stat:trust-5]]
+      // [[stat:trust+10]] / [[stat:tension-5]]
       const m = /^([a-z]+)\s*([+-]\s*\d+)$/.exec(arg.toLowerCase().replace(/\s+/g, ''));
       if (m && STATS.has(m[1])) return `[[stat:${m[1]}${m[2]}]]`;
       return '';
@@ -182,7 +182,6 @@ export function mapStructuredTags(tags, textLen) {
   if (tags.look_at_player) out.push({ at: 1, type: 'look', args: ['player'] });
   if (tags.mood) out.push({ at: 2, type: 'mood', args: [String(tags.mood)] });
   if (tags.face && FACES.has(tags.face)) out.push({ at: 3, type: 'face', args: [tags.face] });
-  const ad = clampD(tags.arousal_delta); if (ad) out.push({ at: end, type: 'stat', args: [`arousal${signed(ad)}`] });
   const td = clampD(tags.tension_delta); if (td) out.push({ at: end, type: 'stat', args: [`tension${signed(td)}`] });
   return out.sort((a, b) => a.at - b.at);
 }

@@ -23,12 +23,6 @@ export const MOODS = [
     idle: 'idle_shy',
   },
   {
-    id: 'sultry',
-    score: (s) => s.arousal * 0.5 + s.horniness * 0.4 - s.tension * 0.3,
-    face: { mouth: 'smirk', browRaise: -0.15, blush: 0.4, pupil: 0.7 },
-    idle: 'idle_confident',
-  },
-  {
     id: 'playful',
     score: (s) => s.happiness * 0.4 + s.openness * 0.3 + (100 - s.tension) * 0.2 - s.dominance * 0.1,
     face: { mouth: 'grin', browRaise: 0.2 },
@@ -49,7 +43,7 @@ export const MOODS = [
   },
   {
     id: 'exhausted',
-    score: (s) => (100 - s.energy) * 0.6 - s.arousal * 0.2,
+    score: (s) => (100 - s.energy) * 0.6,
     face: { mouth: 'neutral', lids: 0.4, browRaise: -0.2 },
     idle: 'idle_stand',
   },
@@ -75,10 +69,11 @@ export function deriveMood(stats) {
 }
 
 /**
- * Tempo scalar for arousal/energy-scaled animation. 0.7 (drained) .. 1.6 (charged).
+ * Tempo scalar for animation. 0.7 (drained) .. 1.6 (wired): energy drives it,
+ * tension adds a clipped edge.
  * @param {Record<StatKey, number>} stats
  */
 export function animTempo(stats) {
-  const arousal = stats.arousal / 100, energy = stats.energy / 100;
-  return 0.7 + arousal * 0.6 + energy * 0.3;
+  const energy = stats.energy / 100, tension = stats.tension / 100;
+  return Math.min(1.6, 0.7 + energy * 0.6 + tension * 0.3);
 }

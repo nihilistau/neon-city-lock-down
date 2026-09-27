@@ -30,7 +30,7 @@ export const GAMBITS = {
   flatter: {
     id: 'flatter', label: 'Flatter', desc: 'Charm them off balance.', vs: 'dominance', dc: 6,
     outcome: (win) => win
-      ? { targetFx: { happiness: 5, trust: 4, arousal: 3, tension: -3 }, line: (n) => `${n} warms despite themselves.` }
+      ? { targetFx: { happiness: 5, trust: 4, openness: 3, tension: -3 }, line: (n) => `${n} warms despite themselves.` }
       : { targetFx: { trust: -2 }, line: (n) => `${n} recognizes the technique. It curdles.` },
   },
   needle: {
@@ -42,13 +42,13 @@ export const GAMBITS = {
   dare_them: {
     id: 'dare_them', label: 'Dare', desc: 'Push them to prove something.', vs: 'openness', dc: 9,
     outcome: (win) => win
-      ? { targetFx: { arousal: 5, openness: 5, dominance: 2 }, line: (n) => `${n} rises to it. The temperature climbs.` }
+      ? { targetFx: { happiness: 5, openness: 5, dominance: 2 }, line: (n) => `${n} rises to it. The temperature climbs.` }
       : { targetFx: { tension: 2 }, line: (n) => `${n} shrugs it off. No sale.` },
   },
   stonewall: {
     id: 'stonewall', label: 'Stonewall', desc: 'Give them nothing, make them work.', vs: 'openness', dc: 8,
     outcome: (win) => win
-      ? { selfFx: {}, targetFx: { openness: 4, arousal: 3, tension: 2 }, line: (n) => `Your silence works on ${n}. They lean in to fill it.` }
+      ? { selfFx: {}, targetFx: { openness: 4, happiness: 3, tension: 2 }, line: (n) => `Your silence works on ${n}. They lean in to fill it.` }
       : { targetFx: { trust: -3, tension: 2 }, line: (n) => `${n} shrugs and moves on. Cold reads cold.` },
   },
 };

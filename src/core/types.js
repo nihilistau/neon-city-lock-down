@@ -3,7 +3,7 @@
 // This file exports nothing at runtime; import it for types only.
 
 /**
- * @typedef {'arousal'|'pleasure'|'happiness'|'horniness'|'openness'|'dominance'|
+ * @typedef {'happiness'|'openness'|'dominance'|
  *           'trust'|'tension'|'energy'|'sobriety'|'loyalty'|'fear'} StatKey
  */
 

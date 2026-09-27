@@ -14,11 +14,6 @@ test('high fear → afraid', () => {
   assert.equal(deriveMood(s).id, 'afraid');
 });
 
-test('high arousal + horniness low tension → sultry', () => {
-  const s = defaultStats(); s.arousal = 85; s.horniness = 80; s.tension = 5;
-  assert.equal(deriveMood(s).id, 'sultry');
-});
-
 test('mood carries face + idle hints', () => {
   const s = defaultStats(); s.dominance = 90;
   const m = deriveMood(s);
@@ -26,9 +21,10 @@ test('mood carries face + idle hints', () => {
   assert.ok(typeof m.idle === 'string');
 });
 
-test('animTempo scales with arousal and energy', () => {
-  const drained = defaultStats(); drained.arousal = 0; drained.energy = 0;
-  const charged = defaultStats(); charged.arousal = 100; charged.energy = 100;
-  assert.ok(animTempo(charged) > animTempo(drained));
-  assert.ok(animTempo(drained) >= 0.6);
+test('animTempo: energy speeds up, tension tightens', () => {
+  const base = { ...defaultStats(), energy: 50, tension: 20 };
+  assert.ok(animTempo({ ...base, energy: 95 }) > animTempo(base));
+  assert.ok(animTempo({ ...base, energy: 5 }) < animTempo(base));
+  const t = animTempo({ ...base, energy: 100, tension: 100 });
+  assert.ok(t >= 0.7 && t <= 1.6);
 });

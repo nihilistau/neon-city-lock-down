@@ -85,13 +85,13 @@ export const ACTIONS = [
     id: 'dance',
     score: (c, n) =>
       (c.stats.happiness > 55 || c.stats.sobriety < 60 ? n.fun * 0.7 : 0) +
-      c.stats.arousal * 0.15 - c.stats.tension * 0.3,
+      n.fun * 0.9 - c.stats.tension * 0.3,
     exec: (c) => {
       c.queue.goto('lounge', 'center');
       c.queue.playClip('dance_sway', 0.5, 30);
     },
     satisfy: { fun: 45, social: 10 },
-    statFx: { energy: -5, happiness: 4, arousal: 3 },
+    statFx: { energy: -5, happiness: 7 },
   },
   {
     id: 'brood',

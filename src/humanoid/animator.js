@@ -50,7 +50,7 @@ export class Animator {
 
     this.gait = new Gait();
     this.speed = 0;           // set by mover each frame
-    this.tempo = 1;           // arousal/energy scalar for tempoScaled clips
+    this.tempo = 1;           // energy/tension scalar for tempoScaled clips
     this.breathAmp = personality.breathBase ?? 1;
     this.fidget = personality.fidget ?? 1;
     this._t = 0;

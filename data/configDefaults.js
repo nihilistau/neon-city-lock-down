@@ -146,26 +146,21 @@ export const CONFIG_DEFAULTS = {
     },
   },
 
-  // ── chars: stat model coupling/decay/compliance + intimacy-gate thresholds ──
+  // ── chars: stat model coupling/decay/compliance + bond ──
   chars: {
     startStats: {   // defaultStats() baseline before persona overrides
-      arousal: 5, pleasure: 15, happiness: 50, horniness: 10, openness: 30, dominance: 50,
+      happiness: 50, openness: 30, dominance: 50,
       trust: 20, tension: 25, energy: 75, sobriety: 100, loyalty: 10, fear: 5,
     },
     coupling: {     // cross-stat gain modifiers (src/chars/stats.js couplingFactor)
-      tensionSuppress: 0.55,  // arousal/horniness gain suppressed per unit tension
-      fearSuppress: 0.5,      // …per unit fear
-      intoxArousal: 0.4,      // intoxication amplifies arousal gain
       intoxOpen: 0.5,         // intoxication amplifies openness gain
       fearClose: 0.4,         // fear suppresses openness gain
       tensionTrust: 0.4,      // tension suppresses trust gain
-      pleasureBase: 0.3,      // pleasure gain floor
-      pleasureArousal: 0.9,   // …plus this × arousal
       fearTension: 0.35,      // fear amplifies tension gain
     },
     decay: {        // passive homeostatic regression (decayTick)
-      rest: { arousal: 5, horniness: 8, tension: 22, pleasure: 12, fear: 4 },
-      rate: { arousal: 0.5, horniness: 0.35, tension: 0.25, pleasure: 0.6, fear: 0.4 },
+      rest: { tension: 22, fear: 4 },
+      rate: { tension: 0.25, fear: 0.4 },
       approachFactor: 0.3,    // rise-toward-rest is this fraction of the fall rate
       sobrietyRegain: 0.35,   // sobriety per minute
     },

@@ -46,7 +46,7 @@ export function applyLineEffects(char, line, topic, ctx) {
     const bleed = {};
     if (tn.hostility > 0.2) { bleed.tension = tn.hostility * 6; bleed.trust = -tn.hostility * 3; bleed.fear = tn.hostility * 2; }
     if (tn.affection > 0.2) { bleed.trust = (bleed.trust || 0) + tn.affection * 3; bleed.happiness = tn.affection * 2; bleed.tension = (bleed.tension || 0) - tn.affection * 2; }
-    if (tn.flirt > 0.2) { bleed.arousal = tn.flirt * 4; bleed.horniness = tn.flirt * 3; }
+    if (tn.flirt > 0.2) { bleed.happiness = (bleed.happiness || 0) + tn.flirt * 2; bleed.trust = (bleed.trust || 0) + tn.flirt * 1; }
     if (tn.command > 0.3) { bleed.tension = (bleed.tension || 0) + tn.command * 2; }
     if (Object.keys(bleed).length) char.applyStats(bleed, 'tone');
   }

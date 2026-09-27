@@ -5,12 +5,16 @@ import { sanitizeTags, scrubPuppeting, cleanReply } from '../../src/dialogue/llm
 import { compileLine } from '../../src/dialogue/stageDirections.js';
 
 test('valid tags survive; the result compiles without throwing', () => {
-  const raw = 'Come here. [[move:bar]] [[face:smirk]] [[stat:arousal+8]]';
+  const raw = 'Come here. [[move:bar]] [[face:smirk]] [[stat:tension+5]]';
   const clean = sanitizeTags(raw);
   assert.ok(clean.includes('[[move:bar]]'));
   assert.ok(clean.includes('[[face:smirk]]'));
-  assert.ok(clean.includes('[[stat:arousal+8]]'));
+  assert.ok(clean.includes('[[stat:tension+5]]'));
   assert.doesNotThrow(() => compileLine(clean));
+});
+
+test('a retired stat tag (arousal) is dropped', () => {
+  assert.equal(sanitizeTags('x [[stat:arousal+5]]'), 'x');
 });
 
 test('unknown tags are dropped so compileLine never throws', () => {

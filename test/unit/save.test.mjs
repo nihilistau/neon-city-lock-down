@@ -99,7 +99,7 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   app.run.systems.elevator.locked = true;
   app.run.history.choices.push({ prompt: 'p', chose: 'c' });
   app.run.lastEventEndMinute = 1170;
-  app.cast.lola.applyStats({ trust: 20, arousal: 15 }, 'test');
+  app.cast.lola.applyStats({ trust: 20 }, 'test');
   // lift Lola into a non-default bond so the round-trip is not trivially 'stranger'
   app.cast.lola.stats.trust = 60; app.cast.lola.stats.loyalty = 60; app.cast.lola._refreshBond();
   app.cast.lola.memory.setFlag('lola_job');
@@ -145,7 +145,7 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   app.run.flags = {};
   app.run.eventsFired.length = 0;
   app.run.systems.power.hp = 100;
-  app.cast.lola.applyStats({ trust: -50, arousal: -50 }, 'wreck');
+  app.cast.lola.applyStats({ trust: -50 }, 'wreck');
   app.cast.lola.stats.loyalty = 0; app.cast.lola._refreshBond();
   app.cast.aria.alive = true;
   app.cast.aria.injuries = [];

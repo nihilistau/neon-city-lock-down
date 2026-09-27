@@ -28,14 +28,14 @@ export const kai = {
     breathBase: 0.75, fidget: 0.2,          // unnervingly still
     receptivity: {
       trust: 0.5, openness: 0.4, fear: 0.3, tension: 0.6,
-      arousal: 0.8, happiness: 0.7, dominance: 0.9, loyalty: 0.5,
+      happiness: 0.7, dominance: 0.9, loyalty: 0.5,
     },
     baseMood: 'confident',
     idleClip: 'idle_stand',
   },
 
   stats: {
-    arousal: 5, pleasure: 20, happiness: 60, horniness: 15, openness: 42,
+    happiness: 60, openness: 42,
     dominance: 62, trust: 25, tension: 18, energy: 74, sobriety: 100,
     loyalty: 6, fear: 3,
   },

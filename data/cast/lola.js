@@ -31,7 +31,7 @@ export const lola = {
     // multipliers on incoming stat deltas
     receptivity: {
       dominance: 1.4, trust: 0.6, openness: 0.7, fear: 0.4,
-      arousal: 0.9, tension: 1.2, happiness: 0.8, loyalty: 0.7,
+      tension: 1.2, happiness: 0.8, loyalty: 0.7,
     },
     baseMood: 'confident',
     idleClip: 'idle_confident',
@@ -39,7 +39,7 @@ export const lola = {
 
   // starting stats for a fresh run
   stats: {
-    arousal: 8, pleasure: 20, happiness: 55, horniness: 25, openness: 35,
+    happiness: 55, openness: 35,
     dominance: 88, trust: 18, tension: 42, energy: 82, sobriety: 100,
     loyalty: 8, fear: 6,
   },

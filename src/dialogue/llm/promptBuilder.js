@@ -19,7 +19,6 @@ function describeState(stats) {
   const notes = [];
   const hi = (k, t) => { if (stats[k] >= 65) notes.push(t); };
   const lo = (k, t) => { if (stats[k] <= 25) notes.push(t); };
-  hi('arousal', 'turned on'); hi('horniness', 'hungry for more');
   hi('happiness', 'in a good mood'); lo('happiness', 'unhappy');
   hi('dominance', 'in a commanding frame'); hi('trust', 'at ease with the guest');
   lo('trust', 'wary of the guest'); hi('tension', 'wound tight'); hi('fear', 'frightened');
@@ -32,9 +31,9 @@ const TAG_SHEET = `SCENE TAGS — embed 1-3 of these INSIDE your reply, right wh
 [[move:X]] walk to a room: lounge, bar, balcony, fireplace, bed_alcove, vanity, shower
 [[anim:X]] a motion: idle_stand, idle_confident, idle_shy, walk, sit_relaxed, lounge, dance_sway, gesture_lean_in, gesture_shrug, gesture_cross_arms, crouch
 [[face:X]] expression: smile, smirk, grin, frown, pout, glare, blush, wink, brow, open
-[[mood:X]] inner mood: flirty, sultry, tense, playful, warm, cold
+[[mood:X]] inner mood: flirty, tense, playful, warm, cold, afraid
 [[look:player]] look at the guest
-[[stat:NAME±N]] shift your own feeling, e.g. [[stat:arousal+8]] [[stat:tension-5]]
+[[stat:NAME±N]] shift your own feeling, e.g. [[stat:trust+5]] [[stat:tension-5]]
 [[light:X]] room light: neon_night, candlelit, fireplace_warm, security_red, blackout_emergency`;
 
 const CONTRACT = (name, emitTags) => `WRITE THE REPLY AS ${name.toUpperCase()}, first person, present tense — story prose only.

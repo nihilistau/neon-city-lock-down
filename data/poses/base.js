@@ -165,7 +165,7 @@ registerClips([
       chest: [-3, 0, 0], head: [-2, 0, 0],
     },
   },
-  // Dance sway — tempoScaled so arousal/energy speeds it.
+  // Dance sway — tempoScaled so energy/tension speeds it.
   {
     id: 'dance_sway',
     duration: 2.4, loop: 'loop', tempoScaled: true,

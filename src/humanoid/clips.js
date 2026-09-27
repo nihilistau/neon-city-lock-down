@@ -13,7 +13,7 @@ const _e = new THREE.Euler();
  * @property {string} id
  * @property {number} [duration]   seconds; 0/undefined = static pose
  * @property {'loop'|'hold'|'pingpong'} [loop]
- * @property {boolean} [tempoScaled] playback rate scales with arousal/energy
+ * @property {boolean} [tempoScaled] playback rate scales with energy/tension
  * @property {Record<string, [number,number,number]>} [bones]  static eulers (deg)
  * @property {Record<string, Array<[number, [number,number,number]]>>} [tracks] keyed eulers (deg)
  * @property {Array<[number, [number,number,number]]>} [hipsPos] hips position offset keys (meters)

@@ -81,8 +81,7 @@ export const CONFIG_SCHEMA = {
   chars: {
     startStats: { map: num(0, 100) },
     coupling: {
-      tensionSuppress: num(0, 2), fearSuppress: num(0, 2), intoxArousal: num(0, 2), intoxOpen: num(0, 2),
-      fearClose: num(0, 2), tensionTrust: num(0, 2), pleasureBase: num(0, 2), pleasureArousal: num(0, 2), fearTension: num(0, 2),
+      intoxOpen: num(0, 2), fearClose: num(0, 2), tensionTrust: num(0, 2), fearTension: num(0, 2),
     },
     decay: {
       rest: { map: num(0, 100) }, rate: { map: num(0, 20) }, approachFactor: num(0, 2), sobrietyRegain: num(0, 10),

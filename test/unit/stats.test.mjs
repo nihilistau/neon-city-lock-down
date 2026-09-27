@@ -5,9 +5,9 @@ import {
   defaultStats, clamp, applyDelta, decayTick, compliance, couplingFactor, STAT_KEYS,
 } from '../../src/chars/stats.js';
 
-test('defaultStats has all 12 keys in range', () => {
+test('defaultStats has all 9 keys in range', () => {
   const s = defaultStats();
-  assert.equal(Object.keys(s).length, 12);
+  assert.equal(Object.keys(s).length, 9);
   for (const k of STAT_KEYS) {
     assert.ok(k in s, `missing ${k}`);
     assert.ok(s[k] >= 0 && s[k] <= 100);
@@ -45,26 +45,20 @@ test('personality receptivity scales incoming deltas', () => {
   assert.ok(dom.dominance > meek.dominance);
 });
 
-test('coupling: high tension suppresses arousal gains', () => {
+test('coupling: high tension suppresses trust gains', () => {
   const calm = defaultStats(); calm.tension = 0;
   const tense = defaultStats(); tense.tension = 90;
-  const fCalm = couplingFactor(calm, 'arousal', +10);
-  const fTense = couplingFactor(tense, 'arousal', +10);
-  assert.ok(fTense < fCalm, 'tense should gain less arousal');
+  assert.ok(couplingFactor(tense, 'trust', +10) < couplingFactor(calm, 'trust', +10));
+});
+
+test('the retired intimacy stats are gone', () => {
+  for (const k of ['arousal', 'pleasure', 'horniness']) assert.ok(!STAT_KEYS.includes(/** @type {any} */ (k)));
 });
 
 test('coupling: intoxication (low sobriety) boosts openness gains', () => {
   const sober = defaultStats(); sober.sobriety = 100;
   const drunk = defaultStats(); drunk.sobriety = 20;
   assert.ok(couplingFactor(drunk, 'openness', +10) > couplingFactor(sober, 'openness', +10));
-});
-
-test('decayTick bleeds arousal toward rest and recovers sobriety', () => {
-  const s = defaultStats();
-  s.arousal = 80; s.sobriety = 40;
-  decayTick(s, 10);
-  assert.ok(s.arousal < 80, 'arousal decays');
-  assert.ok(s.sobriety > 40, 'sobriety recovers');
 });
 
 test('decayTick never pushes below rest for elevated stats', () => {

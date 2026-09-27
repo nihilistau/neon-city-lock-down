@@ -131,8 +131,8 @@ export const SCENARIOS = {
     requiresUnlock: 'long_haul', unlockHint: 'Survive five days in a single run.',
     blurb: 'The rumor is everywhere: tomorrow the barricades lift. One more night in the tank. Make it count.',
     castMoodShifts: {
-      lola: { openness: 12, arousal: 8, tension: -8 },
-      aria: { openness: 12, arousal: 8, happiness: 8, fear: -8 },
+      lola: { openness: 12, tension: -8 },
+      aria: { openness: 12, happiness: 8, fear: -8 },
       kai: { openness: 10, happiness: 6 },
     },
     openingCutscene: DAY3_CUTSCENE,

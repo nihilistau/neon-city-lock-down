@@ -22,7 +22,7 @@ export const vox = {
     breathBase: 0, fidget: 0,
     receptivity: {
       trust: 1.0, openness: 0.8, fear: 0.2, tension: 0.7,
-      arousal: 0.1, horniness: 0.0, happiness: 0.9, dominance: 0.4, loyalty: 1.2,
+      happiness: 0.9, dominance: 0.4, loyalty: 1.2,
     },
     baseMood: 'confident',
     idleClip: 'idle_stand',
@@ -31,7 +31,7 @@ export const vox = {
   // diagnostics-as-stats: dominance = control authority, energy = power reserves,
   // loyalty = attachment to current occupants, openness = disclosure protocols
   stats: {
-    arousal: 0, pleasure: 30, happiness: 50, horniness: 0, openness: 30,
+    happiness: 50, openness: 30,
     dominance: 70, trust: 35, tension: 20, energy: 90, sobriety: 100,
     loyalty: 15, fear: 5,
   },

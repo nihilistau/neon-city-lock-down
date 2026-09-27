@@ -84,7 +84,7 @@ registerTopics([
     lines: [
       { when: { statGte: { trust: 40 } },
         text: "[[face:smile:0.4]] [[anim:gesture_lean_in]] Careful. I collect interesting people the way Lola collects ledgers. You are becoming expensive.",
-        fx: { arousal: 4, trust: 2, openness: 3 } },
+        fx: { trust: 2, openness: 3 } },
       { text: "[[face:smirk]] Flattery from a legend. I'll take the compliment and invoice you later.",
         fx: { happiness: 2 } },
     ],

@@ -4,13 +4,13 @@ import { on } from '../core/bus.js';
 import { STAT_KEYS } from '../chars/stats.js';
 
 const STAT_COLOR = {
-  arousal: '#ff5fa8', pleasure: '#ff8fc0', happiness: '#ffd23f', horniness: '#ff3f6a',
+  happiness: '#ffd23f',
   openness: '#3dff9a', dominance: '#9d6bff', trust: '#39e6ff', tension: '#ff7043',
   energy: '#7fff5a', sobriety: '#8ec7ff', loyalty: '#c39bff', fear: '#ff4757',
 };
-const HERO = ['trust', 'tension', 'openness', 'arousal'];
+const HERO = ['trust', 'loyalty', 'tension', 'fear'];
 const STAT_LABEL = {
-  arousal: 'arousal', pleasure: 'pleasure', happiness: 'happy', horniness: 'heat',
+  happiness: 'happy',
   openness: 'open', dominance: 'dom', trust: 'trust', tension: 'tension',
   energy: 'energy', sobriety: 'sober', loyalty: 'loyal', fear: 'fear',
 };
