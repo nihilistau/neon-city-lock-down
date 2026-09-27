@@ -72,3 +72,11 @@ test('World3D.create preloads each floor before building it', async () => {
   assert.equal(world.activeFloor, 'penthouse');
   assert.ok(world.furnitureGroups.penthouse.length > 5);
 });
+
+test('the sky floors also preload the HDRI equirect', () => {
+  const eq = (f) => assetsForFloor(f, { equirect: 'shanghai_bund_2k' }).filter((x) => x.kind === 'equirect').map((x) => x.id);
+  assert.deepEqual(eq('penthouse'), ['shanghai_bund_2k']);
+  assert.deepEqual(eq('rooftop'), ['shanghai_bund_2k']);
+  assert.deepEqual(eq('fl27'), [], 'an interior floor has no sky to show');
+  assert.deepEqual(assetsForFloor('penthouse').filter((x) => x.kind === 'equirect'), [], 'hdri off → none');
+});

@@ -102,6 +102,7 @@ import { addCodex } from '../sim/meta.js';
 import { applyScenario } from '../sim/scenario.js';
 import { jobDest, interruptChance } from '../sim/jobs.js';
 import { canAct, performAction, spendAp } from '../sim/dayPlan.js';
+import { cfg } from './config.js';
 import { shouldDinner, markDinner, shouldSleep, markSleep, DINNER_MINUTE, SLEEP_MINUTE } from '../sim/livingBeats.js';
 
 /** run fn after N game-minutes (survives speed changes; dies with the page) */
@@ -208,12 +209,18 @@ export class App {
     // is constructed below; render() also guards on `this.cameraRig` existing.
     await this.assetsReady;
 
-    this.world = await World3D.create(this.stage, this.rng.stream('world'), this.assets);
+    // beta.2 moves the resolution into the quality preset (render.quality → hdri)
+    const hdri = /** @type {'off'|'1k'|'2k'} */ ('2k');
+    const hdriId = cfg('render.hdri.id', 'shanghai_bund');
+    this.world = await World3D.create(this.stage, this.rng.stream('world'), this.assets, {
+      equirect: hdri === 'off' ? null : `${hdriId}_${hdri}`,
+    });
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
     // world.particles(kind, pos) hook used by stage directions.
     this.combatFx = new CombatFx(this.stage.scene);
     this.world.particles = (kind, pos) => this.combatFx.impact(pos, kind);
-    this.lighting = new Lighting(this.stage);
+    this.lighting = new Lighting(this.stage, this.assets, { hdri, hdriId });
+    await this.lighting.ready;   // the env is rebuilt from the HDRI before shaders compile
     rimPool.init(this.stage.scene);   // fixed light count for the whole run
     // Pay for every floor's shader variants now, behind the loading screen,
     // rather than as a stall each time an elevator door opens.

@@ -60,3 +60,12 @@ test('rainCount scales with density and clamps', () => {
   assert.equal(rainCount(-1), 0);
   assert.equal(rainCount(99), RAIN_MAX);
 });
+
+test('every lighting preset grades the IBL and the sky; a blackout darkens the sky', async () => {
+  const { LIGHTING_PRESETS } = await import('../../data/lightingPresets.js');
+  for (const [id, p] of Object.entries(LIGHTING_PRESETS)) {
+    assert.ok(p.ibl, `${id} has no ibl block`);
+    for (const k of ['envIntensity', 'rotation', 'skyTint', 'skyExposure']) assert.equal(typeof p.ibl[k], 'number', `${id}.ibl.${k}`);
+  }
+  assert.ok(LIGHTING_PRESETS.blackout_emergency.ibl.skyExposure < LIGHTING_PRESETS.neon_night.ibl.skyExposure);
+});

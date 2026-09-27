@@ -33,12 +33,14 @@ export class World3D {
    * @param {import('../../core/rng.js').RngStream} rng
    * @param {ReturnType<typeof import('../../assets/assets.js').createAssets>|null} [assets]
    *   the asset facade; null (Node tests, ?noassets=1 paths) builds everything procedurally
-   * @param {{build?: boolean}} [opts] build:false leaves the floors to World3D.create()
+   * @param {{build?: boolean, equirect?: string|null}} [opts] build:false leaves the floors to World3D.create();
+   *   equirect: the HDRI equirect id for the sky dome (null = the flat skyline plate)
    */
-  constructor(stage, rng, assets = null, { build = true } = {}) {
+  constructor(stage, rng, assets = null, { build = true, equirect = null } = {}) {
     this.stage = stage;
     this.rng = rng;
     this.assets = assets;
+    this.equirectId = equirect;
     /** @type {Record<string, THREE.Group>} */
     this.floorGroups = {};
     /** @type {Record<string, {x:[number,number], z:[number,number]}[]>} WORLD-space walk rects */
@@ -70,11 +72,12 @@ export class World3D {
    * @param {import('../stage.js').Stage} stage
    * @param {import('../../core/rng.js').RngStream} rng
    * @param {ReturnType<typeof import('../../assets/assets.js').createAssets>} assets
+   * @param {{equirect?: string|null}} [opts] the HDRI equirect id the sky floors preload
    */
-  static async create(stage, rng, assets) {
-    const world = new World3D(stage, rng, assets, { build: false });
+  static async create(stage, rng, assets, { equirect = null } = {}) {
+    const world = new World3D(stage, rng, assets, { build: false, equirect });
     for (const floor of Object.values(FLOORS)) {
-      await assets?.preload(assetsForFloor(floor.id));
+      await assets?.preload(assetsForFloor(floor.id, { equirect }));
       world._buildFloor(floor);
     }
     world._finishBuild();

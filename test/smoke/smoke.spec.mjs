@@ -116,6 +116,32 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(src.bedding).toBe('procedural');   // procedural by choice
   });
 
+  test('image-based lighting comes from the HDRI, and a preset change dips and swaps it', async ({ page }) => {
+    await bootToRun(page);
+    const r = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const envBefore = app.stage.scene.environment?.uuid;
+      const target0 = app.lighting._envTarget;
+      app.lighting.apply('blackout_emergency', 1.2);
+      // poll the dip instead of sampling once: under SwiftShader a frame can take 200ms
+      let lowest = Infinity;
+      const t0 = performance.now();
+      while (performance.now() - t0 < 4000 && app.lighting._envDip) {
+        lowest = Math.min(lowest, app.stage.scene.environmentIntensity);
+        await new Promise((res) => setTimeout(res, 30));
+      }
+      return {
+        hdri: !!app.lighting.env.hdri, target0, lowest,
+        swapped: app.stage.scene.environment?.uuid !== envBefore,
+        after: app.stage.scene.environmentIntensity, target: app.lighting._envTarget,
+      };
+    });
+    expect(r.hdri).toBe(true);
+    expect(r.lowest).toBeLessThan(r.target0);
+    expect(r.swapped).toBe(true);
+    expect(r.after).toBeCloseTo(r.target, 5);
+  });
+
   test('?noassets=1 boots on procedural fallbacks with no console errors', async ({ page }) => {
     // The asset pipeline is an enhancement. With it switched off entirely the
     // game must still boot, build every floor and render — the same path a
@@ -124,11 +150,13 @@ test.describe('Neon-City: Lock-Down', () => {
     const state = await page.evaluate(() => ({
       enabled: window.__ncld.app.assets.enabled,
       mode: window.__ncld.app.mode,
+      hdri: !!window.__ncld.app.lighting.env.hdri,
       floor: window.__ncld.app.world.activeFloor,
       tile: (() => { let s = null; window.__ncld.app.world.floorGroups.penthouse.traverse((o) => { if (o.material?.userData?.pbr === 'tile') s = o.material.userData.source; }); return s; })(),
     }));
     expect(state.enabled).toBe(false);
     expect(state.tile).toBe('procedural');
+    expect(state.hdri).toBe(false);
     expect(state.mode).toBe('run');
     expect(state.floor).toBe('penthouse');
     expect(errors, `console errors during a no-assets boot:\n${errors.join('\n')}`).toEqual([]);

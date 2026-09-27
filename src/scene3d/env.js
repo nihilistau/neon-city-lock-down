@@ -1,5 +1,5 @@
 // @ts-check
-// Procedural image-based lighting.
+// Image-based lighting.
 //
 // The project had NO environment map anywhere, which is the single biggest
 // reason its surfaces read as plastic: MeshPhysicalMaterial's sheen (skin),
@@ -7,14 +7,12 @@
 // fixtures) are *reflection* lobes. With nothing to reflect they contribute
 // almost nothing, so shiny things looked matte and metal looked like grey paint.
 //
-// Everything here is generated at runtime — a gradient sky, a city-glow band,
-// and a few neon sign cards rendered into a cube target and PMREM-prefiltered.
-// The IBL specifically uses no binary assets — it is a gradient sky, a city-glow
-// band and a few neon sign cards rendered to a cube target and PMREM-prefiltered.
-// (The project as a whole is NOT asset-free any more: v0.4 introduced generated
-// stills for faces, HUD icons, fabrics and the city, built by tools/gen-art.mjs
-// and committed. This module predates that and stays procedural on purpose,
-// because the environment has to retint with every lighting preset.)
+// Two sources, one output. With the asset pipeline, the sky is the
+// `shanghai_bund` HDRI — a real night city — tinted per lighting preset;
+// without it (?noassets=1, a missing file), a generated gradient sky with a
+// city-glow band. Either way a few dim neon sign cards and a warm floor bounce
+// are composited in as local accents, and the lot is PMREM-prefiltered once per
+// preset, so a preset change retints what chrome, glass, skin and hair reflect.
 import * as THREE from 'three';
 
 /**
@@ -23,6 +21,38 @@ import * as THREE from 'three';
  * toward 1 reintroduces blown, flashing specular highlights on eyes and hair.
  */
 const SIGN_GAIN = 0.3;
+
+/**
+ * The HDRI is a photograph in absolute radiance: shanghai_bund averages ~0.8
+ * over the sphere, with street lamps near 20000. The procedural sky the ten
+ * presets were balanced against averages well under 0.1. Taken raw, it lifted
+ * every face to chalk-white and put a pin-sharp lamp in every eye, so the
+ * capture scales it down to the old sky's level (the preset's skyExposure
+ * grades on top of this) and caps each texel's brightest channel, keeping the
+ * city's hue but not its lamp cores.
+ */
+const HDRI_GAIN = 0.14;
+const HDRI_CLAMP = 2.5;
+
+/** The HDRI dome for the capture: graded, and lamp cores capped (see HDRI_CLAMP). */
+const HdriShader = {
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D map;
+    uniform vec3 grade;
+    uniform float cap;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(map, vUv).rgb * grade;
+      float peak = max(max(c.r, c.g), max(c.b, 1e-6));
+      gl_FragColor = vec4(c * min(1.0, cap / peak), 1.0);
+    }`,
+};
 
 /** Vertical gradient sky: ground bounce -> horizon city glow -> night sky. */
 const SkyShader = {
@@ -61,11 +91,25 @@ export class EnvBuilder {
     this.pmrem.compileCubemapShader();
     /** @type {Map<string, THREE.Texture>} */
     this.cache = new Map();
+    /** @type {THREE.Texture|null} equirect HDRI from the asset pipeline; null = procedural sky */
+    this.hdri = null;
+  }
+
+  /**
+   * Swap the sky source. Clears the cache: every preset's prefiltered map was
+   * built from the old sky.
+   * @param {THREE.Texture|null} equirect
+   */
+  setHDRI(equirect) {
+    if (equirect === this.hdri) return;
+    this.hdri = equirect;
+    for (const t of this.cache.values()) t.dispose();
+    this.cache.clear();
   }
 
   /**
    * @param {string} key cache key (the lighting preset id)
-   * @param {{sky?:number, horizon?:number, ground?:number, signs?:number[], intensity?:number}} [opts]
+   * @param {{sky?:number, horizon?:number, ground?:number, signs?:number[], intensity?:number, skyTint?:number, skyExposure?:number}} [opts]
    * @returns {THREE.Texture} a PMREM-prefiltered cube texture
    */
   get(key, opts = {}) {
@@ -78,27 +122,49 @@ export class EnvBuilder {
       ground = 0x07060a,
       signs = [0x39e6ff, 0xff3fa4, 0xffb347],
       intensity = 1,
+      skyTint = 0xffffff, skyExposure = 1,
     } = opts;
 
     const scene = new THREE.Scene();
     const disposables = [];
 
-    const skyGeo = new THREE.SphereGeometry(60, 24, 16);
-    const skyMat = new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: {
-        skyColor: { value: new THREE.Color(sky) },
-        horizonColor: { value: new THREE.Color(horizon) },
-        groundColor: { value: new THREE.Color(ground) },
-        horizonTightness: { value: 5.0 },
-        intensity: { value: intensity },
-      },
-      vertexShader: SkyShader.vertexShader,
-      fragmentShader: SkyShader.fragmentShader,
-    });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
-    disposables.push(skyGeo, skyMat);
+    const skyGeo = new THREE.SphereGeometry(60, 48, 24);
+    disposables.push(skyGeo);
+    if (this.hdri) {
+      // The real night city, graded by the preset: a blackout darkens what the
+      // chrome reflects as well as what the window shows.
+      const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: {
+          map: { value: this.hdri },
+          grade: { value: new THREE.Color(skyTint).multiplyScalar(skyExposure * HDRI_GAIN) },
+          cap: { value: HDRI_CLAMP },
+        },
+        vertexShader: HdriShader.vertexShader,
+        fragmentShader: HdriShader.fragmentShader,
+      });
+      const sky = new THREE.Mesh(skyGeo, skyMat);
+      sky.scale.x = -1;   // seen from inside, a sphere mirrors the panorama; flip it back
+      scene.add(sky);
+      disposables.push(skyMat);
+    } else {
+      const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: {
+          skyColor: { value: new THREE.Color(sky) },
+          horizonColor: { value: new THREE.Color(horizon) },
+          groundColor: { value: new THREE.Color(ground) },
+          horizonTightness: { value: 5.0 },
+          intensity: { value: intensity },
+        },
+        vertexShader: SkyShader.vertexShader,
+        fragmentShader: SkyShader.fragmentShader,
+      });
+      scene.add(new THREE.Mesh(skyGeo, skyMat));
+      disposables.push(skyMat);
+    }
 
     // Neon sign cards ringing the horizon. These are what show up as moving
     // highlights in eyes, hair, glassware and gun metal.

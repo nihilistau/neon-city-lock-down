@@ -41,5 +41,10 @@ grain:
   amount: 0.055     # film grain, applied after tone-mapping in display colour
   vignette: 0.42
 
+# The HDRI behind image-based lighting and the exterior sky dome. The quality
+# preset picks the resolution (assets/manifest.json has `${id}_1k` and `${id}_2k`).
+hdri:
+  id: shanghai_bund
+
 # Vertical field of view, degrees. Applies on reload (the camera is built once).
 fov: 55

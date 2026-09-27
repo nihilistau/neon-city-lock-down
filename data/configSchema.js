@@ -112,6 +112,7 @@ export const CONFIG_SCHEMA = {
     },
     bloom: { strength: num(0, 3), radius: num(0, 2), threshold: num(0, 8) },
     grain: { amount: num(0, 0.4), vignette: num(0, 1.5) },
+    hdri: { id: { type: 'string' } },
     fov: num(30, 110),
   },
   humanoid: {

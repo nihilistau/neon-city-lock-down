@@ -10,6 +10,7 @@
  *             warm:{color:number, intensity:number}, cool:{color:number, intensity:number},
  *             accent:{color:number, intensity:number},
  *             fog:{color:number, density:number}, exposure:number,
+ *             ibl?:{envIntensity:number, rotation:number, skyTint:number, skyExposure:number},
  *             pulse?:{light:string, speed:number, depth?:number, lightning?:boolean}}} LightPreset */
 
 /** @type {Record<string, LightPreset>} */
@@ -29,6 +30,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xff3fa4, intensity: 58 },
     fog: { color: 0x06070c, density: 0.012 },
     exposure: 1.1,
+    ibl: { envIntensity: 0.4, rotation: 0, skyTint: 0xffffff, skyExposure: 1.0 },
   },
   blackout_emergency: {
     hemi: { sky: 0x1a0a0a, ground: 0x050205, intensity: 0.4 },
@@ -38,6 +40,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xff2222, intensity: 110 },
     fog: { color: 0x040205, density: 0.03 },
     exposure: 0.9,
+    ibl: { envIntensity: 0.15, rotation: 0, skyTint: 0x6a5060, skyExposure: 0.25 },
     pulse: { light: 'accent', speed: 2.2 },
   },
   golden_hour: {
@@ -48,6 +51,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xff7a4d, intensity: 24 },
     fog: { color: 0x1a1010, density: 0.010 },
     exposure: 1.15,
+    ibl: { envIntensity: 0.5, rotation: 1.2, skyTint: 0xffd0a0, skyExposure: 1.3 },
   },
   candlelit: {
     hemi: { sky: 0x1c1410, ground: 0x0a0604, intensity: 0.35 },
@@ -57,6 +61,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xcc6a2a, intensity: 16 },
     fog: { color: 0x080503, density: 0.02 },
     exposure: 1.0,
+    ibl: { envIntensity: 0.25, rotation: 0, skyTint: 0xffc890, skyExposure: 0.5 },
     pulse: { light: 'warm', speed: 9.5, depth: 0.12 },
   },
   dawn_grey: {
@@ -67,6 +72,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0x88788a, intensity: 10 },
     fog: { color: 0x10141a, density: 0.014 },
     exposure: 0.95,
+    ibl: { envIntensity: 0.45, rotation: 2.4, skyTint: 0xc8d0e0, skyExposure: 0.9 },
   },
   storm: {
     hemi: { sky: 0x2a3442, ground: 0x0c1014, intensity: 0.8 },
@@ -76,6 +82,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0x5a6e8c, intensity: 18 },
     fog: { color: 0x080b10, density: 0.022 },
     exposure: 0.95,
+    ibl: { envIntensity: 0.3, rotation: 0.8, skyTint: 0x9fb0d0, skyExposure: 0.6 },
     pulse: { light: 'key', speed: 0.35, depth: 3.2, lightning: true },
   },
   club_pulse: {
@@ -86,6 +93,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xff3fa4, intensity: 90 },
     fog: { color: 0x0a0512, density: 0.018 },
     exposure: 1.05,
+    ibl: { envIntensity: 0.45, rotation: 0, skyTint: 0xffa8e8, skyExposure: 1.1 },
     pulse: { light: 'accent', speed: 4.4 },
   },
   fireplace_warm: {
@@ -96,6 +104,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xd06a2a, intensity: 20 },
     fog: { color: 0x0a0604, density: 0.016 },
     exposure: 1.05,
+    ibl: { envIntensity: 0.3, rotation: 0, skyTint: 0xffb080, skyExposure: 0.6 },
     pulse: { light: 'warm', speed: 7.3, depth: 0.15 },
   },
   security_red: {
@@ -106,6 +115,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xff3040, intensity: 60 },
     fog: { color: 0x0c0508, density: 0.02 },
     exposure: 0.95,
+    ibl: { envIntensity: 0.25, rotation: 0, skyTint: 0xff7070, skyExposure: 0.5 },
   },
   morning_haze: {
     hemi: { sky: 0x8a8a7e, ground: 0x2a2822, intensity: 1.4 },
@@ -115,6 +125,7 @@ export const LIGHTING_PRESETS = {
     accent: { color: 0xc8b090, intensity: 12 },
     fog: { color: 0x1c1e1e, density: 0.024 },
     exposure: 1.1,
+    ibl: { envIntensity: 0.5, rotation: 2.0, skyTint: 0xe0e8f0, skyExposure: 1.1 },
   },
 };
 
