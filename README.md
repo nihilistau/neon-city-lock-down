@@ -224,7 +224,7 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — 244 unit tests (stats, bond, dialogue, combat, sim…)
+npm test                              # node --test — 248 unit tests (stats, bond, dialogue, combat, sim…)
 npm run test:e2e                      # playwright — 9 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
