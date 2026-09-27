@@ -3,6 +3,48 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.6.0] — 2026-09-27 — Clean slate
+
+Sub-project 1 of 7 is done: Neon-City: Lock-Down is now an all-audiences
+survival game. Every 18+ system is gone, and in its place a **bond tier**
+(stranger → ally → trusted → loyal, derived from trust + loyalty with
+hysteresis) decides how far a companion's trust in you reaches. The bed is
+ordinary furniture: sit, lie down, invite an ally to sit beside you, or ask a
+trusted companion to stay the night, which is a fade to black, one line of
+narration and three hours passing. Saves moved to v2 (old saves migrate). The
+docs were rewritten to match, a clean-content guard fails `npm test` on any word
+from the retired register, `tools/screenshots.mjs` regenerates every README
+image from the real game, and CI runs unit tests + lint on every push and the
+Playwright suite on pull requests. This entry adds the final fix wave on top of
+rc.1.
+
+### Fixed
+- **Loading during "stay the night" no longer corrupts the loaded save.** A
+  load (Esc reached the save menu over the fade) used to let the stay's clock
+  skip, stats and morale land on the freshly loaded save. `bedScene.reset()`
+  now bumps an epoch that `stayNight` checks after every await, and the save
+  menu refuses to open while the bed scene is busy.
+- **Bed intents no longer fire on everyday talk about the bed.** "nice bed",
+  "im going to bed", "where is the bed" and "the bed alcove is clear" no longer
+  read as an invitation, and "you should get some rest" no longer dismisses a
+  guest. The invite phrase is "come sit on the bed".
+- **LLM inline stat tags are clamped to ±15**, like the structured-directive
+  path, so a single model reply can't jump a bond tier.
+- **Getting off the bed is covered end to end**: the smoke test checks the
+  first-person seat lock is released and the camera mode restored.
+- **A forced floor change or a cutscene gets a seated player up first**, so
+  neither leaves a first-person seat lock behind.
+
+### Changed
+- **Aria's backstory is the negotiator's everywhere.** The `aria_client` event
+  and three of her lines still carried her old escort-coded past; the visitor at
+  the doors is now a former corporate client who knows her from the
+  negotiating table. Lola's last two physical come-ons are wry and
+  non-physical now. The clean-content guard bans the retired phrasings.
+- **Re-staged `11-bond-rail`**: the "would follow you anywhere" toast is
+  actually visible now (the capture landed before its fade-in), and Kai, whose
+  lounge outfit read as underdressed from that angle, waits out of frame.
+
 ## [0.6.0-rc.1] — 2026-09-27 — Nothing left behind
 
 The release candidate for 0.6. Nothing new to play; this pass makes sure no
