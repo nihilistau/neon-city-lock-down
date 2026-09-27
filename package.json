@@ -10,6 +10,7 @@
     "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs && node tools/lint-assets.mjs",
     "lint:data": "node tools/lint-data.mjs",
     "lint:config": "node tools/lint-config.mjs",
+    "vendor:three": "node tools/vendor-three.mjs",
     "lint:assets": "node tools/lint-assets.mjs",
     "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true",
     "test:e2e": "playwright test",

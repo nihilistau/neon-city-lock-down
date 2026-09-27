@@ -1,0 +1,156 @@
+{
+  "three": "0.185.0",
+  "tarball": "https://registry.npmjs.org/three/-/three-0.185.0.tgz",
+  "files": [
+    {
+      "file": "controls/OrbitControls.js",
+      "bytes": 40504,
+      "sha256": "faabb4e8dfd9235ee4a9fd7c9a3d75f90f1689dbd4944bd6fd32117dacec5f93",
+      "upstream": true
+    },
+    {
+      "file": "geometries/RoundedBoxGeometry.js",
+      "bytes": 6476,
+      "sha256": "c1b7c9bd2cddff2e3f3a0723f618a3d364a47450e3d25771d21faed88410bec8",
+      "upstream": true
+    },
+    {
+      "file": "libs/draco/gltf/draco_decoder.js",
+      "bytes": 512465,
+      "sha256": "8625489da79a805f4f2a7d511c3e52d8b4085608a9d2a4d5f4f9de5db0aea04f",
+      "upstream": true
+    },
+    {
+      "file": "libs/draco/gltf/draco_decoder.wasm",
+      "bytes": 192420,
+      "sha256": "a680d927bed9cb864ddbd63521868891af2bfbe755092761b4837487618df8ac",
+      "upstream": true
+    },
+    {
+      "file": "libs/draco/gltf/draco_wasm_wrapper.js",
+      "bytes": 58456,
+      "sha256": "8bb2952d2ba7d67e1414f8df819410cb0434a666be53f671fff75f68843d76f6",
+      "upstream": true
+    },
+    {
+      "file": "libs/meshopt_decoder.module.js",
+      "bytes": 29256,
+      "sha256": "d428e73a000057c6c94bfcedc3412d0c2dc14ca8800e88553aab05113ad2bf19",
+      "upstream": true
+    },
+    {
+      "file": "loaders/DRACOLoader.js",
+      "bytes": 19030,
+      "sha256": "fdafdf4aa11bbc65d89adb338efd844bedf94073702f9049240ff1f1ea48ad5f",
+      "upstream": true
+    },
+    {
+      "file": "loaders/GLTFLoader.js",
+      "bytes": 114959,
+      "sha256": "97642d720f16cc9a0c9844934198e4d0c023bea8e89576d0f7545d03b2d103d2",
+      "upstream": true
+    },
+    {
+      "file": "loaders/HDRLoader.js",
+      "bytes": 12079,
+      "sha256": "0986b578f9acd14cec74e5ee85e07f45e681b40bcd229a601a0391201f9b5ff1",
+      "upstream": true
+    },
+    {
+      "file": "loaders/LUTCubeLoader.js",
+      "bytes": 4635,
+      "sha256": "a1b65ae4f6a27c636feefdf9d29acd3af0d97729c058b9bf6522e13a5836dffc",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/EffectComposer.js",
+      "bytes": 8501,
+      "sha256": "4e079a5886152d7e529a59aef644e968ab4d32c6a33ce016b36bf29b2eac26f7",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/LUTPass.js",
+      "bytes": 2230,
+      "sha256": "aef64d31e2528d25bccc00dd0c2d5aaf0a1d10f8ff9c7b66cfb48aeaba54987f",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/MaskPass.js",
+      "bytes": 4694,
+      "sha256": "7cd08eee9d5d6f5578beaddbdcbe9c384f6873810af27f22ab7db3ceeb127aa3",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/OutputPass.js",
+      "bytes": 4184,
+      "sha256": "02e4a261af34de71338185e9e87f0cbe5cba9115608d984363e1269dec1d2272",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/Pass.js",
+      "bytes": 4218,
+      "sha256": "444b409c235ead986893c472e720da1b779a56985c7d10b279c7944b52bd61c5",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/RenderPass.js",
+      "bytes": 4280,
+      "sha256": "817f6c3cdcd0fd41515d112359ea0532568eefb5aabd3b33903957ebca1b8a6a",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/SMAAPass.js",
+      "bytes": 50379,
+      "sha256": "1a96804b8cb33ba76a67f9a8e77f2d5e2bf47b1a5c9a8476901aa75e24acb85c",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/ShaderPass.js",
+      "bytes": 3228,
+      "sha256": "e2500a5913b26bbf5148ceaae644c6edcff06a18b01494ee37bf856353d2ab9d",
+      "upstream": true
+    },
+    {
+      "file": "postprocessing/UnrealBloomPass.js",
+      "bytes": 14921,
+      "sha256": "1158bb02f6467889aba19c1a788b9107054d7f6a558498b5e2152db5873bb859",
+      "upstream": true
+    },
+    {
+      "file": "shaders/CopyShader.js",
+      "bytes": 729,
+      "sha256": "a33057d5ac91c43304c186ac0e8816e62bb2ed471d3a00ff3018dfd5c0389718",
+      "upstream": true
+    },
+    {
+      "file": "shaders/LuminosityHighPassShader.js",
+      "bytes": 1291,
+      "sha256": "5044f780b6e6cf863947f64c36fe1587132f7fbe395ada863cd1e5f0388dcf1e",
+      "upstream": true
+    },
+    {
+      "file": "shaders/OutputShader.js",
+      "bytes": 1876,
+      "sha256": "353479f77a8d7e2629d49ccac9fc2f5dbfdda5442e0adf867b00377a2fcb0cb2",
+      "upstream": true
+    },
+    {
+      "file": "shaders/SMAAShader.js",
+      "bytes": 15002,
+      "sha256": "48ce320a6bf5c33806c4fa13ade7e3ab199f7856838d36b05ae82204db8a1c15",
+      "upstream": true
+    },
+    {
+      "file": "utils/BufferGeometryUtils.js",
+      "bytes": 37621,
+      "sha256": "5c552223a9309883743b80538d6e9cdb45e3227f30d3ec56fb2c39b46e78d595",
+      "upstream": true
+    },
+    {
+      "file": "utils/SkeletonUtils.js",
+      "bytes": 11535,
+      "sha256": "b1632a703206c3d830de9fcbe515696770d04b71a15ee6b50afa6d2c3298c86f",
+      "upstream": true
+    }
+  ]
+}
