@@ -7,7 +7,7 @@
 // intensity really comes back.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dipAndSwap, retargetDip, windowOffsets, rainLayout, rainCount, RAIN_BASE, RAIN_MAX } from '../../src/scene3d/envMath.js';
+import { dipAndSwap, retargetDip, softKnee, windowOffsets, rainLayout, rainCount, RAIN_BASE, RAIN_MAX } from '../../src/scene3d/envMath.js';
 
 const seq = (vals) => { let i = 0; return { next: () => vals[i++ % vals.length] }; };
 
@@ -84,4 +84,18 @@ test('retargetDip: a preset change mid-dip never pops the environment intensity'
     assert.equal(up.swapped, false, 'the new map still has to be swapped in');
     assert.ok(Math.abs(dipAndSwap(up.t, up.dur).k - before) < 1e-9, `k continuous at t=${t}`);
   }
+});
+
+test('softKnee: identity below the knee, smooth through it, never reaches the cap', () => {
+  for (const p of [0, 0.3, 1]) assert.equal(softKnee(p, 1, 3), p);
+  const e = 1e-4;
+  const slope = (softKnee(1 + e, 1, 3) - softKnee(1, 1, 3)) / e;
+  assert.ok(Math.abs(slope - 1) < 1e-3, 'slope 1 at the knee: no visible kink');
+  let prev = 1;
+  for (const p of [1.5, 2, 4, 20]) {
+    const q = softKnee(p, 1, 3);
+    assert.ok(q > prev && q < 3, `monotonic and under the cap at ${p}`);
+    prev = q;
+  }
+  assert.ok(softKnee(20000, 1, 3) <= 3, 'a street-lamp core lands on the cap, not past it');
 });

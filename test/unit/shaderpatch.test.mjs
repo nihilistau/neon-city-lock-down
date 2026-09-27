@@ -29,6 +29,8 @@ test('the sky-dome exposure patch lands in the r185 basic fragment shader', asyn
   assert.match(s.fragmentShader, /diffuseColor\.rgb \*= domeGain;/);
   assert.doesNotMatch(s.fragmentShader, /#include <map_fragment>/, 'the stock sample is replaced by the folded one');
   assert.match(s.fragmentShader, /texture2D\( map, domeUv \)|texture2D\(map, domeUv\)/);
+  assert.match(s.fragmentShader, /vec3 softKneeClamp\(/, 'the lamp-core soft clamp is defined');
+  assert.match(s.fragmentShader, /diffuseColor\.rgb = softKneeClamp\(/, '... and applied');
   assert.ok(s.uniforms.domeGain && s.uniforms.domeCap && s.uniforms.domeStrip, 'uniforms bound');
   assert.equal(m.customProgramCacheKey(), 'sky-dome');
 });

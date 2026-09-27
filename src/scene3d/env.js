@@ -14,6 +14,8 @@
 // are composited in as local accents, and the lot is PMREM-prefiltered once per
 // preset, so a preset change retints what chrome, glass, skin and hair reflect.
 import * as THREE from 'three';
+import { cfg } from '../core/config.js';
+import { HDRI_KNEE, SOFT_KNEE_GLSL } from './envMath.js';
 
 /**
  * Brightness of the horizon neon cards, relative to their pure hue.
@@ -27,14 +29,15 @@ const SIGN_GAIN = 0.3;
  * over the sphere, with street lamps near 20000. The procedural sky the ten
  * presets were balanced against averages well under 0.1. Taken raw, it lifted
  * every face to chalk-white and put a pin-sharp lamp in every eye, so the
- * capture scales it down to the old sky's level (the preset's skyExposure
- * grades on top of this) and caps each texel's brightest channel, keeping the
- * city's hue but not its lamp cores.
+ * capture scales it down to the old sky's level (render.hdri.gain; the preset's
+ * skyExposure grades on top of this) and soft-clamps each texel's brightest
+ * channel (render.hdri.clamp, envMath softKnee), keeping the city's hue and
+ * falloff but not its lamp cores.
  */
 const HDRI_GAIN = 0.14;
-const HDRI_CLAMP = 2.5;
+const HDRI_CLAMP = 3.0;
 
-/** The HDRI dome for the capture: graded, and lamp cores capped (see HDRI_CLAMP). */
+/** The HDRI dome for the capture: graded, and lamp cores soft-capped (see HDRI_CLAMP). */
 const HdriShader = {
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -45,12 +48,12 @@ const HdriShader = {
   fragmentShader: /* glsl */ `
     uniform sampler2D map;
     uniform vec3 grade;
+    uniform float knee;
     uniform float cap;
     varying vec2 vUv;
+    ${SOFT_KNEE_GLSL}
     void main() {
-      vec3 c = texture2D(map, vUv).rgb * grade;
-      float peak = max(max(c.r, c.g), max(c.b, 1e-6));
-      gl_FragColor = vec4(c * min(1.0, cap / peak), 1.0);
+      gl_FragColor = vec4(softKneeClamp(texture2D(map, vUv).rgb * grade, knee, cap), 1.0);
     }`,
 };
 
@@ -146,8 +149,9 @@ export class EnvBuilder {
         depthWrite: false,
         uniforms: {
           map: { value: this.hdri },
-          grade: { value: new THREE.Color(skyTint).multiplyScalar(skyExposure * HDRI_GAIN) },
-          cap: { value: HDRI_CLAMP },
+          grade: { value: new THREE.Color(skyTint).multiplyScalar(skyExposure * cfg('render.hdri.gain', HDRI_GAIN)) },
+          knee: { value: HDRI_KNEE },
+          cap: { value: Math.max(HDRI_KNEE + 0.05, cfg('render.hdri.clamp', HDRI_CLAMP)) },
         },
         vertexShader: HdriShader.vertexShader,
         fragmentShader: HdriShader.fragmentShader,

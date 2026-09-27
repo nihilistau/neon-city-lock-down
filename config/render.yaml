@@ -45,6 +45,15 @@ grain:
 # preset picks the resolution (assets/manifest.json has `${id}_1k` and `${id}_2k`).
 hdri:
   id: shanghai_bund
+  # The HDRI is a photograph in absolute radiance (street lamps ~20000). `gain`
+  # scales it for the image-based-lighting capture, `clamp` soft-caps each
+  # texel's brightest channel above a knee of 1.0 (too high: pin-sharp lamps in
+  # every eye; too low: a flat, grey city), and `domeGain` sets the visible sky
+  # dome behind the towers. Each lighting preset's ibl.skyTint × skyExposure
+  # grades both on top. gain/clamp apply on the next env rebuild, domeGain on reload.
+  gain: 0.14
+  clamp: 3.0
+  domeGain: 0.1
 
 # Vertical field of view, degrees. Applies on reload (the camera is built once).
 fov: 55

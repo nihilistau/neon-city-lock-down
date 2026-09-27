@@ -205,7 +205,12 @@ export const CONFIG_DEFAULTS = {
       threshold: 1.55,           // LINEAR HDR, pre-tonemap. Above lit skin/hair, below the neon core.
     },
     grain: { amount: 0.055, vignette: 0.42 },
-    hdri: { id: 'shanghai_bund' },   // assets/manifest.json hdri entries are `${id}_${1k|2k}`
+    hdri: {
+      id: 'shanghai_bund',       // assets/manifest.json hdri entries are `${id}_${1k|2k}`
+      gain: 0.14,                // the photograph's absolute radiance → the IBL capture's level
+      clamp: 3.0,                // soft cap on a texel's brightest channel (knee 1.0): lamp cores
+      domeGain: 0.1,             // the visible exterior dome's level (graded by each preset on top)
+    },
     fov: 55,                     // vertical field of view, degrees
   },
 
