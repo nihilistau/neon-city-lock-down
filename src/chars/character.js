@@ -67,23 +67,27 @@ export class Character {
     if (next === this._bond) return;
     const from = this._bond;
     this._bond = next;
-    if (!silent) emit('bond.changed', { id: this.id, name: this.name, from, to: next });
+    if (!silent) {
+      emit('bond.changed', { id: this.id, name: this.name, from, to: next });
+      feed(`${this.name}: ${from} → ${next}.`, 'bond');
+    }
   }
 
   /** @param {number} pd player's dominance for compliance clash */
   setPlayerDominance(pd) { this._playerDominance = pd; }
 
   /**
-   * Apply stat deltas (personality-weighted, coupled). Emits 'char.stat'.
+   * Apply stat deltas (personality-weighted, coupled). Emits 'char.stat'
+   * (carrying the post-change bond, so the rail never has to guess it).
    * @param {Partial<Record<import('../core/types.js').StatKey, number>>} deltas
    * @param {string} [cause]
    */
   applyStats(deltas, cause) {
     if (!this.alive) return {};
     const applied = applyDelta(this.stats, deltas, this.persona.personality);
-    emit('char.stat', { id: this.id, applied, stats: this.stats, cause });
-    this.refreshMood();
     this._refreshBond();
+    emit('char.stat', { id: this.id, applied, stats: this.stats, cause, bond: this._bond });
+    this.refreshMood();
     return applied;
   }
 
@@ -208,5 +212,8 @@ export class Character {
     // after this, which setDowned() overrides for good
     if (!this.alive) this._down();
     this.refreshMood(true);
+    // the bond was re-derived silently above (a load is not a crossing — no toast),
+    // but the rail's bars and bond chip still have to catch up with the loaded state
+    emit('char.stat', { id: this.id, applied: {}, stats: this.stats, cause: 'restore', bond: this._bond });
   }
 }

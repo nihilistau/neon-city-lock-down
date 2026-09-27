@@ -1,6 +1,6 @@
 // @ts-check
 // Versioned save envelope: slots + roguelike autosave. Serializes clock, rng,
-// run state, characters (stats/gates/memory/position/wardrobe/brain), lighting.
+// run state, characters (stats/bond/memory/position/wardrobe/brain), lighting.
 // Autosave is deleted on death — perma-death is real.
 
 

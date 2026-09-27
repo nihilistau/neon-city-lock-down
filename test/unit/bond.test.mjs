@@ -7,6 +7,9 @@ import { Character } from '../../src/chars/character.js';
 import { on, resetBus } from '../../src/core/bus.js';
 import * as THREE from 'three';
 import lola from '../../data/cast/lola.js';
+import { condOk } from '../../src/dialogue/topics.js';
+import { selectLine } from '../../src/dialogue/selector.js';
+import { topic } from '../../data/schema.js';
 
 const s = (trust, loyalty) => ({ trust, loyalty });
 
@@ -66,7 +69,7 @@ test('Character exposes bond and emits bond.changed once per real crossing', () 
   assert.equal(c.bond, 'stranger');
   const seen = [];
   on('bond.changed', (e) => seen.push(e));
-  c.applyStats({ trust: 30, loyalty: 30 }, 'test');     // → ally (unless receptivity dampens; see below)
+  c.applyStats({ trust: 30, loyalty: 30 }, 'test');
   c.stats.trust = 40; c.stats.loyalty = 40; c._refreshBond();
   assert.equal(c.bond, 'ally');
   c.stats.trust = 33; c.stats.loyalty = 33; c._refreshBond();   // dip inside hysteresis
@@ -97,4 +100,78 @@ test('ActorQueue refuses a minBond command the character has not reached', async
   assert.equal(q.push({ type: 'wait', args: [1], minBond: 'trusted' }), false);
   assert.equal(q.push({ type: 'wait', args: [1], minBond: 'ally' }), true);
   assert.equal(q.push({ type: 'wait', args: [1] }), true);
+});
+
+/** a Character pinned at a known tier */
+function charAt(trust, loyalty) {
+  const c = stubChar(lola);
+  c.stats.trust = trust; c.stats.loyalty = loyalty; c._refreshBond(true);
+  return c;
+}
+
+test('topic cond: bondAtLeast / bondBelow gate on the live tier', () => {
+  const ally = charAt(40, 40), stranger = charAt(10, 10);
+  assert.equal(ally.bond, 'ally'); assert.equal(stranger.bond, 'stranger');
+  assert.equal(condOk({ bondAtLeast: 'ally' }, { char: ally, day: 1 }), true);
+  assert.equal(condOk({ bondBelow: 'ally' }, { char: ally, day: 1 }), false);
+  assert.equal(condOk({ bondAtLeast: 'ally' }, { char: stranger, day: 1 }), false);
+  assert.equal(condOk({ bondBelow: 'ally' }, { char: stranger, day: 1 }), true);
+});
+
+test('line when: bondAtLeast / bondBelow pick the matching line', () => {
+  const t = topic('lola.test.bondlines', {
+    char: 'lola',
+    lines: [
+      { when: { bondAtLeast: 'ally' }, text: 'friend' },
+      { when: { bondBelow: 'ally' }, text: 'stranger' },
+      { text: 'fallback' },
+    ],
+  });
+  const rng = { range: () => 0 };
+  assert.equal(selectLine(t, charAt(40, 40), 0, rng).text, 'friend');
+  assert.equal(selectLine(t, charAt(10, 10), 0, rng).text, 'stranger');
+});
+
+test('schema rejects a bond condition that is not a tier', () => {
+  const lines = [{ text: 'x' }];
+  assert.throws(() => topic('lola.test.badcond', { char: 'lola', lines, cond: { bondAtLeast: 'kiss' } }),
+    /cond\.bondAtLeast must be one of stranger\|ally\|trusted\|loyal/);
+  assert.throws(() => topic('lola.test.badwhen', { char: 'lola', lines: [{ when: { bondBelow: 'intimate' }, text: 'x' }] }),
+    /line\.when\.bondBelow/);
+  assert.doesNotThrow(() => topic('lola.test.goodcond', { char: 'lola', lines, cond: { bondAtLeast: 'loyal' } }));
+});
+
+test('restore refreshes the rail (char.stat carries the loaded bond) without a bond.changed toast', () => {
+  resetBus();
+  const src = charAt(60, 60);
+  const d = JSON.parse(JSON.stringify(src.serialize()));
+  const c = stubChar(lola);                       // Lola's persona starts as a stranger
+  assert.equal(c.bond, 'stranger');
+  const stat = [], changed = [];
+  on('char.stat', (e) => stat.push(e));
+  on('bond.changed', (e) => changed.push(e));
+  c.restore(d);
+  assert.equal(c.bond, 'trusted');
+  assert.equal(changed.length, 0, 'a load is not a crossing — no toast');
+  const last = stat.at(-1);
+  assert.ok(last, 'restore must emit char.stat so the rail catches up');
+  assert.equal(last.id, 'lola');
+  assert.equal(last.cause, 'restore');
+  assert.equal(last.bond, 'trusted');
+});
+
+test('applyStats reports the post-change bond on char.stat and feeds real crossings', () => {
+  resetBus();
+  const c = charAt(34, 34);
+  const stat = [], fed = [];
+  on('char.stat', (e) => stat.push(e));
+  on('feed.entry', (e) => fed.push(e));
+  c.stats.trust = 50; c.stats.loyalty = 50;
+  c.applyStats({ happiness: 1 }, 'test');
+  assert.equal(c.bond, 'ally');
+  assert.equal(stat.at(-1).bond, 'ally');
+  assert.deepEqual(fed.filter((e) => e.kind === 'bond').map((e) => e.text), ['Lola Voss: stranger → ally.']);
+  c._refreshBond(true);                           // a silent re-seed never reaches the feed
+  c.stats.trust = 60; c.stats.loyalty = 60; c._refreshBond(true);
+  assert.equal(fed.filter((e) => e.kind === 'bond').length, 1);
 });

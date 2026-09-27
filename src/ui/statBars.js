@@ -35,12 +35,15 @@ export function initStatBars() {
   on('bedscene.ended', () => root?.classList.remove('hidden'));
   on('char.registered', ({ character }) => { if (!cards.has(character.id)) addCard(character); });
   on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
-  on('char.stat', ({ id, stats }) => updateBars(id, stats));
+  on('char.stat', ({ id, stats, bond }) => { updateBars(id, stats); if (bond) setBondChip(id, bond); });
   on('char.mood', ({ id, mood }) => { const c = cards.get(id); if (c) c.querySelector('.mood').textContent = mood; });
-  on('bond.changed', ({ id, to }) => {
-    const chip = cards.get(id)?.querySelector('.sb-bond');
-    if (chip) { chip.textContent = to; /** @type {HTMLElement} */ (chip).dataset.tier = to; }
-  });
+  on('bond.changed', ({ id, to }) => setBondChip(id, to));
+}
+
+/** @param {string} id @param {string} tier */
+function setBondChip(id, tier) {
+  const chip = /** @type {HTMLElement|null|undefined} */ (cards.get(id)?.querySelector('.sb-bond'));
+  if (chip && chip.dataset.tier !== tier) { chip.textContent = tier; chip.dataset.tier = tier; }
 }
 
 function addCard(character) {
