@@ -7,9 +7,10 @@
   "scripts": {
     "serve": "node tools/serve.mjs 8420",
     "test": "node --test \"test/unit/**/*.test.mjs\"",
-    "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs",
+    "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs && node tools/lint-assets.mjs",
     "lint:data": "node tools/lint-data.mjs",
     "lint:config": "node tools/lint-config.mjs",
+    "lint:assets": "node tools/lint-assets.mjs",
     "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run lint && npm run test:e2e"
