@@ -35,6 +35,14 @@ export function parseTar(buf) {
       const prefix = field(345, 155);
       if (prefix) name = `${prefix}/${name}`;
     }
+    // a garbled octal size field parses to NaN (or, in principle, negative);
+    // silently treating that as 0 would truncate the map instead of failing
+    if (!Number.isFinite(size) || size < 0) {
+      throw new Error(`tar: bad size field for entry "${name}" at offset ${off}`);
+    }
+    if (off + 512 + size > buf.length) {
+      throw new Error(`tar: entry "${name}" at offset ${off} declares ${size} bytes but the archive ends first (truncated)`);
+    }
     const body = buf.subarray(off + 512, off + 512 + size);
     if (type === 'x') {
       const m = /(?:^|\n)\d+ path=([^\n]*)\n/.exec(body.toString('utf8'));
@@ -53,6 +61,23 @@ export function parseTar(buf) {
 /** @param {Buffer} tgz */
 export function parseTgz(tgz) {
   return parseTar(gunzipSync(tgz));
+}
+
+/**
+ * Why a relative path taken from an archive (or a URI inside a model it holds)
+ * must not be joined onto a destination directory, or null when it is safe.
+ * Checked on the RAW name, before any join or normalise: `join('assets/props',
+ * '../../x')` quietly resolves outside assets/, which is the whole zip-slip bug.
+ * Backslashes count as separators too — a zip written on Windows can use them.
+ * @param {string} name
+ * @returns {string|null}
+ */
+export function unsafePath(name) {
+  if (typeof name !== 'string' || name === '') return 'empty path';
+  if (/^[\\/]/.test(name) || /^[a-zA-Z]:/.test(name)) return 'absolute or drive-letter path';
+  if (name.split(/[\\/]/).includes('..')) return 'a ".." segment climbs out of the destination';
+  if (name.includes('\u0000')) return 'NUL byte in path';
+  return null;
 }
 
 /**
@@ -84,11 +109,23 @@ export function readZip(buf) {
     all.push({ name, method, compSize, size, local });
     p += 46 + nameLen + extraLen + commentLen;
   }
-  const byName = new Map(all.map((e) => [e.name, e]));
+  // Unsafe names are dropped from `entries` and refused by read(), so no caller
+  // can turn one into a write path; `rejected` keeps them for the error report.
+  /** @type {{name:string, reason:string}[]} */
+  const rejected = [];
+  const safe = all.filter((e) => {
+    const why = unsafePath(e.name);
+    if (why) rejected.push({ name: e.name, reason: `unsafe zip entry "${e.name}": ${why}` });
+    return !why;
+  });
+  const byName = new Map(safe.map((e) => [e.name, e]));
   return {
-    entries: all.filter((e) => !e.name.endsWith('/')),
+    entries: safe.filter((e) => !e.name.endsWith('/')),
+    rejected,
     /** @param {string} name */
     read(name) {
+      const why = unsafePath(name);
+      if (why) throw new Error(`unsafe zip entry "${name}": ${why}`);
       const e = byName.get(name);
       if (!e) throw new Error(`zip has no ${name}`);
       const n = buf.readUInt16LE(e.local + 26);

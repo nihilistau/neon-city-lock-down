@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gzipSync, deflateRawSync } from 'node:zlib';
-import { parseTar, parseTgz, readZip } from '../../tools/lib/archive.mjs';
+import { parseTar, parseTgz, readZip, unsafePath } from '../../tools/lib/archive.mjs';
 import { relativeImports, resolveRelative, isEsModuleSource } from '../../tools/lib/importScan.mjs';
 
 /** one ustar header block; the checksum field is left blank (the parser does not verify it) */
@@ -150,4 +150,47 @@ test('resolveRelative is posix and normalises ..', () => {
 test('isEsModuleSource tells an ES module from UMD glue', () => {
   assert.equal(isEsModuleSource('import { A } from "three";\nexport { B };'), true);
   assert.equal(isEsModuleSource('var DracoDecoderModule = (function() { return {}; })();'), false);
+});
+
+test('zip: entries that would escape the destination are rejected before any path is joined (zip-slip)', () => {
+  const ok = Buffer.from('ok');
+  const z = readZip(zip([
+    { name: 'Models/GLB format/books.glb', data: ok, method: 0 },
+    { name: '../evil.glb', data: ok, method: 0 },
+    { name: 'Models/../../evil2.glb', data: ok, method: 0 },
+    { name: 'C:/x.glb', data: ok, method: 0 },
+    { name: 'c:x.glb', data: ok, method: 0 },
+    { name: '/etc/abs.glb', data: ok, method: 0 },
+    { name: 'Models\\..\\win.glb', data: ok, method: 0 },
+  ]));
+  assert.deepEqual(z.entries.map((e) => e.name), ['Models/GLB format/books.glb'], 'only the safe entry is listed');
+  assert.deepEqual(z.rejected.map((r) => r.name),
+    ['../evil.glb', 'Models/../../evil2.glb', 'C:/x.glb', 'c:x.glb', '/etc/abs.glb', 'Models\\..\\win.glb']);
+  for (const r of z.rejected) assert.match(r.reason, /unsafe zip entry/);
+  assert.throws(() => z.read('../evil.glb'), /unsafe zip entry/);
+  assert.throws(() => z.read('C:/x.glb'), /unsafe zip entry/);
+});
+
+test('tar: a garbled octal size field throws instead of silently truncating the map', () => {
+  const good = tarEntry('package/a.js', 'export const a = 1;\n');
+  const bad = tarHeader('package/bad.js', 0);
+  bad.write('not-octal!\0', 124);   // parseInt(…, 8) on this is NaN
+  const tar = Buffer.concat([good, bad, TAR_END]);
+  assert.throws(() => parseTar(tar), /bad size field.*package\/bad\.js/s);
+});
+
+test('tar: a truncated archive (declared size runs past the buffer) throws', () => {
+  const full = tarEntry('package/big.js', 'x'.repeat(1000));
+  const truncated = full.subarray(0, 512 + 100);   // header intact, body cut short
+  assert.throws(() => parseTar(truncated), /package\/big\.js.*truncated/s);
+});
+
+test('unsafePath names why a relative path is not safe to join, or returns null', () => {
+  assert.equal(unsafePath('Models/GLB format/Textures/colormap.png'), null);
+  assert.equal(unsafePath('a..b/c.glb'), null, 'dots inside a segment are fine');
+  assert.match(String(unsafePath('../evil.glb')), /\.\./);
+  assert.match(String(unsafePath('C:/x.glb')), /absolute/);
+  assert.match(String(unsafePath('/x.glb')), /absolute/);
+  assert.match(String(unsafePath('\\\\server\\share\\x.glb')), /absolute/);
+  assert.match(String(unsafePath('')), /empty/);
 });

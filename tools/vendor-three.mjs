@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { parseTgz } from './lib/archive.mjs';
 import { relativeImports, resolveRelative, isEsModuleSource } from './lib/importScan.mjs';
+import { safeRelative } from './lib/safePath.mjs';
 
 const VERSION = '0.185.0';
 const TARBALL = `https://registry.npmjs.org/three/-/three-${VERSION}.tgz`;
@@ -99,14 +100,19 @@ async function main() {
     if (!buf) throw new Error(`three@${VERSION} has no examples/jsm/${rel}`);
     if (!rel.endsWith('.js') || OPAQUE.test(rel)) continue;
     for (const spec of relativeImports(buf.toString('utf8'))) {
-      const dep = resolveRelative(rel, spec);
+      // an addon's own relative import is untrusted the same way its path is:
+      // a crafted '../../etc/passwd'-style specifier must not reach the queue
+      const dep = safeRelative(resolveRelative(rel, spec));
       if (!want.has(dep)) { want.add(dep); queue.push(dep); }
     }
   }
 
   for (const rel of [...want].sort()) {
     const upstream = /** @type {Buffer} */ (files.get(PREFIX + rel));
-    const dest = join(OUT, rel);
+    const dest = join(OUT, safeRelative(rel));
+    // belt-and-suspenders: safeRelative already forbids '..' segments, so this
+    // can't actually fire, but the guard documents the invariant at the write site
+    if (relative(OUT, dest).startsWith('..')) throw new Error(`refusing to write outside vendor root: ${rel}`);
     let status = 'added';
     if (existsSync(dest)) {
       const same = sha(await readFile(dest)) === sha(upstream);
@@ -127,7 +133,7 @@ async function main() {
   for (const rel of onDisk) {
     if (!rel.endsWith('.js') || OPAQUE.test(rel)) continue;
     for (const spec of relativeImports(await readFile(join(OUT, rel), 'utf8'))) {
-      const dep = resolveRelative(rel, spec);
+      const dep = safeRelative(resolveRelative(rel, spec));
       if (!have.has(dep)) missing.push(`${rel} imports ${spec} → ${dep}, which is not vendored`);
     }
   }
