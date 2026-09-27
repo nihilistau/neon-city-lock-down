@@ -6,7 +6,7 @@
 //
 // WHY VENDORED: styles/base.css used to open with an @import from
 // fonts.googleapis.com. That is a render-blocking third-party request on every
-// boot of an offline-first, local-only adult game — it leaked the player's IP
+// boot of an offline-first, local-only game — it leaked the player's IP
 // to Google, and offline every glyph fell back to Segoe UI, taking the whole
 // typographic identity with it.
 //

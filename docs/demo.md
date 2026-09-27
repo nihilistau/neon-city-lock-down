@@ -5,13 +5,13 @@ release](https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.2.0),
 marquee features in order of "wow."
 
 **Setup:** `node tools/serve.mjs 8420` + `node tools/sidecar.mjs` running; LM Studio optional.
-Open http://localhost:8420, pass the 18+ gate, Enter.
+Open http://localhost:8420, pick a scenario from the main menu, Enter.
 
 ---
 
 **0:00 — Cold open**
 - *Do:* You're in the neon penthouse, city burning through the glass, three characters around you.
-- *Say:* "Neon-City: Lock-Down — an 18+ neon-noir survival RPG where everything is procedurally
+- *Say:* "Neon-City: Lock-Down — a neon-noir survival RPG where everything is procedurally
   generated. As of v0.2.0 it's not just a game, it's an **engine + creation kit**. Let me show you."
 
 **0:20 — Everything's tunable (config layer)**

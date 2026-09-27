@@ -9,8 +9,8 @@
 <blockquote align="center">
 🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-beta.1">v0.6.0-beta.1 — The bed is just a bed</a></b> is out.<br>
 0.6 turns Lock-Down into an <b>all-audiences survival game</b> — sub-project 1 of a
-7-part upgrade. The intimacy ladder, the bed game, and every 18+ system are gone;
-in their place a <b>bond tier</b> (stranger → ally → trusted → loyal) gates
+7-part upgrade. The old relationship-escalation systems are gone; in their place
+a <b>bond tier</b> (stranger → ally → trusted → loyal) gates
 companion trust, and the bed is ordinary furniture you can sit, lie on, and share
 with a trusted ally.
 <a href="https://github.com/nihilistau/neon-city-lock-down/CHANGELOG.md">Changelog →</a>
@@ -91,7 +91,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   trust + loyalty with hysteresis so it never flickers) that gates how far a
   companion's trust in you reaches — from a private conversation to inviting you
   to sit with them.
-- **Procedural 3D everything.** Stylized humanoids on programmatic 34-bone
+- **Procedural 3D everything.** Stylized humanoids on programmatic 31-bone
   skeletons with parametric skinning, physically-shaded skin (sheen) and hair
   (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
   (procedural gait, pose clips, additive breathing, gaze). 14 zones across 7
@@ -142,7 +142,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 - **A modern desktop browser** with WebGL2 + WebAudio (recent Chrome, Edge, or
   Firefox). A discrete GPU is nice but not required — the scene is deliberately
   light (~33k triangles).
-- **[Node.js](https://nodejs.org) 18+** — only to run the tiny static file
+- **[Node.js](https://nodejs.org) 18 or newer** — only to run the tiny static file
   server (no npm install, no build step, zero runtime dependencies). Running the
   unit suites (`npm test`) needs **Node 20+**, where the built-in test runner is
   stable.
@@ -276,8 +276,8 @@ test/                 node --test unit suites + a headless smoke contract
 ## Content note
 Neon-City: Lock-Down is an all-audiences survival game. It has noir themes,
 strong language, and survival violence — riots, gunfights, injury, and
-perma-death. There is no sexual content, no age gate, and no explicitness
-setting. A **bond tier** (stranger → ally → trusted → loyal), derived from trust
+perma-death. There is no sexual content and no age gate. A **bond tier**
+(stranger → ally → trusted → loyal), derived from trust
 and loyalty, governs how far a companion's trust in you reaches: a private
 conversation, an invitation to sit together, or — at the highest tier — asking
 them to stay the night, which is implied only (a fade to black and one

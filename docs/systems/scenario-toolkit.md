@@ -41,7 +41,7 @@ schema). Then:
 ## Content shapes
 
 - **Scenario** — `{ id, title, blurb, lighting, castMoodShifts:{char:{stat:delta}},
-  placements:{char:[zone,waypoint]}, fireEvent, game }`. `game` is `"tod"`, `"bed:<char>"`, or
+  placements:{char:[zone,waypoint]}, fireEvent, game }`. `game` is `"cards"` (Kai's card game) or
   `"mystery:<case>"`.
 - **Event** — `{ id, cls:"threat|social|system", weight:<number>, weightThreatScale?, cooldownMin?,
   maxPerRun?, window:{minDay?,phase?}, script:[steps] }`. Steps use the event vocabulary

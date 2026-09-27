@@ -1,12 +1,12 @@
 # Humanoid Rig
 
-`src/humanoid/` — the procedural, code-built character body: a 34-bone skeleton, skinned body + outfit
+`src/humanoid/` — the procedural, code-built character body: a 31-bone skeleton, skinned body + outfit
 meshes, a CanvasTexture face, and a layered animator driven by clips + a procedural gait. No imported
 model files; everything is generated from proportions at spawn. Movement/pose commands arrive via the
 ActorQueue (see [sim-world-loop.md](./sim-world-loop.md)); this layer exposes the primitives it drives.
 
 ## Skeleton (`skeleton.js`)
-`BONES` — the 34-bone list, parents before children:
+`BONES` — the 31-bone list, parents before children:
 ```
 root hips spine1 spine2 chest neck head jaw eyeL eyeR breastL breastR
 clavL clavR armL armR foreL foreR handL handR
@@ -26,7 +26,7 @@ merged, skinned geometry over the shared skeleton (skin weights via `util/geo.js
 to the actor root and toggled by the wardrobe.
 
 > **Gotcha — the identity bindMatrix rule (real bug, now fixed).** Every SkinnedMesh MUST bind with an
-> explicit identity bind matrix: `mesh.bind(skeleton, new THREE.Matrix4())`. If you call `mesh.bind(skeleton)`
+> hand-supplied identity bind matrix: `mesh.bind(skeleton, new THREE.Matrix4())`. If you call `mesh.bind(skeleton)`
 > (no matrix), three.js runs `Skeleton.calculateInverses()` on the **live, already-posed** shared skeleton,
 > overwriting the correct bind-pose inverses computed in `buildSkeleton`. Because every body/outfit mesh
 > shares one skeleton, a single re-bind (e.g. a clothes change spawning a new outfit mesh) then corrupted
@@ -46,7 +46,7 @@ mood/dialogue/voice do.
 4. **Gaze** — neck 40% / head 60% toward `gazeTarget`, clamped to a plausible neck cone.
 
 - `play(clipId, fadeSec=0.3)` — crossfade. `lookAt(target)`, `speed` (set by the mover each frame),
-  `tempo` (arousal/energy scalar for `tempoScaled` clips).
+  `tempo` (energy/tension scalar for `tempoScaled` clips).
 - **Gotcha:** bones untouched by either clip relax to identity; gait-owned bones only relax when the
   character isn't moving — otherwise a sit pose's legs stayed latched under a torso-only clip (the
   "seated contortion" bug).

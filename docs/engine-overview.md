@@ -53,19 +53,20 @@ wildcard. It is the **only** cross-layer channel. Representative topics:
 | Dialogue | `chat.player`, `chat.reply`, `voice.speaking/done`, `vox.speaking/done` |
 | Bed | `bedscene.state/guest/started/ended`, `bed.requested` |
 | Events | `event.fired/done/choice`, `news.push`, `run.extraction` |
-| Loop | `dayplan.reset`, `objective.done`, `char.stat/mood`, `run.death` |
+| Loop | `dayplan.reset`, `objective.done`, `char.stat/mood`, `bond.changed`, `run.death` |
 
 Precedent: the **audio conductor** and the **camera director** both react to the same combat/
-dialogue/intimacy topics — that is the intended pattern for any presentation layer.
+dialogue/bed topics — that is the intended pattern for any presentation layer.
 
 ## Architecture rules
 
 - **The ActorQueue is the single writer** to a character's body. Every movement / pose / expression
   — from AI, dialogue stage-directions, events, or the director tools — is a command pushed to that
-  character's `ActorQueue` (`src/sim/actors/actorQueue.js`). Gate-tier-tagged commands are checked
-  at the queue, so content can't bypass consent.
-- **`gates.js` is the sole intimacy authority** (`src/chars/gates.js`). Stat thresholds + in-fiction
-  consent + the explicitness cap. Nothing else flips a gate.
+  character's `ActorQueue` (`src/sim/actors/actorQueue.js`). A command can carry `minBond`; the queue
+  refuses it (emitting `actor.refused`) when the character's bond tier doesn't reach it.
+- **`bond.js` is the sole relationship authority** (`src/chars/bond.js`). The tier
+  (`stranger → ally → trusted → loyal`) is derived from `(trust + loyalty) / 2` with hysteresis and never
+  stored as truth; nothing else decides how a character stands with the player.
 - **The bus is the only cross-layer channel** (above).
 - **Determinism where it matters**: seeded `RngStream`s (`src/core/rng.js`) drive sim/combat/dialogue
   selection; cosmetic FX may use `Math.random`.
@@ -78,7 +79,7 @@ The engine is externally tunable and extensible without touching code — the sp
   `await loadConfig()` overlays editable `config/<group>.yaml` onto baked defaults
   (`data/configDefaults.js`), validated by `data/configSchema.js`. Systems read `cfg('group.path')`;
   values hot-reload on the `config.loaded` / `config.changed` bus events. Ten groups cover every
-  tunable: camera, combat, sim, chars, humanoid, world, gameplay, lighting, llm, voice. Edit YAML by
+  tunable: camera, combat, sim, chars, lighting, render, humanoid, world, llm, voice. Edit YAML by
   hand or live via `/api/config` (the LLM/Voice panels write it). Server code reads the same files
   through `tools/serverConfig.mjs`.
 - **User-content layer** (`src/core/userContent.js`). After config, `main.js` `await
@@ -100,15 +101,15 @@ Both layers are non-breaking: with no `config/` or `user/` directory the game bo
 src/core/     app.js (root), bus, loop, clock, rng, settings, save, log, script, types,
               config (runtime-YAML store), userContent (creation-kit loader)
 src/sim/      world, tick, survival, threat, scheduler, eventRunner, death, meta, inventory,
-              dayPlan, objectives; combat/{combat,resolver,cover}; ai/{brain,needs,…}; actors/{actorQueue,nav}
-src/chars/    stats, gates, mood, memory, character, wardrobe
+              dayPlan, objectives, bedScene; combat/{combat,resolver,cover}; ai/{brain,needs,…}; actors/{actorQueue,nav}
+src/chars/    stats, bond, mood, memory, character, wardrobe
 src/dialogue/ engine, parser/*, topics, selector, effects, stageDirections, llm/*
 src/scene3d/  stage, lighting, postfx, picking, combatFx, monitors; tower/{zoneBuilder,furniture,curtains}
 src/humanoid/ skeleton, bodyBuilder, outfitBuilder, face, animator, gait, clips, actor3d, weaponModel
 src/camera/   cameraRig, firstPerson (FP+TPS controller, aim magnetism), cameraDirector
 src/audio/    engine, music/*, sfx/*, voice, voxVoice, sidecar (voice-server client)
 src/ui/       hud, statBars, chatPanel, combatHud, reticle, planPanel, inventory, llmPanel, voicePanel, kitPanel, director/*
-src/games/    bedGame, truthOrDare, gambits, mystery
+src/games/    cards, gambits, mystery
 data/         events, zones, scenarios, items, outfits, cast/*, dialogue/*, poses/*, games/*,
               configDefaults, configSchema, lightingPresets
 config/       editable engine tuning — <group>.yaml (see docs/config/)

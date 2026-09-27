@@ -89,15 +89,17 @@ Emits `inventory.changed`, `inventory.equipped`.
 ## ActorQueue — the command spine (`actors/actorQueue.js`)
 **Single writer to a character's body.** Every movement/pose/expression (AI, dialogue directions, events,
 cutscenes, Director tools) is a command pushed here.
-- `push(cmd)` — appends; if `cmd.gateTier` is set and a `hooks.gateCheck` exists, a disallowed tier is
-  rejected and emits `actor.refused`. `pushPriority(cmd)` flushes the queue + current command and runs this next.
+- `push(cmd)` — appends; if `cmd.minBond` is set and a `hooks.bondCheck` exists (the Character wires it to
+  `bondAtLeast`), a command the bond doesn't reach is rejected and emits `actor.refused {reason:'bond'}`.
+  A frozen (dead) queue accepts nothing. `pushPriority(cmd)` flushes the queue + current command and runs this next.
 - Builders: `goto(zone, waypoint)`, `gotoSocket(ref)`, `sit(ref)`, `stand()`, `playClip(id, fade, holdSec)`,
   `face(expr)`, `look(target)`, `turn(yaw)`, `wait(sec)`, `call(fn)`. `clear()`, `get busy`.
 - `update(dt)` steps the active command (path-follow at `WALK_SPEED` 1.22 m/s, elevator transit teleport),
   and emits `zone.entered` on zone change.
 
-**Gotcha:** the queue is the consent chokepoint — gate-tier-tagged commands (e.g. paired/bed clips) are
-checked at the queue via `gates.js`, so no path (AI/LLM/director) can bypass consent.
+**Gotcha:** the queue is the bond chokepoint — a `minBond`-tagged command is checked here against
+`src/chars/bond.js`, so no path (AI/LLM/director) can make a character do something their bond with the
+player doesn't reach. `seatedAt` is also what the bed's reservation (`bedUsers`) reads.
 
 ## Utility AI (`ai/brain.js`, `ai/needs.js`)
 `class Brain(character, ctx)` — utility AI over needs. Per-minute `tick(nowMinute, minutes)`:
