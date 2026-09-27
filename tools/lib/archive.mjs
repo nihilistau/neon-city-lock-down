@@ -4,6 +4,7 @@
 // tools/fetch-assets.mjs). Node stdlib only — adding `tar` and `yauzl` as
 // devDependencies for ~100 lines of header parsing is not a trade worth making.
 import { gunzipSync, inflateRawSync } from 'node:zlib';
+import { safeRelative } from './safePath.mjs';
 
 /**
  * Parse an uncompressed tar into path → contents. Regular files only;
@@ -64,20 +65,16 @@ export function parseTgz(tgz) {
 }
 
 /**
- * Why a relative path taken from an archive (or a URI inside a model it holds)
- * must not be joined onto a destination directory, or null when it is safe.
- * Checked on the RAW name, before any join or normalise: `join('assets/props',
- * '../../x')` quietly resolves outside assets/, which is the whole zip-slip bug.
- * Backslashes count as separators too — a zip written on Windows can use them.
+ * Why a zip entry name must not be joined onto a destination directory, or null
+ * when it is safe. Delegates to safeRelative (tools/lib/safePath.mjs), the one
+ * path guard the asset tools share, and is checked on the RAW name before any
+ * join: `join('assets/props', '../../x')` quietly resolves outside assets/,
+ * which is the whole zip-slip bug.
  * @param {string} name
  * @returns {string|null}
  */
-export function unsafePath(name) {
-  if (typeof name !== 'string' || name === '') return 'empty path';
-  if (/^[\\/]/.test(name) || /^[a-zA-Z]:/.test(name)) return 'absolute or drive-letter path';
-  if (name.split(/[\\/]/).includes('..')) return 'a ".." segment climbs out of the destination';
-  if (name.includes('\u0000')) return 'NUL byte in path';
-  return null;
+function whyUnsafe(name) {
+  try { safeRelative(name); return null; } catch (err) { return err instanceof Error ? err.message : String(err); }
 }
 
 /**
@@ -114,7 +111,7 @@ export function readZip(buf) {
   /** @type {{name:string, reason:string}[]} */
   const rejected = [];
   const safe = all.filter((e) => {
-    const why = unsafePath(e.name);
+    const why = whyUnsafe(e.name);
     if (why) rejected.push({ name: e.name, reason: `unsafe zip entry "${e.name}": ${why}` });
     return !why;
   });
@@ -124,7 +121,7 @@ export function readZip(buf) {
     rejected,
     /** @param {string} name */
     read(name) {
-      const why = unsafePath(name);
+      const why = whyUnsafe(name);
       if (why) throw new Error(`unsafe zip entry "${name}": ${why}`);
       const e = byName.get(name);
       if (!e) throw new Error(`zip has no ${name}`);

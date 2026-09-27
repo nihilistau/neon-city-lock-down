@@ -17,11 +17,18 @@ const DRIVE = /^[A-Za-z]:[\\/]?/;
  *   via a '..' segment anywhere in it
  */
 export function safeRelative(rel) {
+  if (typeof rel !== 'string' || rel === '' || rel.includes('\u0000')) {
+    throw new Error(`unsafe path (empty or NUL): ${JSON.stringify(rel)}`);
+  }
   if (isAbsolute(rel) || rel.startsWith('/') || rel.startsWith('\\') || DRIVE.test(rel)) {
     throw new Error(`unsafe path (absolute): ${rel}`);
   }
-  const normalized = posix.normalize(rel.split('\\').join('/'));
-  if (normalized === '..' || normalized.split('/').includes('..')) {
+  // Check the RAW segments, not just the normalized result: 'Models/../x' lands
+  // inside the root, but no honest archive entry or model URI climbs at all, so
+  // one that does is refused outright rather than second-guessed.
+  const posixRel = rel.split('\\').join('/');
+  const normalized = posix.normalize(posixRel);
+  if (posixRel.split('/').includes('..') || normalized === '..' || normalized.split('/').includes('..')) {
     throw new Error(`unsafe path (escapes root): ${rel}`);
   }
   return normalized;

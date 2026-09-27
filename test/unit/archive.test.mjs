@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gzipSync, deflateRawSync } from 'node:zlib';
-import { parseTar, parseTgz, readZip, unsafePath } from '../../tools/lib/archive.mjs';
+import { parseTar, parseTgz, readZip } from '../../tools/lib/archive.mjs';
 import { relativeImports, resolveRelative, isEsModuleSource } from '../../tools/lib/importScan.mjs';
 
 /** one ustar header block; the checksum field is left blank (the parser does not verify it) */
@@ -183,14 +183,4 @@ test('tar: a truncated archive (declared size runs past the buffer) throws', () 
   const full = tarEntry('package/big.js', 'x'.repeat(1000));
   const truncated = full.subarray(0, 512 + 100);   // header intact, body cut short
   assert.throws(() => parseTar(truncated), /package\/big\.js.*truncated/s);
-});
-
-test('unsafePath names why a relative path is not safe to join, or returns null', () => {
-  assert.equal(unsafePath('Models/GLB format/Textures/colormap.png'), null);
-  assert.equal(unsafePath('a..b/c.glb'), null, 'dots inside a segment are fine');
-  assert.match(String(unsafePath('../evil.glb')), /\.\./);
-  assert.match(String(unsafePath('C:/x.glb')), /absolute/);
-  assert.match(String(unsafePath('/x.glb')), /absolute/);
-  assert.match(String(unsafePath('\\\\server\\share\\x.glb')), /absolute/);
-  assert.match(String(unsafePath('')), /empty/);
 });
