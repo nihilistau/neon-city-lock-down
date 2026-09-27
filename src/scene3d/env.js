@@ -89,7 +89,11 @@ export class EnvBuilder {
     this.renderer = renderer;
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.pmrem.compileCubemapShader();
-    /** @type {Map<string, THREE.Texture>} */
+    /**
+     * The render target, not just its texture: disposing only the texture leaves
+     * the target's framebuffers alive on the GPU.
+     * @type {Map<string, THREE.WebGLRenderTarget>}
+     */
     this.cache = new Map();
     /** @type {THREE.Texture|null} equirect HDRI from the asset pipeline; null = procedural sky */
     this.hdri = null;
@@ -103,7 +107,11 @@ export class EnvBuilder {
   setHDRI(equirect) {
     if (equirect === this.hdri) return;
     this.hdri = equirect;
-    for (const t of this.cache.values()) t.dispose();
+    this._clear();
+  }
+
+  _clear() {
+    for (const rt of this.cache.values()) rt.dispose();
     this.cache.clear();
   }
 
@@ -114,7 +122,7 @@ export class EnvBuilder {
    */
   get(key, opts = {}) {
     const hit = this.cache.get(key);
-    if (hit) return hit;
+    if (hit) return hit.texture;
 
     const {
       sky = 0x05070f,
@@ -202,13 +210,12 @@ export class EnvBuilder {
     const target = this.pmrem.fromScene(scene, 0.04);
     for (const d of disposables) d.dispose();
 
-    this.cache.set(key, target.texture);
+    this.cache.set(key, target);
     return target.texture;
   }
 
   dispose() {
-    for (const t of this.cache.values()) t.dispose();
-    this.cache.clear();
+    this._clear();
     this.pmrem.dispose();
   }
 }
