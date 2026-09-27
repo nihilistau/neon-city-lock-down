@@ -18,6 +18,42 @@ const PICK_INTERVAL_MS = 100;   // 10Hz — imperceptible for a prompt
 const _box = new THREE.Box3();
 const _worldCentre = new THREE.Vector3();
 
+/**
+ * Hover highlight, on a per-mesh COPY of the material. Materials are shared
+ * library instances (src/scene3d/materials/pbr.js: one per surface for the whole
+ * tower), and the elevator shafts and curtains are pick targets built straight
+ * from them — glowing the instance in place lit every wall on the floor. So the
+ * first highlight clones the mesh's material once, the glow goes on the clone,
+ * and unhover hands the shared instance back (it batches again). The clone is
+ * re-synced from the original on each hover, so it never shows a stale surface.
+ * @param {THREE.Object3D} root
+ * @param {number} amount 0 = restore
+ */
+export function setPickGlow(root, amount) {
+  root.traverse((o) => {
+    const m = /** @type {THREE.Mesh} */ (o);
+    if (!m.isMesh || !m.material || Array.isArray(m.material) || !('emissive' in m.material)) return;
+    const ud = m.userData;
+    if (amount > 0) {
+      // (re)clone when the mesh has none yet, or its material was swapped since
+      if (m.material !== ud.pickGlowMat && m.material !== ud.pickBaseMat) {
+        ud.pickGlowMat?.dispose();
+        ud.pickBaseMat = m.material;
+        ud.pickGlowMat = m.material.clone();
+      } else {
+        ud.pickGlowMat.copy(ud.pickBaseMat);
+        ud.pickGlowMat.needsUpdate = true;
+      }
+      const glow = /** @type {THREE.MeshStandardMaterial} */ (ud.pickGlowMat);
+      glow.emissive.setHex(0x39e6ff);
+      glow.emissiveIntensity = amount;
+      m.material = glow;
+    } else if (m.material === ud.pickGlowMat) {
+      m.material = ud.pickBaseMat;
+    }
+  });
+}
+
 export class Picker {
   /**
    * @param {import('./stage.js').Stage} stage
@@ -91,6 +127,19 @@ export class Picker {
     if (now - this._lastPickMs < PICK_INTERVAL_MS) return;
     this._lastPickMs = now;
 
+    // A cinematic camera is a shot, not a player: nothing can be interacted
+    // with, so nothing is hovered. It also used to leave whatever the player
+    // last looked at lit up for the whole shot — the bed two-shot showed the bed
+    // (headboard and all) washed flat cyan by the hover glow.
+    if (this.rig.mode === 'cinematic') {
+      if (this.hovered) {
+        this._setGlow(this.hovered.mesh, 0);
+        this.hovered = null;
+        emit('pick.hover', null);
+      }
+      return;
+    }
+
     const locked = this.rig.mode === 'firstPerson' || this.rig.mode === 'thirdPerson';
     this.raycaster.setFromCamera(locked ? _center : this.mouse, this.stage.camera);
     const far = this.rig.mode === 'firstPerson' ? 3.2 : 30;
@@ -119,23 +168,5 @@ export class Picker {
     }
   }
 
-  _setGlow(root, amount) {
-    root.traverse((o) => {
-      const m = /** @type {THREE.Mesh} */ (o);
-      if (m.isMesh && m.material && 'emissive' in m.material) {
-        const mat = /** @type {THREE.MeshStandardMaterial} */ (m.material);
-        if (amount > 0) {
-          if (mat.userData.baseEmissive === undefined) {
-            mat.userData.baseEmissive = mat.emissive.getHex();
-            mat.userData.baseEmissiveI = mat.emissiveIntensity;
-          }
-          mat.emissive.setHex(0x39e6ff);
-          mat.emissiveIntensity = amount;
-        } else if (mat.userData.baseEmissive !== undefined) {
-          mat.emissive.setHex(mat.userData.baseEmissive);
-          mat.emissiveIntensity = mat.userData.baseEmissiveI;
-        }
-      }
-    });
-  }
+  _setGlow(root, amount) { setPickGlow(root, amount); }
 }

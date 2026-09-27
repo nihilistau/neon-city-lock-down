@@ -144,6 +144,7 @@ export class App {
     });
     /** settles (never rejects) once the manifest is read */
     this.assetsReady = this.assets.init();
+    this.assets.setAnisotropy(Math.min(8, this.stage.renderer.capabilities.getMaxAnisotropy()));
 
     this.postfx = new PostFX(this.stage);
     this.bootScene = new BootScene(this.stage, this.rng.stream('boot'));
@@ -207,7 +208,7 @@ export class App {
     // is constructed below; render() also guards on `this.cameraRig` existing.
     await this.assetsReady;
 
-    this.world = new World3D(this.stage, this.rng.stream('world'));
+    this.world = await World3D.create(this.stage, this.rng.stream('world'), this.assets);
     // combat FX (tracers/flashes/impacts) + back the previously-undefined
     // world.particles(kind, pos) hook used by stage directions.
     this.combatFx = new CombatFx(this.stage.scene);

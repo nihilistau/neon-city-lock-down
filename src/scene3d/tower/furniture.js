@@ -3,36 +3,41 @@
 // Sockets are named Object3D anchors (seat0, lie_center, lean_bar, surface…) that
 // ActorQueue / paired poses target. Colliders are local-space AABBs for FP collision.
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { PALETTE } from '../materials/palette.js';
-import { fabricTex, woodTex, marbleTex, metalTex, concreteTex, surfaced } from '../materials/texGen.js';
+import { fabricTex, concreteTex } from '../materials/texGen.js';
+import { pbrMaterial } from '../materials/pbr.js';
 
 const concreteTexLazy = (tint) => concreteTex(tint);
 
 /** @typedef {{ group: THREE.Group, sockets: Record<string, THREE.Object3D>,
  *              colliders: {min:[number,number,number], max:[number,number,number]}[] }} Furniture */
 
-// Cache non-glow materials so identical surfaces share one material across all
-// furniture (fewer programs, better renderer sorting/state batching). Glow
-// materials vary by color/intensity so they get a per-key cache too.
+// Library surfaces (src/scene3d/materials/pbr.js): a Poly Haven set when the
+// asset pipeline has it, the texGen canvas + Sobel normal otherwise. Shared per
+// name, so identical surfaces share one material across all furniture.
 const _matCache = new Map();
 const cached = (key, make) => { let m = _matCache.get(key); if (!m) _matCache.set(key, (m = make())); return m; };
 const mat = {
-  // `surfaced()` pairs each albedo with a Sobel-derived normal map so the weave,
-  // grain, veining and brush lines are lit as relief instead of painted-on flat.
-  fabric: () => cached('fabric', () => new THREE.MeshStandardMaterial({ ...surfaced(fabricTex(), 1.1, 0.6), roughness: 0.9 })),
+  fabric: () => pbrMaterial('fabric'),
   leather: () => cached('leather', () => new THREE.MeshStandardMaterial({ color: PALETTE.leather, roughness: 0.55, metalness: 0.05 })),
-  wood: () => cached('wood', () => new THREE.MeshStandardMaterial({ ...surfaced(woodTex(), 1.8, 0.7), roughness: 0.7 })),
-  marble: () => cached('marble', () => new THREE.MeshStandardMaterial({ ...surfaced(marbleTex(), 0.9, 0.25), roughness: 0.25, metalness: 0.1 })),
-  metal: () => cached('metal', () => new THREE.MeshStandardMaterial({ ...surfaced(metalTex(), 1.2, 0.35), roughness: 0.4, metalness: 0.7 })),
-  // the bed's own quilt weave — was built by overwriting mattress.material after
-  // box() had already assigned the shared fabric material, which discarded a
-  // material per bed and skipped the cache entirely
-  bedding: () => cached('bedding', () => new THREE.MeshStandardMaterial({ ...surfaced(fabricTex('#3a3348', 3), 1.1, 0.6), roughness: 0.95 })),
-  metalDark: () => cached('metalDark', () => new THREE.MeshStandardMaterial({ color: PALETTE.metalDark, roughness: 0.5, metalness: 0.6 })),
+  wood: () => pbrMaterial('wood'),
+  marble: () => pbrMaterial('marble'),
+  metal: () => pbrMaterial('metal'),
+  bedding: () => pbrMaterial('bedding'),
+  metalDark: () => pbrMaterial('metalDark'),
   glow: (color, intensity = 2) => cached(`glow:${color}:${intensity}`, () => new THREE.MeshStandardMaterial({
     color: 0x111111, emissive: new THREE.Color(color), emissiveIntensity: intensity,
   })),
 };
+
+// Bevels for the hero pieces. A hard 90° edge catches no highlight at all,
+// which is most of why furniture read as untextured boxes; 2 cm is enough to
+// draw a specular line along every edge without softening the silhouette.
+// Upholstery gets a rounder 4.5 cm. Colliders are NOT derived from geometry,
+// so none of this moves one.
+const HERO = { bevel: 0.02 };
+const SOFT = { bevel: 0.045 };
 
 const UP_Y = new THREE.Vector3(0, 1, 0);
 const TRIPOD_APEX = new THREE.Vector3(0, 1.15, 0);
@@ -48,8 +53,11 @@ function socket(group, name, x, y, z, yaw = 0) {
   return s;
 }
 
-function box(group, material, w, h, d, x, y, z, ry = 0) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+function box(group, material, w, h, d, x, y, z, ry = 0, { bevel = 0 } = {}) {
+  // RoundedBoxGeometry clamps the radius to half the shortest side itself;
+  // below ~2 mm a bevel is invisible and only costs vertices
+  const geo = bevel > 0.002 ? new RoundedBoxGeometry(w, h, d, 2, bevel) : new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(geo, material);
   m.position.set(x, y, z);
   m.rotation.y = ry;
   m.castShadow = m.receiveShadow = true;
@@ -65,15 +73,15 @@ export const FURNITURE = {
     const w = opts.width ?? 2.3;
     const fab = mat.fabric();
     const dark = mat.metalDark();
-    box(group, fab, w, 0.16, 0.95, 0, 0.28, 0);            // seat base
-    box(group, fab, w, 0.42, 0.22, 0, 0.62, -0.38);        // backrest
-    box(group, fab, 0.22, 0.30, 0.95, -w / 2 + 0.11, 0.51, 0); // arms
-    box(group, fab, 0.22, 0.30, 0.95, w / 2 - 0.11, 0.51, 0);
+    box(group, fab, w, 0.16, 0.95, 0, 0.28, 0, 0, SOFT);            // seat base
+    box(group, fab, w, 0.42, 0.22, 0, 0.62, -0.38, 0, SOFT);        // backrest
+    box(group, fab, 0.22, 0.30, 0.95, -w / 2 + 0.11, 0.51, 0, 0, SOFT); // arms
+    box(group, fab, 0.22, 0.30, 0.95, w / 2 - 0.11, 0.51, 0, 0, SOFT);
     // seat cushions
     const n = Math.round(w / 0.75);
     for (let i = 0; i < n; i++) {
       const cx = -w / 2 + (i + 0.5) * (w / n);
-      box(group, fab, w / n - 0.04, 0.12, 0.8, cx, 0.42, 0.04);
+      box(group, fab, w / n - 0.04, 0.12, 0.8, cx, 0.42, 0.04, 0, SOFT);
     }
     box(group, dark, w - 0.2, 0.09, 0.8, 0, 0.1, 0);        // plinth
     const sockets = {
@@ -87,7 +95,7 @@ export const FURNITURE = {
 
   coffee_table() {
     const group = new THREE.Group();
-    box(group, mat.marble(), 1.2, 0.05, 0.62, 0, 0.36, 0);
+    box(group, mat.marble(), 1.2, 0.05, 0.62, 0, 0.36, 0, 0, HERO);
     box(group, mat.metalDark(), 1.05, 0.34, 0.5, 0, 0.17, 0);
     const sockets = { surface: socket(group, 'surface', 0, 0.39, 0) };
     return { group, sockets, colliders: [{ min: [-0.6, 0, -0.31], max: [0.6, 0.42, 0.31] }] };
@@ -109,10 +117,10 @@ export const FURNITURE = {
   armchair() {
     const group = new THREE.Group();
     const fab = mat.leather();
-    box(group, fab, 0.85, 0.16, 0.8, 0, 0.3, 0);
-    box(group, fab, 0.85, 0.5, 0.2, 0, 0.62, -0.32);
-    box(group, fab, 0.18, 0.28, 0.8, -0.34, 0.5, 0);
-    box(group, fab, 0.18, 0.28, 0.8, 0.34, 0.5, 0);
+    box(group, fab, 0.85, 0.16, 0.8, 0, 0.3, 0, 0, SOFT);
+    box(group, fab, 0.85, 0.5, 0.2, 0, 0.62, -0.32, 0, SOFT);
+    box(group, fab, 0.18, 0.28, 0.8, -0.34, 0.5, 0, 0, SOFT);
+    box(group, fab, 0.18, 0.28, 0.8, 0.34, 0.5, 0, 0, SOFT);
     box(group, mat.metalDark(), 0.7, 0.1, 0.6, 0, 0.1, 0);
     return {
       group,
@@ -143,11 +151,11 @@ export const FURNITURE = {
 
   bed() {
     const group = new THREE.Group();
-    box(group, mat.metalDark(), 2.0, 0.25, 2.3, 0, 0.18, 0);                  // platform
+    box(group, mat.metalDark(), 2.0, 0.25, 2.3, 0, 0.18, 0, 0, HERO);                  // platform
     const bedding = mat.bedding();
-    box(group, bedding, 1.9, 0.22, 2.15, 0, 0.42, 0);                         // mattress
-    box(group, bedding, 1.7, 0.1, 0.5, 0, 0.56, -0.75);                       // pillows
-    box(group, mat.wood(), 2.0, 0.9, 0.12, 0, 0.65, -1.16);                   // headboard
+    box(group, bedding, 1.9, 0.22, 2.15, 0, 0.42, 0, 0, SOFT);                         // mattress
+    box(group, bedding, 1.7, 0.1, 0.5, 0, 0.56, -0.75, 0, SOFT);                       // pillows
+    box(group, mat.wood(), 2.0, 0.9, 0.12, 0, 0.65, -1.16, 0, HERO);                   // headboard
     const strip = box(group, mat.glow(PALETTE.neonViolet, 1.6), 1.9, 0.03, 0.03, 0, 1.05, -1.14);
     strip.castShadow = false;
     return {
@@ -165,8 +173,8 @@ export const FURNITURE = {
 
   vanity_table() {
     const group = new THREE.Group();
-    box(group, mat.wood(), 1.5, 0.05, 0.5, 0, 0.74, 0);
-    box(group, mat.wood(), 1.4, 0.7, 0.42, 0, 0.37, 0);
+    box(group, mat.wood(), 1.5, 0.05, 0.5, 0, 0.74, 0, 0, HERO);
+    box(group, mat.wood(), 1.4, 0.7, 0.42, 0, 0.37, 0, 0, HERO);
     // mirror with neon rim
     const mirror = box(group, new THREE.MeshStandardMaterial({
       color: 0x8a9bb0, roughness: 0.05, metalness: 0.9,
@@ -225,8 +233,8 @@ export const FURNITURE = {
 
   sink_counter() {
     const group = new THREE.Group();
-    box(group, mat.marble(), 1.6, 0.06, 0.55, 0, 0.86, 0);
-    box(group, mat.wood(), 1.5, 0.8, 0.48, 0, 0.43, 0);
+    box(group, mat.marble(), 1.6, 0.06, 0.55, 0, 0.86, 0, 0, HERO);
+    box(group, mat.wood(), 1.5, 0.8, 0.48, 0, 0.43, 0, 0, HERO);
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.12, 14), mat.metal());
     basin.position.set(0, 0.9, 0);
     group.add(basin);
@@ -269,8 +277,8 @@ export const FURNITURE = {
 
   security_desk() {
     const group = new THREE.Group();
-    box(group, mat.metal(), 2.6, 0.05, 0.8, 0, 0.76, 0);
-    box(group, mat.metalDark(), 2.5, 0.72, 0.7, 0, 0.38, 0);
+    box(group, mat.metal(), 2.6, 0.05, 0.8, 0, 0.76, 0, 0, HERO);
+    box(group, mat.metalDark(), 2.5, 0.72, 0.7, 0, 0.38, 0, 0, HERO);
     for (const x of [-0.7, 0, 0.7]) {
       const scr = box(group, mat.glow(PALETTE.neonCyan, 0.7), 0.55, 0.35, 0.03, x, 1.1, -0.2);
       scr.rotation.x = -0.15; scr.castShadow = false;
@@ -389,8 +397,8 @@ export const FURNITURE = {
 
   reception_desk() {
     const group = new THREE.Group();
-    box(group, mat.marble(), 3.4, 0.07, 0.9, 0, 1.05, 0);
-    box(group, mat.wood(), 3.3, 1.0, 0.8, 0, 0.52, 0);
+    box(group, mat.marble(), 3.4, 0.07, 0.9, 0, 1.05, 0, 0, HERO);
+    box(group, mat.wood(), 3.3, 1.0, 0.8, 0, 0.52, 0, 0, HERO);
     const sign = box(group, mat.glow(PALETTE.neonCyan, 2.2), 2.6, 0.25, 0.04, 0, 1.7, -0.5);
     sign.castShadow = false;
     return {
@@ -535,8 +543,8 @@ export const FURNITURE = {
   bar_counter(opts = {}) {
     const group = new THREE.Group();
     const w = opts.width ?? 2.6;
-    box(group, mat.marble(), w, 0.06, 0.68, 0, 1.06, 0);         // top
-    box(group, mat.wood(), w - 0.06, 1.0, 0.58, 0, 0.52, 0);     // body
+    box(group, mat.marble(), w, 0.06, 0.68, 0, 1.06, 0, 0, HERO);         // top
+    box(group, mat.wood(), w - 0.06, 1.0, 0.58, 0, 0.52, 0, 0, HERO);     // body
     // neon underglow strip
     const strip = box(group, mat.glow(PALETTE.neonMagenta, 3), w - 0.1, 0.03, 0.02, 0, 0.96, 0.31);
     strip.castShadow = false;

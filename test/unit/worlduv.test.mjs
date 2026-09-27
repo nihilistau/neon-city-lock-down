@@ -62,21 +62,76 @@ test('applyWorldUVs is a no-op without normals or with a bad scale', () => {
   assert.equal(g.getAttribute('uv'), before);
 });
 
-test('applyWorldUVsTo rewrites unscaled boxes with a metres-per-repeat material, once', () => {
+test('applyWorldUVsTo rewrites boxes, scaled boxes and cylinders with a metres-per-repeat material, once', () => {
   const tiled = new THREE.MeshStandardMaterial();
   tiled.userData.metresPerRepeat = 2;
   const root = new THREE.Group();
   const wall = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.2), tiled);
   const scaled = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), tiled);
-  scaled.scale.set(3, 1, 1);   // local-space projection would misreport its size
+  scaled.scale.set(3, 1, 1);
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4), tiled);
   const plain = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial());
-  root.add(wall, scaled, pipe, plain);
-  assert.equal(applyWorldUVsTo(root), 1);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1), tiled);   // no projection for it: left alone
+  root.add(wall, scaled, pipe, plain, ring);
+  assert.equal(applyWorldUVsTo(root), 3);
   assert.equal(wall.geometry.userData.worldUV, 2);
   assert.ok(near(faceSpan(wall.geometry, [0, 0, 1], 0), 3));
-  assert.equal(scaled.geometry.userData.worldUV, undefined);
-  assert.equal(pipe.geometry.userData.worldUV, undefined);
+  assert.ok(near(faceSpan(scaled.geometry, [0, 0, 1], 0), 1.5), 'a 1 m box scaled ×3 is 3 m wide: 1.5 repeats');
+  assert.ok(near(faceSpan(scaled.geometry, [0, 0, 1], 1), 0.5), 'its unscaled height stays 1 m');
+  assert.equal(pipe.geometry.userData.worldUV, 2);
   assert.equal(plain.geometry.userData.worldUV, undefined);
+  assert.equal(ring.geometry.userData.worldUV, undefined);
   assert.equal(applyWorldUVsTo(root), 0, 'idempotent');
+});
+
+/** u/v span over the side wall of a CylinderGeometry (the torso vertices come first) */
+function torsoSpan(geo, comp) {
+  const { radialSegments, heightSegments } = geo.parameters;
+  const uv = geo.getAttribute('uv');
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < (radialSegments + 1) * (heightSegments + 1); i++) {
+    const v = comp === 0 ? uv.getX(i) : uv.getY(i);
+    lo = Math.min(lo, v);
+    hi = Math.max(hi, v);
+  }
+  return hi - lo;
+}
+
+test('a cylinder wraps once around its circumference at world scale, not once per object', () => {
+  // the fireplace log, the stool, the lobby column: BoxGeometry-only UVs left
+  // these on CylinderGeometry's 0..1, one texture stretched around a 4 cm pipe
+  // and around a 2 m column alike
+  const log = applyWorldUVs(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 8), 1.8);
+  const column = applyWorldUVs(new THREE.CylinderGeometry(0.3, 0.3, 4.4, 12), 2.5);
+  assert.ok(near(torsoSpan(log, 0), (2 * Math.PI * 0.06) / 1.8), 'u = circumference / metres-per-repeat');
+  assert.ok(near(torsoSpan(log, 1), 0.6 / 1.8), 'v = height / metres-per-repeat');
+  assert.ok(near(torsoSpan(column, 0), (2 * Math.PI * 0.3) / 2.5));
+  assert.ok(near(torsoSpan(column, 1), 4.4 / 2.5));
+  // the caps project in plan: a 0.6 m-wide disc spans 0.6 m of texture
+  const cap = applyWorldUVs(new THREE.CylinderGeometry(0.3, 0.3, 1, 12), 1);
+  assert.ok(near(faceSpan(cap, [0, 1, 0], 0), 0.6));
+  assert.ok(near(faceSpan(cap, [0, 1, 0], 1), 0.6));
+});
+
+test('a cylinder scaled on the mesh gets the density of its world size', () => {
+  const tiled = new THREE.MeshStandardMaterial();
+  tiled.userData.metresPerRepeat = 1;
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), tiled);
+  post.scale.set(1, 3, 1);
+  applyWorldUVsTo(post);
+  assert.ok(near(torsoSpan(post.geometry, 1), 3), '3 m tall after scaling: 3 repeats');
+  assert.ok(near(torsoSpan(post.geometry, 0), Math.PI));
+});
+
+test('a sphere unrolls to its arc lengths', () => {
+  const head = applyWorldUVs(new THREE.SphereGeometry(0.5, 12, 8), 1);
+  const uv = head.getAttribute('uv'), pos = head.getAttribute('position');
+  let umax = 0, vmax = 0;
+  for (let i = 0; i < uv.count; i++) {
+    vmax = Math.max(vmax, uv.getY(i));
+    // the pole vertices carry a half-segment u offset; measure on the equator
+    if (Math.abs(pos.getY(i)) < 1e-6) umax = Math.max(umax, uv.getX(i));
+  }
+  assert.ok(near(umax, Math.PI), 'equator = 2π·0.5 m');
+  assert.ok(near(vmax, Math.PI / 2), 'pole to pole = π·0.5 m');
 });

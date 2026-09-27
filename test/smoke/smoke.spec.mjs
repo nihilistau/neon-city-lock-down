@@ -100,6 +100,22 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(pageErrors, `pageerror events during a normal boot:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 
+  test('room surfaces come from the asset pipeline', async ({ page }) => {
+    await bootToRun(page);
+    const src = await page.evaluate(() => {
+      const out = {};
+      window.__ncld.app.world.floorGroups.penthouse.traverse((o) => {
+        const p = o.material?.userData?.pbr;
+        if (p) out[p] = o.material.userData.source;
+      });
+      return out;
+    });
+    expect(src.tile).toBe('pbr');
+    expect(src.concrete).toBe('pbr');
+    expect(src.fabric).toBe('pbr');
+    expect(src.bedding).toBe('procedural');   // procedural by choice
+  });
+
   test('?noassets=1 boots on procedural fallbacks with no console errors', async ({ page }) => {
     // The asset pipeline is an enhancement. With it switched off entirely the
     // game must still boot, build every floor and render — the same path a
@@ -109,8 +125,10 @@ test.describe('Neon-City: Lock-Down', () => {
       enabled: window.__ncld.app.assets.enabled,
       mode: window.__ncld.app.mode,
       floor: window.__ncld.app.world.activeFloor,
+      tile: (() => { let s = null; window.__ncld.app.world.floorGroups.penthouse.traverse((o) => { if (o.material?.userData?.pbr === 'tile') s = o.material.userData.source; }); return s; })(),
     }));
     expect(state.enabled).toBe(false);
+    expect(state.tile).toBe('procedural');
     expect(state.mode).toBe('run');
     expect(state.floor).toBe('penthouse');
     expect(errors, `console errors during a no-assets boot:\n${errors.join('\n')}`).toEqual([]);
