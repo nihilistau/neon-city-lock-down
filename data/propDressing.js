@@ -37,5 +37,9 @@ export const PROP_DRESSING = [
   { asset: 'kenney_furniture/box_closed', floor: 'basement', at: [9.9, -6.3], ry: -0.2, height: 0.42, skin: 'wood', solid: true },
   // rooftop — clear of the helipad (centre 4.5,0, r 3.2), the planters and the HVAC units
   { asset: 'kenney_industrial/tank', floor: 'rooftop', at: [8.2, 5.6], height: 2.4, skin: 'rust', solid: true },
-  { asset: 'kenney_industrial/solar_panel', floor: 'rooftop', at: [-2.5, 6.4], ry: Math.PI, height: 1.1, skin: 'metal', solid: true },
+  // height 1.1 (the tank's convention) blew this up: the raw model is a FLAT
+  // panel 0.42 x 0.06 x 0.71, so a uniform fit-to-height scale of 1.1/0.06
+  // stretched its footprint to ~7.5 x 12.8 m — most of the roof. 0.09 fits its
+  // thin axis instead, giving a real-world ~0.6 x 0.09 x 1.0 m panel.
+  { asset: 'kenney_industrial/solar_panel', floor: 'rooftop', at: [-2.5, 6.4], ry: Math.PI, height: 0.09, skin: 'metal', solid: true },
 ];
