@@ -15,6 +15,7 @@ import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
 import { cityWindowsTexture, cityTowerMaterial } from '../materials/cityWindows.js';
 import { skyDomeMaterial } from '../materials/skyDome.js';
+import { patchReflectBoost } from '../materials/reflectBoost.js';
 import { windowOffsets } from '../envMath.js';
 
 const TAU = Math.PI * 2;
@@ -28,10 +29,11 @@ const DOME_RADIUS = 180;
  */
 const DOME_YAW = 0.13;
 
-const glassMat = () => new THREE.MeshStandardMaterial({
+// a fresh material per call, so the reflection boost patches no shared instance
+const glassMat = () => patchReflectBoost(new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
   roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
-});
+}));
 // Normal-map strengths are tuned per surface: concrete carries broad grime
 // streaks (soft), tile has hard grout channels (deep), brushed metal is fine
 // directional grain (shallow but tight).

@@ -147,3 +147,15 @@ test('every set the library names is a pbr entry in assets/manifest.json', () =>
 test('an unknown name throws with the list of real ones', () => {
   assert.throws(() => pbrMaterial('velvet'), /unknown PBR material "velvet".*concrete/);
 });
+
+test('glossy architecture reflects the city harder; soft surfaces are left alone', () => {
+  _resetPbrLibrary();
+  for (const name of ['tile', 'marble', 'metal', 'metalDark']) {
+    const m = pbrMaterial(name);
+    assert.equal(m.userData.reflectBoost, 2.5, `${name} boosted`);
+    assert.equal(m.customProgramCacheKey(), 'reflect-boost');
+  }
+  for (const name of ['concrete', 'concreteFloor', 'wood', 'fabric', 'bedding', 'rust']) {
+    assert.equal(pbrMaterial(name).userData.reflectBoost, undefined, `${name} not boosted`);
+  }
+});

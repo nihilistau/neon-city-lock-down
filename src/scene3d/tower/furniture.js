@@ -7,6 +7,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { PALETTE } from '../materials/palette.js';
 import { fabricTex, concreteTex } from '../materials/texGen.js';
 import { pbrMaterial } from '../materials/pbr.js';
+import { patchReflectBoost } from '../materials/reflectBoost.js';
 
 const concreteTexLazy = (tint) => concreteTex(tint);
 
@@ -176,9 +177,9 @@ export const FURNITURE = {
     box(group, mat.wood(), 1.5, 0.05, 0.5, 0, 0.74, 0, 0, HERO);
     box(group, mat.wood(), 1.4, 0.7, 0.42, 0, 0.37, 0, 0, HERO);
     // mirror with neon rim
-    const mirror = box(group, new THREE.MeshStandardMaterial({
+    const mirror = box(group, patchReflectBoost(new THREE.MeshStandardMaterial({
       color: 0x8a9bb0, roughness: 0.05, metalness: 0.9,
-    }), 0.9, 1.0, 0.04, 0, 1.5, -0.2);
+    })), 0.9, 1.0, 0.04, 0, 1.5, -0.2);
     mirror.name = 'vanity_mirror';
     const rim = box(group, mat.glow(PALETTE.neonMagenta, 1.8), 1.0, 1.1, 0.02, 0, 1.5, -0.23);
     rim.castShadow = false;
@@ -210,10 +211,10 @@ export const FURNITURE = {
     const group = new THREE.Group();
     const glass = new THREE.Mesh(
       new THREE.CylinderGeometry(0.75, 0.75, 2.3, 18, 1, true),
-      new THREE.MeshStandardMaterial({
+      patchReflectBoost(new THREE.MeshStandardMaterial({
         color: PALETTE.glass, transparent: true, opacity: 0.22,
         roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide,
-      }));
+      })));
     glass.position.y = 1.15;
     group.add(glass);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.85, 0.12, 18), mat.marble());

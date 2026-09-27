@@ -11,6 +11,7 @@
 // counter and a 0.3 m shelf show their grain at the same scale — which is also
 // why every texture here tiles at repeat 1.
 import * as THREE from 'three';
+import { patchReflectBoost, GLOSSY_REFLECT } from './reflectBoost.js';
 import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced } from './texGen.js';
 
 /**
@@ -31,6 +32,8 @@ import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced
  * @property {number} [scanNormalScale]  normal strength for a loaded set's own normal map (default normalScale)
  * @property {boolean} [rotate]  swap U and V in the world-UV pass: the plank scan's boards run along V,
  *   and box projection puts V up the side faces, so without this every panel was vertical slats
+ * @property {boolean} [glossy]  polished architecture (stone, tile, metal): mirrors the city harder
+ *   than the scene's env intensity allows (materials/reflectBoost.js). Never skin, hair or cloth
  * @property {number} relief  Sobel strength for the fallback's derived normal map
  * @property {(tint:string) => THREE.CanvasTexture} canvas  the procedural albedo, at repeat 1
  */
@@ -41,14 +44,14 @@ import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced
 export const PBR_LIBRARY = {
   concrete: { set: 'smooth_concrete_floor', albedo: [0.092, 0.046, 0.022], scanRoughness: 0.68, metresPerRepeat: 2.5, tint: '#181c2a', roughness: 0.85, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
   concreteFloor: { set: 'concrete_floor_worn_001', albedo: [0.093, 0.094, 0.089], scanRoughness: 0.54, metresPerRepeat: 2.0, tint: '#12151f', roughness: 0.82, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
-  metal: { set: 'metal_plate_02', albedo: [0.090, 0.066, 0.049], scanRoughness: 0.66, scanMetalness: 0.91, metresPerRepeat: 1.0, tint: '#2a3040', roughness: 0.4, metalness: 0.7, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
-  metalDark: { set: 'painted_metal_shutter', albedo: [0.217, 0.229, 0.241], scanRoughness: 0.63, metresPerRepeat: 1.2, tint: '#151923', roughness: 0.5, metalness: 0.6, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  metal: { set: 'metal_plate_02', albedo: [0.090, 0.066, 0.049], scanRoughness: 0.66, scanMetalness: 0.91, metresPerRepeat: 1.0, tint: '#2a3040', roughness: 0.4, metalness: 0.7, glossy: true, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  metalDark: { set: 'painted_metal_shutter', albedo: [0.217, 0.229, 0.241], scanRoughness: 0.63, metresPerRepeat: 1.2, tint: '#151923', roughness: 0.5, metalness: 0.6, glossy: true, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
   // 6 m per repeat = 1.5 m slabs (the scan is 4x4): the penthouse reads as large polished stone,
   // not a kitchen. The scan's grout relief is deep, so its normal is damped; the canvas keeps 1.0
-  tile: { set: 'floor_tiles_08', albedo: [0.248, 0.182, 0.130], scanRoughness: 0.51, metresPerRepeat: 6.0, tint: '#11141f', roughness: 0.35, metalness: 0.15, normalScale: 1.0, scanNormalScale: 0.35, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
+  tile: { set: 'floor_tiles_08', albedo: [0.248, 0.182, 0.130], scanRoughness: 0.51, metresPerRepeat: 6.0, tint: '#11141f', roughness: 0.35, metalness: 0.15, glossy: true, normalScale: 1.0, scanNormalScale: 0.35, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
   // marble_01 is travertine BLOCKS, not veined marble: tables and the fireplace read as masonry and
   // lost their gloss. The canvas veining at roughness 0.25 is the look; procedural by choice
-  marble: { set: null, metresPerRepeat: 1.5, tint: '#353b4a', roughness: 0.25, metalness: 0.1, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
+  marble: { set: null, metresPerRepeat: 1.5, tint: '#353b4a', roughness: 0.25, metalness: 0.1, glossy: true, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
   wood: { set: 'plank_flooring_04', albedo: [0.055, 0.018, 0.009], scanRoughness: 0.40, rotate: true, metresPerRepeat: 1.8, tint: '#2b1e18', roughness: 0.7, metalness: 0, normalScale: 0.7, relief: 1.8, canvas: (t) => woodTex(t, 1) },
   fabric: { set: 'dirty_carpet', albedo: [0.037, 0.030, 0.019], scanRoughness: 0.81, metresPerRepeat: 0.8, tint: '#2c2434', roughness: 0.9, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
   // the quilt weave reads better than any carpet scan at bed scale; procedural by choice
@@ -144,6 +147,7 @@ export function pbrMaterial(name, o = {}) {
   m.userData.source = set ? 'pbr' : 'procedural';
   m.userData.metresPerRepeat = spec.metresPerRepeat;
   if (spec.rotate) m.userData.uvRotate = true;   // read by materials/worldUV.js
+  if (spec.glossy) patchReflectBoost(m, GLOSSY_REFLECT);
   cache.set(key, m);
   return m;
 }

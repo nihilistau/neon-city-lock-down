@@ -32,3 +32,15 @@ test('the sky-dome exposure patch lands in the r185 basic fragment shader', asyn
   assert.ok(s.uniforms.domeGain && s.uniforms.domeCap && s.uniforms.domeStrip, 'uniforms bound');
   assert.equal(m.customProgramCacheKey(), 'sky-dome');
 });
+
+test('the reflection boost lands on the specular IBL lobe only, in the r185 standard shader', async () => {
+  const { patchReflectBoost } = await import('../../src/scene3d/materials/reflectBoost.js');
+  const m = patchReflectBoost(new THREE.MeshStandardMaterial(), 2.5);
+  const s = shaderOf('physical');
+  m.onBeforeCompile(/** @type {any} */ (s), /** @type {any} */ (null));
+  assert.match(s.fragmentShader, /uniform float reflectBoost;/);
+  assert.match(s.fragmentShader, /return envMapColor\.rgb \* envMapIntensity \* reflectBoost;/, 'radiance boosted');
+  assert.match(s.fragmentShader, /return PI \* envMapColor\.rgb \* envMapIntensity;/, 'irradiance (diffuse IBL) untouched');
+  assert.equal(s.uniforms.reflectBoost.value, 2.5);
+  assert.equal(m.customProgramCacheKey(), 'reflect-boost');
+});
