@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-rc.1"><img src="https://img.shields.io/badge/release-v0.6.0--rc.1-39e6ff?labelColor=0a0a12" alt="v0.6.0-rc.1"></a>
+  <a href="https://github.com/nihilistau/neon-city-lock-down/actions/workflows/ci.yml"><img src="https://github.com/nihilistau/neon-city-lock-down/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <blockquote align="center">
@@ -236,6 +237,11 @@ node tools/screenshots.mjs            # regenerate docs/screenshots/ from the ru
 No bundler. Plain ES modules + an import map; `vendor/three.module.js` is the only
 vendored library. Content lives in `data/` as validated ES modules; engine code
 in `src/` as many small focused modules.
+
+**Continuous integration.** Every push to `master` and `overhaul/**`, and every
+pull request into `master`, runs unit tests + lint on ubuntu-latest/Node 24
+(`.github/workflows/ci.yml`). The Playwright e2e suite runs on pull requests
+into `master` and on manual dispatch, uploading `test-results/` on failure.
 
 <details>
 <summary><b>Project layout</b></summary>

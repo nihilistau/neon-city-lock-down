@@ -24,6 +24,10 @@ npm run test:all            # unit + lint + e2e
 node tools/screenshots.mjs  # regenerate docs/screenshots/ (server on 8420; see docs/development.md)
 ```
 
+CI (`.github/workflows/ci.yml`) runs unit tests + lint on every push to
+`master`/`overhaul/**` and every pull request into `master`; the Playwright
+e2e job runs on pull requests into `master` and on `workflow_dispatch`.
+
 After any UI change a README screenshot shows, re-run the matching shot
 (`node tools/screenshots.mjs --list`) and look at the image before committing.
 
