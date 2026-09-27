@@ -109,3 +109,18 @@ test('every set the library names is a pbr entry in assets/manifest.json', () =>
 test('an unknown name throws with the list of real ones', () => {
   assert.throws(() => pbrMaterial('velvet'), /unknown PBR material "velvet".*concrete/);
 });
+
+test('a spec’s balance tempers a scan’s own colour cast on a loaded set only', () => {
+  // plank_flooring_04 averages 6:2:1 red:green:blue; times the wood tint's own
+  // warmth the bar read as red lacquer. balance pulls the cast back per channel.
+  _resetPbrLibrary();
+  const spec = PBR_LIBRARY.wood;
+  assert.ok(Array.isArray(spec.balance) && spec.balance.length === 3, 'wood carries a balance');
+  setPbrAssets(facade(['plank_flooring_04']));
+  const m = pbrMaterial('wood');
+  const want = pbrTint(spec.tint, spec.gain);
+  want.setRGB(Math.min(1, want.r * spec.balance[0]), Math.min(1, want.g * spec.balance[1]), Math.min(1, want.b * spec.balance[2]));
+  assert.ok(m.color.equals(want));
+  _resetPbrLibrary();
+  assert.equal(pbrMaterial('wood').userData.source, 'procedural', 'the canvas fallback is the tint itself — no balance');
+});

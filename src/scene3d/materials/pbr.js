@@ -21,6 +21,8 @@ import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced
  * @property {number} gain  linear lift for `tint` on a loaded set. A photographed albedo averages
  *   ~0.2-0.5 linear while the canvas swatch IS the final colour, so the bare tint would crush a
  *   loaded set to black
+ * @property {[number, number, number]} [balance]  per-channel multiplier on a loaded set's colour,
+ *   for a scan whose own cast fights the tint (the fallback canvas IS the tint, so it never needs one)
  * @property {number} roughness  fallback roughness (a loaded set takes it from its ORM map)
  * @property {number} metalness  metalness; ignored when the set has a metal channel
  * @property {number} normalScale
@@ -30,14 +32,16 @@ import { concreteTex, tileTex, metalTex, woodTex, marbleTex, fabricTex, surfaced
 
 /** @type {Record<string, PbrSpec>} */
 export const PBR_LIBRARY = {
-  concrete: { set: 'smooth_concrete_floor', metresPerRepeat: 2.5, tint: '#181c2a', gain: 5, roughness: 0.85, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
-  concreteFloor: { set: 'concrete_floor_worn_001', metresPerRepeat: 2.0, tint: '#12151f', gain: 5, roughness: 0.82, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
-  metal: { set: 'metal_plate_02', metresPerRepeat: 1.0, tint: '#2a3040', gain: 4, roughness: 0.4, metalness: 0.7, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
-  metalDark: { set: 'painted_metal_shutter', metresPerRepeat: 1.2, tint: '#151923', gain: 4, roughness: 0.5, metalness: 0.6, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
-  tile: { set: 'floor_tiles_08', metresPerRepeat: 2.4, tint: '#11141f', gain: 4, roughness: 0.35, metalness: 0.15, normalScale: 1.0, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
-  marble: { set: 'marble_01', metresPerRepeat: 1.5, tint: '#353b4a', gain: 2, roughness: 0.25, metalness: 0.1, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
-  wood: { set: 'plank_flooring_04', metresPerRepeat: 1.8, tint: '#2b1e18', gain: 3, roughness: 0.7, metalness: 0, normalScale: 0.7, relief: 1.8, canvas: (t) => woodTex(t, 1) },
-  fabric: { set: 'dirty_carpet', metresPerRepeat: 0.8, tint: '#2c2434', gain: 3, roughness: 0.9, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
+  concrete: { set: 'smooth_concrete_floor', metresPerRepeat: 2.5, tint: '#181c2a', gain: 18, roughness: 0.85, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
+  concreteFloor: { set: 'concrete_floor_worn_001', metresPerRepeat: 2.0, tint: '#12151f', gain: 13, roughness: 0.82, metalness: 0, normalScale: 0.8, relief: 1.6, canvas: (t) => concreteTex(t, 1) },
+  metal: { set: 'metal_plate_02', metresPerRepeat: 1.0, tint: '#2a3040', gain: 14, roughness: 0.4, metalness: 0.7, normalScale: 0.35, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  metalDark: { set: 'painted_metal_shutter', metresPerRepeat: 1.2, tint: '#151923', gain: 4.5, roughness: 0.5, metalness: 0.6, normalScale: 0.4, relief: 1.2, canvas: (t) => metalTex(t, 1) },
+  tile: { set: 'floor_tiles_08', metresPerRepeat: 2.4, tint: '#11141f', gain: 5, roughness: 0.35, metalness: 0.15, normalScale: 1.0, relief: 2.2, canvas: (t) => tileTex(t, '#05060a', 4, 1) },
+  marble: { set: 'marble_01', metresPerRepeat: 1.5, tint: '#353b4a', gain: 3, roughness: 0.25, metalness: 0.1, normalScale: 0.25, relief: 0.9, canvas: (t) => marbleTex(t, 1) },
+  // the plank scan averages 6:2:1 red:green:blue; with the tint's own warmth on top it read as red
+  // lacquer, so the balance pulls it back to brown (gain re-matched to the tint's luminance)
+  wood: { set: 'plank_flooring_04', metresPerRepeat: 1.8, tint: '#2b1e18', gain: 40, balance: [0.6, 1.2, 1.6], roughness: 0.7, metalness: 0, normalScale: 0.7, relief: 1.8, canvas: (t) => woodTex(t, 1) },
+  fabric: { set: 'dirty_carpet', metresPerRepeat: 0.8, tint: '#2c2434', gain: 33, roughness: 0.9, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
   // the quilt weave reads better than any carpet scan at bed scale; procedural by choice
   bedding: { set: null, metresPerRepeat: 0.6, tint: '#3a3348', gain: 1, roughness: 0.95, metalness: 0, normalScale: 0.6, relief: 1.1, canvas: (t) => fabricTex(t, 1) },
   rust: { set: 'rusty_metal_02', metresPerRepeat: 1.2, tint: '#3a4038', gain: 3, roughness: 0.6, metalness: 0.5, normalScale: 0.5, relief: 1.0, canvas: (t) => metalTex(t, 1) },
@@ -79,6 +83,14 @@ export function pbrTint(tint, gain) {
 }
 
 /**
+ * @param {THREE.Color} c @param {[number, number, number]|undefined} b
+ */
+function balanced(c, b) {
+  if (!b) return c;
+  return c.setRGB(Math.min(1, c.r * b[0]), Math.min(1, c.g * b[1]), Math.min(1, c.b * b[2]));
+}
+
+/**
  * The shared material for a library surface. Identical requests return the
  * same instance (one program, better batching, and — from rc.1 — mergeable).
  * @param {string} name a PBR_LIBRARY key
@@ -106,7 +118,7 @@ export function pbrMaterial(name, o = {}) {
       roughnessMap: set.roughnessMap,
       aoMap: set.aoMap,
       metalnessMap: set.metalnessMap,
-      color: pbrTint(tint, spec.gain),
+      color: balanced(pbrTint(tint, spec.gain), spec.balance),
       roughness: 1,                               // the ORM G channel IS the roughness; the scalar multiplies it
       metalness: set.metalnessMap ? 1 : metalness,
     });
