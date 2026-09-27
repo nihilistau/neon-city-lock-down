@@ -104,6 +104,12 @@ test('lie_* sockets recline instead of sitting bolt upright', () => {
   assert.equal(seatClip('gurney0.lie_center'), 'lounge');
   assert.equal(seatClip('couch.seat0'), 'sit_relaxed');
   assert.equal(seatClip('stool2.seat0'), 'sit_relaxed');
+  // the bed's guest seat (src/sim/bedScene.js GUEST_SEAT) sits upright beside the player
+  assert.equal(seatClip('bed.seat1'), 'sit_relaxed');
+  const src = readFileSync(new URL('../../src/scene3d/tower/furniture.js', import.meta.url), 'utf8');
+  const bed = src.slice(src.indexOf('  bed() {'), src.indexOf('  vanity_table() {'));
+  assert.match(bed, /seat0: socket\(group, 'seat0'/, 'bed keeps the player seat');
+  assert.match(bed, /seat1: socket\(group, 'seat1'/, 'bed has a guest seat');
 });
 
 test('every mystery clue prop is a registered interactable', () => {

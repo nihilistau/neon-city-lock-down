@@ -408,3 +408,14 @@
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }
+
+/* bed scene: stay the night is a fade to black (src/core/app.js _fade). Same
+   layer as the elevator fade; the subtitle strip sits one above it so the
+   narration line reads on the black. */
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-slow, 1.2s) ease; z-index: var(--z-transition); }
+#fade.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #fade { transition: none; } }
+/* raised only while a narration line shows, so ordinary subtitles keep their layer */
+#subtitles:has(.line.narration) { z-index: calc(var(--z-transition) + 1); }
+#subtitles .line.narration { font-style: italic; }

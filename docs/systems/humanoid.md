@@ -74,12 +74,6 @@ plus a traveling accent rim light.
 - `update(dt)` — derives planar speed for the gait layer, eases body yaw toward `facingTarget`, then ticks
   the animator + face. `dispose()` frees geometry/materials/textures.
 
-## Paired poses (`pairedPoses.js`)
-`PAIRED_POSES` — two characters anchored to shared furniture sockets with role clips. `startPairedPose(poseId,
-a, b) → accepted` — **gate-checks tiered poses on BOTH participants**, emits `pose.paired`, clears + stages
-both queues (sit → clip → mutual look), shares a phase clock. `endPairedPose(a, b)` clears back to autonomy
-and emits `pose.unpaired`.
-
 ## Geometry helpers (`util/geo.js`)
 - `mergeGeometries(geos)` — merges position/normal/uv/skinIndex/skinWeight into one indexed geometry.
 - `rigidSkin(geo, boneIndex)` — bind every vertex 100% to one bone.

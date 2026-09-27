@@ -51,7 +51,7 @@ wildcard. It is the **only** cross-layer channel. Representative topics:
 | Combat | `combat.started/wave/waveIncoming/resolved/shutters/mag/hit`, `player.health` |
 | Camera | `camera.mode` |
 | Dialogue | `chat.player`, `chat.reply`, `voice.speaking/done`, `vox.speaking/done` |
-| Intimacy | `bedgame.started/state/action/climax/withdraw/ended/talk`, `pose.paired/unpaired` |
+| Bed | `bedscene.state/guest/started/ended`, `bed.requested` |
 | Events | `event.fired/done/choice`, `news.push`, `run.extraction` |
 | Loop | `dayplan.reset`, `objective.done`, `char.stat/mood`, `run.death` |
 
@@ -104,7 +104,7 @@ src/sim/      world, tick, survival, threat, scheduler, eventRunner, death, meta
 src/chars/    stats, gates, mood, memory, character, wardrobe
 src/dialogue/ engine, parser/*, topics, selector, effects, stageDirections, llm/*
 src/scene3d/  stage, lighting, postfx, picking, combatFx, monitors; tower/{zoneBuilder,furniture,curtains}
-src/humanoid/ skeleton, bodyBuilder, outfitBuilder, face, animator, gait, clips, actor3d, pairedPoses, weaponModel
+src/humanoid/ skeleton, bodyBuilder, outfitBuilder, face, animator, gait, clips, actor3d, weaponModel
 src/camera/   cameraRig, firstPerson (FP+TPS controller, aim magnetism), cameraDirector
 src/audio/    engine, music/*, sfx/*, voice, voxVoice, sidecar (voice-server client)
 src/ui/       hud, statBars, chatPanel, combatHud, reticle, planPanel, inventory, llmPanel, voicePanel, kitPanel, director/*

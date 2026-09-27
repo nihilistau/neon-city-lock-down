@@ -12,7 +12,7 @@ export class Brain {
    * @param {import('../../chars/character.js').Character} character
    * @param {{ rng: import('../../core/rng.js').RngStream,
    *           others: (c:any)=>any[], threat: ()=>number, sfx:(id:string)=>void,
-   *           combatActive: ()=>boolean }} ctx
+   *           combatActive: ()=>boolean, bedFree?: ()=>boolean }} ctx
    */
   constructor(character, ctx) {
     this.c = character;

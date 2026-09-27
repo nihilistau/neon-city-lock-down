@@ -49,6 +49,7 @@ export function topic(id, def) {
     assert(typeof ln.text === 'string', `topic ${id}: line.text must be a string`);
     validateStatMap(ln.fx, `topic ${id} line.fx`);
     if (ln.game) assertGame(ln.game, `topic ${id} line.game`);
+    if (ln.bed != null) assert(['invite', 'stay', 'dismiss'].includes(ln.bed), `topic ${id} line.bed must be invite|stay|dismiss`);
     assertBond(ln.when, `topic ${id} line.when`);
   }
   assertBond(def.cond, `topic ${id} cond`);

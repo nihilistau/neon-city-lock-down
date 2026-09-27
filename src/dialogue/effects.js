@@ -38,6 +38,9 @@ export function applyLineEffects(char, line, topic, ctx) {
   // one and the refusal must not launch the game just refused. A topic-level
   // effects.game stays the common case; this is the per-answer escape hatch.
   if (line.game) emit('game.requested', { game: line.game, charId: char.id });
+  // A line may ask the bed scene to act (data/dialogue/bed.js). Per LINE, never
+  // per topic, so the refusal lines of the same topic can't seat anyone.
+  if (line.bed) emit('bed.requested', { action: line.bed, charId: char.id });
 
   // 3. tone side-effects — hostile/affectionate tone bleeds into stats
   //    regardless of what topic matched (mind games have real cost)

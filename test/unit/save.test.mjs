@@ -17,6 +17,7 @@ import { Scheduler } from '../../src/sim/scheduler.js';
 import { FLOORS } from '../../data/zones.js';
 import lola from '../../data/cast/lola.js';
 import aria from '../../data/cast/aria.js';
+import { BedScene } from '../../src/sim/bedScene.js';
 
 function stubActor() {
   return {
@@ -380,4 +381,19 @@ test('a v1 envelope imports via parseSaveEnvelope after migration', () => {
   const v2 = buildSave(app);
   const legacy = { ...v2, version: 1 };
   assert.equal(parseSaveEnvelope(legacy).ok, true, 'v1 envelopes must migrate then validate');
+});
+
+test('loading while seated on the bed stands the player up — the bed state is not saved', () => {
+  const app = makeApp();
+  const wire = JSON.parse(JSON.stringify(buildSave(app)));
+  const fp = { seated: false };
+  /** @type {any} */ (app).bedScene = new BedScene(/** @type {any} */ ({
+    placePlayer: () => { fp.seated = true; },
+    releasePlayer: () => { fp.seated = false; },
+  }));
+  /** @type {any} */ (app).bedScene.use();
+  assert.equal(fp.seated, true);
+  applySave(/** @type {any} */ (app), wire);
+  assert.equal(/** @type {any} */ (app).bedScene.playerState, 'none');
+  assert.equal(fp.seated, false, 'the first-person seated lock must not survive a load');
 });

@@ -13,6 +13,7 @@ import '../../data/dialogue/kai/depth.js';
 import '../../data/dialogue/vox/core.js';
 import '../../data/dialogue/vox/depth.js';
 import '../../data/dialogue/games.js';
+import '../../data/dialogue/bed.js';
 import * as THREE from 'three';
 import { GameClock } from './clock.js';
 import { Loop } from './loop.js';
@@ -70,6 +71,8 @@ import aria from '../../data/cast/aria.js';
 import kai from '../../data/cast/kai.js';
 import vox from '../../data/cast/vox.js';
 import { Brain } from '../sim/ai/brain.js';
+import { BedScene, bedPrompt } from '../sim/bedScene.js';
+import { narrationFor } from '../../data/dialogue/bed.js';
 import { Relationships } from '../sim/ai/relationships.js';
 import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
@@ -356,10 +359,9 @@ export class App {
     // interactive props + easter eggs
     this.elevatorUI = new ElevatorUI(this);
     for (const prop of this.world.props) {
-      this.picker.register({
-        ...prop,
-        onInteract: () => this._useProp(prop),
-      });
+      const target = { ...prop, onInteract: () => this._useProp(prop) };
+      if (prop.id === 'bed') this._bedTarget = target;   // its prompt follows the bed state
+      this.picker.register(target);
     }
 
     // spawn the cast
@@ -390,6 +392,7 @@ export class App {
         threat: () => this.run.threat,
         sfx: (id) => playSfx(audio, id),
         combatActive: () => this.combat?.active ?? false,
+        bedFree: () => this._bedFree(),
       });
     }
     this.relationships = new Relationships({
@@ -428,11 +431,6 @@ export class App {
       seen.push(topicId);
       this.run.flags.voxTopics = seen;
       this.run.flags.voxTalks = seen.length;
-    });
-    // paired poses hold both participants' brains
-    on('pose.paired', ({ a, b, holdMinutes }) => {
-      this.brains[a]?.engage(this.clock.totalMinutes + holdMinutes);
-      this.brains[b]?.engage(this.clock.totalMinutes + holdMinutes);
     });
     on('chat.player', () => {
       // addressing the room keeps everyone present a moment
@@ -632,6 +630,51 @@ export class App {
     });
     this.gamesPanel = new GamesPanel(this);
 
+    // the bed: sit / lie / invite / stay the night (src/sim/bedScene.js)
+    this.bedScene = new BedScene({
+      placePlayer: (pose) => this._placeOnBed(pose),
+      releasePlayer: () => this._leaveBed(),
+      skip: (m) => this.clock.skip(m),
+      scheduler: this.scheduler,
+      fade: (on) => this._fade(on),
+      narrate: (text) => this._narrate(text),
+      narration: (id) => narrationFor(id, this.rng.stream('bed')),
+      player: () => this.run.player,
+      brain: (id) => this.brains[id],
+    });
+    // On the bed, E drives the bed wherever you are looking — lying down points
+    // the eye at the ceiling, where the picker has nothing to hover.
+    const pickInteract = this.cameraRig.fp.onInteract;
+    this.cameraRig.fp.onInteract = () => {
+      if (this.bedScene.playerState !== 'none') this.bedScene.use();
+      else pickInteract?.();
+    };
+    on('bedscene.state', ({ player }) => {
+      if (this._bedTarget) this._bedTarget.prompt = bedPrompt(player);
+      // the picker only emits on a hover CHANGE, so re-announce the prompt here
+      const h = player !== 'none' ? this._bedTarget : this.picker.hovered;
+      emit('pick.hover', h ? { id: h.id, prompt: h.prompt } : null);
+    });
+    on('bedscene.guest', ({ id, seated }) => {
+      const b = this.brains[id];
+      if (!b) return;
+      // hold the guest's brain while seated (a day is effectively "until dismissed").
+      // Drop any in-flight action first: engage() clears a busy queue that still
+      // has a pending action, and that queue now holds the walk to the bed.
+      if (seated) { b._pendingAction = null; b.engage(this.clock.totalMinutes + 1440); }
+      else b.engagedUntil = this.clock.totalMinutes;
+    });
+    on('bed.requested', ({ action, charId }) => {
+      const c = this.cast[charId];
+      if (!c) return;
+      if (action === 'invite') this.bedScene.invite(c);
+      else if (action === 'stay') {
+        this.bedScene.stayNight(c).catch((e) => console.error('[bed] stay the night failed', e));
+      } else if (action === 'dismiss') this.bedScene.dismiss(c);
+    });
+    on('bedscene.started', () => this.conductor.setMood({ intimacy: 0.5, warmth: 0.7, energy: 0.2, tension: 0.05 }));
+    on('bedscene.ended', () => this.conductor.setMood({ intimacy: 0, warmth: 0.45, energy: 0.3, tension: Math.min(1, this.run.threat / 90) }));
+
     this.directorPanel = new DirectorPanel(this);
 
     this.cameraRig.focusTargets = Object.values(this.cast).map((c) => c.actor.root);
@@ -807,6 +850,9 @@ export class App {
     };
 
     switch (true) {
+      case prop.id === 'bed':
+        this.bedScene.use();
+        break;
       case prop.id.startsWith('elevator_'):
         this.elevatorUI.openPicker();
         break;
@@ -1127,6 +1173,82 @@ export class App {
     return character;
   }
 
+  /**
+   * Put the player on the bed in first person. Mirrors the old bed staging:
+   * the WHOLE move goes through setFloor, and the body is snapped along with the
+   * eye so proximity checks and gaze resolve to where the player actually is.
+   * @param {'sitting'|'lying'} pose
+   */
+  _placeOnBed(pose) {
+    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false });
+    const ref = pose === 'lying' ? 'bed.lie_center' : 'bed.seat0';
+    const sock = this.world.getSocket(ref);
+    const p = sock ? sock.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);
+    if (!this._bedReturn) this._bedReturn = { camMode: this.cameraRig.mode };
+    this.cameraRig.setMode('firstPerson');
+    const fp = this.cameraRig.fp;
+    // sitting: face out into the alcove; lying: look up and across the room
+    const yaw = pose === 'lying' ? 0 : Math.PI;
+    fp.placeAt(p.x, p.z, yaw, pose === 'lying' ? 0.35 : -0.05);
+    fp.pos.y = pose === 'lying' ? 0.75 : 1.05;   // eye height on the mattress
+    fp.camera.position.copy(fp.pos);
+    fp.seated = true;
+    fp.onStandUp = () => this.bedScene.getUp();
+    this.playerMarker.position.set(p.x, 1.4, p.z);
+    this.playerActor?.snapTo(p.x, p.z, yaw);
+  }
+
+  /** Back on your feet at the bedside, in whatever camera mode you were using. */
+  _leaveBed() {
+    const fp = this.cameraRig.fp;
+    fp.seated = false;
+    fp.onStandUp = null;
+    const [sx, sz] = waypointPos('bed_alcove', 'bedside');
+    fp.placeAt(sx, sz, fp.yaw);
+    this.playerMarker.position.set(sx, 1.4, sz);
+    this.playerActor?.snapTo(sx, sz, fp.yaw);
+    const back = this._bedReturn?.camMode;
+    this.cameraRig.setMode(back && back !== 'cinematic' ? back : 'auto');
+    this._bedReturn = null;
+  }
+
+  /** Nobody — player, invited guest or another NPC — is on the bed (AI sleep). */
+  _bedFree() {
+    const b = this.bedScene;
+    if (!b || b.playerState !== 'none' || b.guests.length) return false;
+    return !Object.values(this.cast).some((o) => o.queue?.seatedAt?.startsWith('bed.'));
+  }
+
+  /**
+   * Full-screen fade used by the bed scene. Resolves when the transition ends.
+   * @param {boolean} on
+   * @returns {Promise<void>}
+   */
+  _fade(on) {
+    let el = document.getElementById('fade');
+    if (!el) { el = document.createElement('div'); el.id = 'fade'; document.getElementById('ui').appendChild(el); }
+    el.classList.toggle('on', on);
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return new Promise((r) => setTimeout(r, reduced ? 50 : 1200));
+  }
+
+  /**
+   * One line of narration in the subtitle strip, held long enough to read.
+   * Nothing in src/ui renders subtitles from a bus event — the cutscene player
+   * writes #subtitles directly — so this does the same (as text, not HTML).
+   * @param {string} text
+   * @returns {Promise<void>}
+   */
+  _narrate(text) {
+    const strip = document.getElementById('subtitles');
+    const line = document.createElement('div');
+    line.className = 'line narration';
+    line.textContent = text;
+    strip?.replaceChildren(line);
+    feed(text, 'info');
+    return new Promise((r) => setTimeout(() => { line.remove(); r(); }, Math.min(6000, 1800 + text.length * 45)));
+  }
+
   /** A named guest at reception. Counted as a corporeal mouth via the cast. */
   /**
    * Can a scripted daily beat play right now?
@@ -1142,6 +1264,7 @@ export class App {
    */
   _beatPlayable(announce) {
     if (this.mode !== 'run' || this.combat.active || this.cutscene.playing || this.run.activeEventId) return false;
+    if (this.bedScene?.busy) return false;   // the stay-the-night skip: nothing plays unseen under the fade
     if (this.world?.activeFloor !== 'penthouse') {
       if (announce === 'dinner') feed('Somewhere above you, the others sit down to eat without you.', 'system');
       if (announce === 'sleep') feed('The tower goes quiet upstairs. You are still out here.', 'system');
@@ -1172,6 +1295,7 @@ export class App {
       threat: () => this.run.threat,
       sfx: (id) => playSfx(audio, id),
       combatActive: () => this.combat?.active ?? false,
+      bedFree: () => this._bedFree(),
     });
     if (this.dialogue?.vocab?.chars && !this.dialogue.vocab.chars.includes(persona.id)) {
       this.dialogue.vocab.chars.push(persona.id);

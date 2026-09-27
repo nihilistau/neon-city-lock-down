@@ -157,6 +157,7 @@ export const FURNITURE = {
         lie_left: socket(group, 'lie_left', -0.5, 0.55, 0.1, Math.PI),
         lie_right: socket(group, 'lie_right', 0.5, 0.55, 0.1, Math.PI),
         seat0: socket(group, 'seat0', 0.7, 0.5, 0.85, Math.PI),
+        seat1: socket(group, 'seat1', -0.7, 0.5, 0.85, Math.PI),   // guest side (src/sim/bedScene.js)
       },
       colliders: [{ min: [-1.0, 0, -1.2], max: [1.0, 0.6, 1.15] }],
     };
