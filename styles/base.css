@@ -213,7 +213,7 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
 }
 .wm-rule.mag { background: linear-gradient(90deg, transparent, var(--magenta), transparent); box-shadow: 0 0 8px rgba(255, 63, 164, 0.4); }
 
-/* full-screen overlay screens (gate, death, menus) */
+/* full-screen overlay screens (death, menus) */
 .screen {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -291,17 +291,10 @@ input[type="text"]:focus, textarea:focus { border-color: var(--cyan-dim); }
   --z-picker:     47;   /* transient pickers (elevator) — BELOW full screens, so
                            the pause menu can always be reached over one */
   --z-transition: 48;   /* elevator fade */
-  --z-screen:     50;   /* full-screen panels: menu, save, codex, kit, gate */
+  --z-screen:     50;   /* full-screen panels: menu, save, codex, kit */
   --z-choice:     60;   /* a blocking event choice outranks everything */
 }
 
-/* 18+ gate — same language as the main menu, one question, no identity fields */
-.gate-panel { max-width: 560px; }
-.gate-panel .gate-body { font-size: 13.5px; line-height: 1.6; color: var(--text-dim); margin: 10px 0; }
-.gate-panel .gate-age { color: var(--cyan); }
-.gate-panel .mm-buttons { margin-top: 22px; }
-.gate-panel .mm-big.danger { color: var(--red); border-color: rgba(255, 71, 87, 0.45); }
-.gate-panel .mm-big.danger:hover { border-color: var(--red); background: rgba(255, 71, 87, 0.08); box-shadow: 0 0 12px rgba(255, 71, 87, 0.25); }
 .mm-newgame { min-width: 560px; max-width: 680px; max-height: 84vh; overflow-y: auto; }
 .mm-scen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
 .mm-scen { border: 1px solid var(--panel-edge); padding: 8px 12px; cursor: pointer; transition: all 0.12s; border-left: 2px solid var(--cyan-dim); }

@@ -3,6 +3,7 @@
 import { on } from '../core/bus.js';
 import { meta } from '../sim/meta.js';
 import { escapeHtml } from './widgets.js';
+import { bondTier } from '../chars/bond.js';
 
 const CAUSE_LINES = {
   combat: 'The rioters took the tower — and you with it.',
@@ -13,7 +14,22 @@ const CAUSE_LINES = {
   unknown: 'The lockdown claimed another name.',
 };
 
-const NAMES = { lola: 'Lola', aria: 'Aria', kai: 'Kai' };
+const NAMES = { lola: 'Lola', aria: 'Aria', kai: 'Kai', vox: 'VOX' };
+
+/**
+ * The bond tier a run summary shows for one character. Pure. Summaries from
+ * before rc.1 carry only raw trust (`bonds`), so those fall back to deriving a
+ * tier from it through the same thresholds.
+ * @param {{bonds?: Record<string, number>, bondTiers?: Record<string, string>}} summary
+ * @param {string} id
+ * @returns {string} stranger | ally | trusted | loyal
+ */
+export function bondLabel(summary, id) {
+  const tier = summary.bondTiers?.[id];
+  if (tier) return tier;
+  const trust = summary.bonds?.[id] ?? 0;
+  return bondTier({ trust, loyalty: trust });
+}
 
 export function initDeathScreen() {
   on('run.death', (summary) => show(summary));
@@ -22,7 +38,7 @@ export function initDeathScreen() {
 function show(summary) {
   const overlay = document.getElementById('overlay');
   const bonds = Object.entries(summary.bonds || {})
-    .map(([id, v]) => `<div class="ds-row"><span>${escapeHtml(NAMES[id] || id)}</span><span>${v > 60 ? 'devoted' : v > 35 ? 'warm' : v > 15 ? 'wary' : 'cold'} (${v})</span></div>`)
+    .map(([id]) => `<div class="ds-row"><span>${escapeHtml(NAMES[id] || id)}</span><span>${escapeHtml(bondLabel(summary, id))}</span></div>`)
     .join('');
   const ended = summary.endedBy;
   const won = ended === 'extracted' || ended === 'stayed';

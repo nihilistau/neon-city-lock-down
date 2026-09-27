@@ -1,25 +1,10 @@
 // @ts-check
 // Wardrobe state machine: builds outfit layer sets lazily, toggles visibility,
-// emits change events. The `none` state (and explicitness rendering caps) land
-// with the Phase 4 intimacy pass — for now every character keeps a base layer.
+// emits change events.
 import { buildOutfit } from '../humanoid/outfitBuilder.js';
 import { OUTFITS, DEFAULT_OUTFIT } from '../../data/outfits.js';
-import { EXPLICITNESS_CAP } from './gates.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
-
-/** what `none`/`underwear` actually RENDER as, per explicitness cap. The
- *  wardrobe state is honest (for stats/warmth); the render is capped for taste. */
-function renderState(outfitId, explicitness) {
-  if (explicitness === 'full') return outfitId;
-  if (explicitness === 'mature') {
-    if (outfitId === 'none') return 'underwear';
-    return outfitId;
-  }
-  // suggestive: never render below underwear-equivalent; none/underwear → towel
-  if (outfitId === 'none' || outfitId === 'underwear') return 'towel';
-  return outfitId;
-}
 
 export class Wardrobe {
   /**
@@ -32,7 +17,7 @@ export class Wardrobe {
     this.layers = {};
     this.current = null;
     // `initial` is optional so every character in OUTFITS can be given a wardrobe
-    // with one uniform line. Kai has had all ten outfit states in data/outfits.js
+    // with one uniform line. Kai has had the full outfit matrix in data/outfits.js
     // from the start but no Wardrobe was ever constructed for him, so every
     // [[outfit:X]] the LLM emitted for Kai was a silent no-op (the call sites are
     // all `wardrobe?.change(...)`, so nothing even warned).
@@ -47,30 +32,24 @@ export class Wardrobe {
   static supports(id) { return !!OUTFITS[id]; }
 
   /**
-   * @param {string} outfitId  the LOGICAL wardrobe state (may be capped in render)
+   * @param {string} outfitId
    * @param {boolean} [silent]
    */
   change(outfitId, silent = false) {
     const recipes = OUTFITS[this.c.id];
     if (!recipes || !recipes[outfitId] || outfitId === this.current) return false;
-
-    const explicitness = globalThis.__ncldExplicitness || 'mature';
-    const renderId = renderState(outfitId, explicitness);
-    const recipe = recipes[renderId] || recipes[outfitId];
-
-    if (!this.layers[renderId]) {
-      const meshes = buildOutfit(this.c.persona, this.c.actor.rig, recipe);
+    if (!this.layers[outfitId]) {
+      const meshes = buildOutfit(this.c.persona, this.c.actor.rig, recipes[outfitId]);
       for (const m of meshes) this.c.actor.root.add(m);
-      this.layers[renderId] = meshes;
+      this.layers[outfitId] = meshes;
     }
     for (const [id, meshes] of Object.entries(this.layers)) {
-      for (const m of meshes) m.visible = id === renderId;
+      for (const m of meshes) m.visible = id === outfitId;
     }
     const prev = this.current;
-    this.current = outfitId;      // logical state stays honest
-    this._renderId = renderId;
+    this.current = outfitId;
     if (!silent) {
-      emit('wardrobe.changed', { id: this.c.id, outfit: outfitId, render: renderId, prev });
+      emit('wardrobe.changed', { id: this.c.id, outfit: outfitId, prev });
       feed(`${this.c.name} changed into ${outfitId.replace('_', ' ')}.`, 'info');
     }
     return true;

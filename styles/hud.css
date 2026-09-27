@@ -106,7 +106,7 @@
 #statbars {
   position: absolute; left: 12px;
   display: flex; flex-direction: column; gap: 6px;
-  width: 186px; overflow-y: auto; padding-right: 2px;
+  width: 200px; overflow-y: auto; padding-right: 2px;
   pointer-events: auto; z-index: var(--z-world);
   scrollbar-width: thin;
   /* Position and cap are MEASURED at runtime by layoutLeftColumn() in
@@ -131,27 +131,24 @@
 .sb-card.collapsed .sb-row.hero { display: flex; }
 .sb-card.collapsed .sb-bars { display: grid; grid-template-columns: 1fr 1fr; }
 .sb-card[data-id="vox"].collapsed .sb-bars { display: none; }
-.sb-card.collapsed .sb-gates { margin-top: 4px; }
-.sb-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; cursor: pointer; }
-.sb-head::before { content: '▾ '; color: var(--text-dim); font-size: 9px; }
-.sb-card.collapsed .sb-head::before { content: '▸ '; }
-.sb-name { color: var(--accent, var(--cyan)); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
-.sb-head .mood { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.sb-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; cursor: pointer; }   /* gap: name · mood · chip never touch */
+.sb-head::before { content: '▾'; color: var(--text-dim); font-size: 9px; }
+.sb-card.collapsed .sb-head::before { content: '▸'; }
+.sb-name { color: var(--accent, var(--cyan)); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap; flex-shrink: 0; }
+.sb-head .mood { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* a long mood yields before the name or the chip does */
 .sb-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 8px; }
 .sb-row { display: flex; align-items: center; gap: 4px; }
 .sb-label { font-size: 8px; color: var(--text-dim); width: 48px; text-transform: uppercase; }
 .sb-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
 .sb-fill { display: block; height: 100%; width: 0; transition: width 0.35s ease; }
 .sb-val { font-size: 8px; color: var(--text-dim); width: 15px; text-align: right; font-family: var(--mono); }
-.sb-gates { display: flex; gap: 3px; margin-top: 5px; }
-.sb-pip {
-  width: 16px; height: 15px; line-height: 15px; text-align: center;
-  font-size: 9px; font-weight: 700; border: 1px solid #223;
-  color: #445; background: rgba(255,255,255,0.03);
-}
-.sb-pip.offered { color: var(--amber); border-color: var(--amber); }
-.sb-pip.granted { color: var(--ink); background: var(--green); border-color: var(--green); }
-.sb-pip.revoked { color: var(--red); border-color: var(--red); text-decoration: line-through; }
+.sb-bond { margin-left: auto; flex-shrink: 0; padding: 0 var(--s-1, 4px); border-radius: var(--r-sm, 3px);
+  font: 600 10px/16px var(--font, sans-serif); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-dim, #9aa3b5); border: 1px solid currentColor; }
+.sb-bond[data-tier="ally"] { color: var(--cyan, #39e6ff); }
+.sb-bond[data-tier="trusted"] { color: var(--amber, #ffb43f); }
+.sb-bond[data-tier="loyal"] { color: var(--magenta, #ff3fa4); }
 
 /* chat panel */
 #chat {
@@ -202,25 +199,10 @@
   border: 1px solid var(--panel-edge); }
 .game-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .game-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-.bg-meters { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
-.bg-meter { display: flex; align-items: center; gap: 4px; }
-.bg-bar { display: inline-block; width: 70px; height: 5px; background: rgba(255,255,255,0.1); }
-.bg-fill { display: block; height: 100%; transition: width 0.3s; }
-.bg-gate { color: var(--magenta); }
 .bg-line { min-height: 40px; font-size: 14px; line-height: 1.5; color: var(--text); font-style: italic;
   background: rgba(255,255,255,0.03); padding: 8px 12px; margin: 8px 0; border-left: 2px solid var(--magenta-dim); }
-.bg-tier { margin-bottom: 10px; }
-.bg-tier.locked { opacity: 0.45; }
-.bg-tier.capped { opacity: 0.3; }
-.bg-tier-name { font-size: 10px; letter-spacing: 0.14em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
-.bg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.bg-actions button { font-size: 11px; padding: 5px 10px; }
-.bg-actions button.disabled { opacity: 0.3; }
-.bg-ask { margin-top: 8px; color: var(--magenta); border-color: var(--magenta-dim); width: 100%; }
 .bg-hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
-.tod-turn { text-align: center; }
 .tod-who { font-size: 13px; color: var(--cyan); margin-bottom: 12px; letter-spacing: 0.1em; }
-.tod-prompt { font-size: 16px; line-height: 1.5; margin: 14px 0; color: var(--text); }
 .mys-intro { font-size: 13px; line-height: 1.6; color: var(--text-dim); margin-bottom: 12px; }
 .mys-clues { font-size: 12px; color: var(--amber); margin-bottom: 10px; }
 .mys-section { font-size: 10px; letter-spacing: 0.15em; color: var(--text-dim); margin: 12px 0 6px; }
@@ -340,23 +322,6 @@
 #hit-mark.crit { border-color: var(--amber); width: 26px; height: 26px; margin: -13px 0 0 -13px; }
 #hit-mark.glance { border-color: var(--cyan); opacity: 0.5; }
 
-/* ── in-scene bed game: docked HUD (non-blocking, sim keeps running) ── */
-#games-panel.bed-hud {
-  position: absolute; top: 0; right: 0; bottom: 0; left: auto;
-  width: 300px; display: flex; align-items: flex-end; justify-content: flex-end;
-  padding: 12px; background: none; pointer-events: none; z-index: var(--z-drawer-top);
-}
-#games-panel.bed-hud .bed-box {
-  pointer-events: auto; width: 276px; max-height: 92vh; overflow-y: auto;
-  background: rgba(8,6,14,0.82); backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,95,168,0.4); box-shadow: 0 0 24px rgba(255,95,168,0.15);
-}
-#games-panel.bed-hud .bg-line { font-style: italic; color: #ffd6ea; min-height: 2.4em; }
-#games-panel.bed-hud .bg-want { font-size: 11px; color: #c9a0ff; margin-top: 6px; }
-#games-panel.bed-hud .bg-ask.ready { background: rgba(200,107,255,0.18); border-color: #c86bff; color: #f0d0ff; width: 100%; margin-top: 6px; }
-#games-panel.bed-hud .bg-climax { color: #ff8fc0; font-weight: 700; letter-spacing: 0.08em; }
-#games-panel.bed-hud .bg-actions button { font-size: 11px; padding: 3px 7px; }
-
 /* ── LLM panel per-character rows ── */
 .llm-charrow { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }
 .llm-charrow .llm-charname { width: 88px; font-size: 12px; color: var(--text); }
@@ -438,3 +403,14 @@
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }
+
+/* bed scene: stay the night is a fade to black (src/core/app.js _fade). Same
+   layer as the elevator fade; the subtitle strip sits one above it so the
+   narration line reads on the black. */
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-slow, 1.2s) ease; z-index: var(--z-transition); }
+#fade.on { opacity: 1; pointer-events: auto; }   /* nothing is clickable under the black */
+@media (prefers-reduced-motion: reduce) { #fade { transition: none; } }
+/* raised only while a narration line shows, so ordinary subtitles keep their layer */
+#subtitles:has(.line.narration) { z-index: calc(var(--z-transition) + 1); }
+#subtitles .line.narration { font-style: italic; }

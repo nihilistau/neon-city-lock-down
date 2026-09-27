@@ -6,8 +6,8 @@
 
 /** Closed tag vocabulary → arg count validation ('+' = variadic, '*' = 0+). */
 export const TAG_TYPES = {
-  anim: 1, face: '+', mood: 1, look: 1, move: 1, sit: 1, pair: '+',
-  outfit: 1, light: '+', cam: 1, sfx: 1, vox: 1, gate: '+', wait: 1, fx: 1, beat: 1,
+  anim: 1, face: '+', mood: 1, look: 1, move: 1, sit: 1,
+  outfit: 1, light: '+', cam: 1, sfx: 1, vox: 1, wait: 1, fx: 1, beat: 1,
   stat: 1,
 };
 
@@ -78,11 +78,6 @@ export function makeDispatcher(ctx) {
       case 'sit':
         speaker.queue.sit(a[0]);
         break;
-      case 'pair': {
-        const tier = a[2];
-        speaker.queue.push({ type: 'playClip', args: [a[0], 0.4], gateTier: tier });
-        break;
-      }
       case 'outfit':
         if (speaker.wardrobe) speaker.wardrobe.change(a[0]);
         break;
@@ -101,12 +96,6 @@ export function makeDispatcher(ctx) {
       case 'vox':
         ctx.audio?.vox?.(a[0]);
         break;
-      case 'gate': {
-        // gate:offer:kiss  |  gate:grant:kiss  |  gate:revoke:touch
-        const [action, tier] = a;
-        speaker.gate(tier, action, ctx.nowMinute);
-        break;
-      }
       case 'fx':
         ctx.world?.particles?.(a[0], speaker.actor.root.position);
         break;
@@ -114,7 +103,7 @@ export function makeDispatcher(ctx) {
         ctx.onBeat?.(a[0]);
         break;
       case 'stat': {
-        // [[stat:arousal+10]] — a character shifting their OWN stat (LLM agent)
+        // [[stat:tension-5]] — a character shifting their OWN stat (LLM agent)
         const m = /^([a-z]+)([+-]\d+)$/.exec(a[0] || '');
         if (m) speaker.applyStats({ [m[1]]: Number(m[2]) }, 'self');
         break;

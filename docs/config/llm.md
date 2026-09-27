@@ -43,7 +43,7 @@ so a value can be removed to fall back to the model/server default.
 | Key | Default | When |
 |-----|---------|------|
 | `normal` | 1600 | Ordinary reply (covers a thinking model's reasoning + answer). |
-| `heated` | 2200 | Arousal ≥ 55 / intimate gate granted / combat. |
+| `heated` | 2200 | High tension or live combat. |
 | `rewrite` | 300 | Restyle-authored-line mode. |
 
 ## `reasoning`

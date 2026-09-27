@@ -814,6 +814,7 @@ export class World3D {
           ammo_crate: 'Open the crate', stash_crate: 'Pry open the stash',
           roof_crate: 'Open the crate', supply_crate: 'Open the crate',
           vox_monolith: 'Touch the core',
+          bed: 'Sit on the bed',   // prompt then follows src/sim/bedScene.js bedPrompt()
           gurney0: 'Treat the wounded', gurney1: 'Treat the wounded',
           // mystery-case clue props. Without these four the `ledger` clue was
           // unobtainable (its zone `vanity` has no other interactable), so

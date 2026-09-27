@@ -11,6 +11,8 @@ export class Scheduler {
     /** @type {Record<string, number>} eventId → totalMinute last fired */
     this.lastFired = {};
     this._sinceRoll = 0;
+    // set while the clock is skipped under a fade (bed scene) — nothing fires unseen
+    this.hold = false;
   }
 
   /**
@@ -19,6 +21,7 @@ export class Scheduler {
    * @param {{day:number, minuteOfDay:number, phase:string, totalMinutes:number}} clock
    */
   tick(run, clock) {
+    if (this.hold) return null;
     // queued events first
     const due = run.eventQueue.findIndex((e) => e.atMinute <= clock.totalMinutes);
     if (due >= 0) {

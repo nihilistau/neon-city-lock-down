@@ -35,7 +35,7 @@ Despite the name it drives **both** first and third person, and owns the player 
   keys in the config layer.)
 - Hooks set by `app.js`: `onInteract` (E), `onFire` (LMB → `combat.fireRay`), `onReload` (R),
   `onAction` (Space). `attachBody(actor)` attaches the player `Actor3D`. `placeAt(x,z,yaw)` seats the
-  eye (used by the bed scene).
+  eye (used by the bed: sitting and lying set the eye height).
 
 ## Situational director (`src/camera/cameraDirector.js`)
 A bus-driven auto-camera. A **priority shot stack**; the top shot composes an eye+target each frame:
@@ -43,7 +43,8 @@ A bus-driven auto-camera. A **priority shot stack**; the top shot composes an ey
 - `dialogue` (`chat.reply`) — over-shoulder 2-shot of the speaker's head + the guest.
 - `action` (`combat.started`→`resolved`) — side-on tracking of player↔nearest hostile, hit shake.
 - `event` (`event.fired`) — a brief wide of the room.
-Hard-cuts between subjects, eases within a shot. Suspends during the first-person bed scene. Only
+Hard-cuts between subjects, eases within a shot. Stands down during the stay-the-night fade
+(`bedscene.started` → `bedscene.ended`), when the first-person bed view owns the camera. Only
 ticks in `auto` mode; any manual mode (C / mouse / WASD) takes over instantly.
 
 ## Cutscenes (`src/cutscene/player.js`)

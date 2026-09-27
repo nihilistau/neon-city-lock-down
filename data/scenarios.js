@@ -19,7 +19,7 @@ import { DAY3_CUTSCENE } from './cutscenes/day3.js';
  * @property {string} [lighting]
  * @property {Record<string, [string, string?]>} [placements] charId → [zone, waypoint]
  * @property {string} [fireEvent]
- * @property {string} [game]  'tod' | 'bed' | 'bed:<charId>' | 'cards' | 'mystery:<caseId>'
+ * @property {string} [game]  'cards' | 'mystery:<caseId>'
  */
 
 /** @type {Record<string, ScenarioDef>} */
@@ -43,21 +43,6 @@ export const SCENARIOS = {
     castMoodShifts: { lola: { sobriety: -12, openness: 10 }, aria: { sobriety: -8, openness: 8 }, kai: { sobriety: -6, openness: 6 } },
     placements: { lola: ['bar', 'front'], aria: ['bar', 'center'], kai: ['bar', 'corner'] },
     lighting: 'neon_night',
-  },
-  truth_or_dare: {
-    id: 'truth_or_dare', title: 'Truth or Dare',
-    blurb: 'Someone suggests it as a joke. Nobody laughs. Everybody plays.',
-    castMoodShifts: { aria: { openness: 8, happiness: 5 }, lola: { openness: 5 }, kai: { happiness: 4 } },
-    placements: { lola: ['lounge', 'couch_front'], aria: ['lounge', 'center'], kai: ['lounge', 'window'] },
-    game: 'tod',
-    lighting: 'club_pulse',
-  },
-  the_bed_game: {
-    id: 'the_bed_game', title: 'The Bed Game',
-    blurb: 'A door left open. An invitation that isn\'t quite spoken. The night decides the rest.',
-    castMoodShifts: { aria: { arousal: 10, openness: 8 }, lola: { arousal: 8 } },
-    lighting: 'candlelit',
-    game: 'bed',
   },
   rooftop_smoke: {
     id: 'rooftop_smoke', title: 'Rooftop Smoke Break',
@@ -146,8 +131,8 @@ export const SCENARIOS = {
     requiresUnlock: 'long_haul', unlockHint: 'Survive five days in a single run.',
     blurb: 'The rumor is everywhere: tomorrow the barricades lift. One more night in the tank. Make it count.',
     castMoodShifts: {
-      lola: { openness: 12, arousal: 8, tension: -8 },
-      aria: { openness: 12, arousal: 8, happiness: 8, fear: -8 },
+      lola: { openness: 12, tension: -8 },
+      aria: { openness: 12, happiness: 8, fear: -8 },
       kai: { openness: 10, happiness: 6 },
     },
     openingCutscene: DAY3_CUTSCENE,

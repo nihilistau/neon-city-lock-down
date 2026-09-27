@@ -2,12 +2,11 @@
 // The settings surface. ONE definition, rendered by both the main menu and the
 // in-game pause screen.
 //
-// Before this, volume, explicitness, mouse sensitivity, subtitles and the
-// auto-camera existed only inside the debug Director drawer — beside god-mode
-// stat sliders — and the main-menu Settings screen said "Volumes and the rest
-// live in-game under Esc", which was simply false. A player who never found the
-// backtick key could not change the volume of an adults-only game, or its
-// explicitness cap.
+// Before this, volume, mouse sensitivity, subtitles and the auto-camera existed
+// only inside the debug Director drawer — beside god-mode stat sliders — and
+// the main-menu Settings screen said "Volumes and the rest live in-game under
+// Esc", which was simply false. A player who never found the backtick key
+// could not change the volume of the game.
 //
 // Graphics had no control anywhere: the game ships a full post-FX stack (bloom,
 // AO, soft shadows, grain, FOV) and offered no way to turn any of it down on a
@@ -17,7 +16,6 @@ import { cfg, applyConfig, saveConfigFile } from '../core/config.js';
 import { h } from './widgets.js';
 import { emit } from '../core/bus.js';
 
-const EXPLICIT = ['suggestive', 'mature', 'full'];
 const VOLUMES = [
   ['master', 'Master'], ['music', 'Music'], ['sfx', 'Effects'],
   ['ambience', 'Ambience'], ['voice', 'Voice'], ['ui', 'Interface'],
@@ -107,12 +105,6 @@ export function settingsBody(rerender) {
   };
 
   return [
-    h('div', { class: 'dir-label' }, ['CONTENT']),
-    row('Explicitness',
-      segmented(EXPLICIT.map((x) => [x, x]), settings.explicitness,
-        (v) => pick('explicitness', v), 'Explicitness cap'),
-      'caps how far intimate scenes render'),
-
     h('div', { class: 'dir-label' }, ['AUDIO']),
     ...VOLUMES.map(([key, label]) => row(label,
       slider(settings.volumes[key] ?? 0.8, 0, 1, 0.05,

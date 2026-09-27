@@ -51,7 +51,7 @@ export function getTopic(id) { return topicRegistry.get(id); }
 /**
  * Evaluate a topic condition object against character + world context.
  * Supported keys: minStat, maxStat, mood, flag, notFlag, saidBefore, notSaid,
- * fact, dayGte, gateAtLeast, zoneAny, chance.
+ * fact, minCounter, dayGte, zoneAny, bondAtLeast, bondBelow, chance.
  * @param {any} cond
  * @param {{char: import('../chars/character.js').Character, day:number, rng?:any}} ctx
  */
@@ -70,11 +70,8 @@ export function condOk(cond, ctx) {
   if (cond.minCounter) for (const [k, v] of Object.entries(cond.minCounter)) if (mem.count(k) < v) return false;
   if (cond.dayGte != null && day < cond.dayGte) return false;
   if (cond.zoneAny && !cond.zoneAny.includes(char.queue.zone)) return false;
-  if (cond.gateAtLeast) {
-    const order = ['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved'];
-    const top = char.topGate;
-    if (!top || order.indexOf(top) < order.indexOf(cond.gateAtLeast)) return false;
-  }
+  if (cond.bondAtLeast && !char.bondAtLeast(cond.bondAtLeast)) return false;
+  if (cond.bondBelow && char.bondAtLeast(cond.bondBelow)) return false;
   return true;
 }
 

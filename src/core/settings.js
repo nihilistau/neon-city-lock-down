@@ -5,11 +5,9 @@ import { emit } from './bus.js';
 const KEY = 'ncld.settings';
 
 const DEFAULTS = {
-  confirmed18: false,
   playerName: 'Cipher',
   playerPronouns: 'she',         // 'she' (Female) | 'he' (Male)
   appearance: { skin: '#b98a6e', hair: '#141018', hairStyle: 'bob', height: 1.74, build: 1.0 },
-  explicitness: 'mature',        // 'suggestive' | 'mature' | 'full'
   volumes: { master: 0.8, music: 0.7, sfx: 0.8, ambience: 0.7, voice: 1.0, ui: 0.6 },
   cameraMode: 'auto',            // 'auto' (situational director) | 'director' | 'firstPerson'
   autoCamera: true,              // situational auto-camera reacts to combat/dialogue/events

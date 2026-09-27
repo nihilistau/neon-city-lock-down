@@ -1,12 +1,12 @@
 // @ts-check
-// Cast tab: full 12-stat readout per character, live-editable via sliders,
+// Cast tab: full 9-stat readout per character, live-editable via sliders,
 // outfit picker, mood readout, camera focus, and presence (send away / bring
 // back). Refreshes on char.stat / char.mood while open.
 import { STAT_KEYS } from '../../chars/stats.js';
 import { on } from '../../core/bus.js';
 
 const STAT_COLOR = {
-  arousal: '#ff5fa8', pleasure: '#ff8fc0', happiness: '#ffd23f', horniness: '#ff3f6a',
+  happiness: '#ffd23f',
   openness: '#3dff9a', dominance: '#9d6bff', trust: '#39e6ff', tension: '#ff7043',
   energy: '#7fff5a', sobriety: '#8ec7ff', loyalty: '#c39bff', fear: '#ff4757',
 };

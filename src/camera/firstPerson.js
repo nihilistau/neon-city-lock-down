@@ -65,8 +65,12 @@ export class FirstPersonControls {
     this.pitch = 0;
     this.pos = new THREE.Vector3(-1, EYE, 2);
     this.keys = new Set();
-    /** @type {(() => void)|null} set by picking — fires on E */
+    /** @type {((e?: KeyboardEvent) => void)|null} set by picking — fires on E */
     this.onInteract = null;
+    /** While seated (bed), movement keys stand the player up instead of walking. */
+    this.seated = false;
+    /** @type {(() => void)|null} */
+    this.onStandUp = null;
     /** @type {(() => void)|null} context action — SPACE */
     this.onAction = null;
     /** @type {(() => void)|null} fire weapon — LMB while locked */
@@ -116,7 +120,7 @@ export class FirstPersonControls {
     this._onKeyDown = (e) => {
       if (!this.enabled) return;
       this.keys.add(e.code);
-      if (e.code === 'KeyE' && this.onInteract) this.onInteract();
+      if (e.code === 'KeyE' && this.onInteract) this.onInteract(e);
       if (e.code === 'KeyR' && this.onReload) this.onReload();
       if (e.code === 'Space' && this.onAction) { e.preventDefault(); this.onAction(); }
     };
@@ -165,7 +169,7 @@ export class FirstPersonControls {
   }
 
   /** Teleport the eye to (x,z) at eye height, aimed at `yaw` (radians). Used to
-   *  seat the player somewhere specific — e.g. on the bed for the bed game. */
+   *  seat the player somewhere specific — e.g. on the bed. */
   placeAt(x, z, yaw, pitch = -0.05) {
     this._settle();
     this.pos.set(x, this.pos.y, z);
@@ -223,14 +227,21 @@ export class FirstPersonControls {
     if (!Number.isFinite(this.yaw)) { this.yaw = this._targetYaw = Math.PI; }
     if (!Number.isFinite(this.pitch)) { this.pitch = this._targetPitch = 0; }
 
-    this.crouching = this.keys.has('ControlLeft') || this.keys.has('ControlRight');
-    this.pos.y = this.crouching ? EYE * 0.70 : EYE;
+    // seated: the bed staging (src/core/app.js _placeOnBed) owns the eye height
+    this.crouching = !this.seated && (this.keys.has('ControlLeft') || this.keys.has('ControlRight'));
+    if (!this.seated) this.pos.y = this.crouching ? EYE * 0.70 : EYE;
     const speed = (this.keys.has('ShiftLeft') && !this.crouching ? RUN_SPEED : WALK_SPEED)
       * (this.crouching ? 0.55 : 1);
     const f = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
     const s = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     this._moving = !!(f || s);
-    if (f || s) {
+    // Seated: a movement key stands the player up instead of walking. Only the
+    // translation is skipped — look smoothing and the camera write below must
+    // still run, or the view would freeze on the mattress.
+    if (this.seated) {
+      if (f || s) this.onStandUp?.();
+      this._moving = false;
+    } else if (f || s) {
       // Move relative to whatever the player is actually looking through. When
       // the director owns the camera there is no mouselook, so `this.yaw` is
       // frozen and WASD would push in fixed world directions; take the basis

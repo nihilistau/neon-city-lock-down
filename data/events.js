@@ -597,8 +597,8 @@ export const EVENTS = {
     cooldownMin: 1600, maxPerRun: 1, window: { minDay: 2 },
     script: [
       { type: 'sfx', id: 'elevator_ding' },
-      { type: 'vox', text: 'Reception. One individual asking for Aria Chen by the name her clients used. Unarmed. Wet.' },
-      { type: 'choice', portraits: ['aria'], prompt: 'Someone at the doors knows Aria\'s working name. She has gone very still.',
+      { type: 'vox', text: 'Reception. One individual asking for Aria Chen. Says he knows her from the negotiating table. Unarmed. Wet.' },
+      { type: 'choice', portraits: ['aria'], prompt: 'A former corporate client of Aria\'s is at the doors, someone from the other side of an old deal. She has gone very still.',
         options: [
           { label: 'Let them in', steps: [
             { type: 'runFlag', flag: 'aria_client_in', value: true },

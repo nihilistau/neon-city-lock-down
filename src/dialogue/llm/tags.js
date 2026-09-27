@@ -8,15 +8,12 @@
 //   2. drops any tag we cannot execute (so compileLine never throws),
 //   3. scrubs prose that narrates the player or other characters.
 //
-// Gates stay authoritative: [[consent:*]] is downgraded to [[gate:offer:*]] —
-// the character can SIGNAL willingness, but actual escalation still goes through
-// stat thresholds + the explicitness cap at the ActorQueue.
+// The model can shift its own stats but never the player's bond directly.
 
 // Our dispatcher's real animation clips (data/poses/*).
 const CLIPS = new Set([
   'crouch', 'dance_sway', 'gesture_cross_arms', 'gesture_lean_in', 'gesture_shrug',
   'idle_confident', 'idle_shy', 'idle_stand', 'lounge', 'sit_lean_partner', 'sit_relaxed', 'walk',
-  'bed_recline', 'bed_reach', 'bed_arch', 'bed_straddle', 'bed_climax',
 ]);
 // Friendly aliases the model tends to use → a real clip.
 const ANIM_ALIAS = {
@@ -46,18 +43,20 @@ const FACE_ALIAS = {
   happy: 'smile', warm: 'smile', laugh: 'grin', laughing: 'grin', angry: 'glare',
   anger: 'glare', furious: 'glare', mad: 'glare', sad: 'frown', hurt: 'frown',
   surprised: 'open', shock: 'open', shocked: 'open', gasp: 'open', raise_brow: 'brow',
-  eyebrow: 'brow', seductive: 'smirk', sultry: 'smirk', tease: 'smirk', bite_lip: 'pout',
+  eyebrow: 'brow', tease: 'smirk', bite_lip: 'pout',
   flushed: 'blush', wide_eyes: 'open',
 };
-const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel', 'underwear', 'none']);
-const COVERAGE_MAP = { full: 'evening_wear', outer_off: 'underwear', lingerie: 'underwear', partial: 'towel', nude: 'none', naked: 'none', robe: 'robe', towel: 'towel' };
-const STATS = new Set(['arousal', 'pleasure', 'happiness', 'horniness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
-const GATE_TIERS = new Set(['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved']);
+const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel']);
+const COVERAGE_MAP = { full: 'evening_wear', partial: 'towel', robe: 'robe', towel: 'towel' };
+const STATS = new Set(['happiness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
 
 const TAG_RE = /\[\[\s*([a-zA-Z_]+)\s*(?::([^\]]*))?\]\]/g;
 
 // The model sometimes copies the placeholder token from the tag sheet verbatim.
 const PLACEHOLDERS = new Set(['x', 'word', 'name', 'tier', 'preset', 'clip', 'expr', 'zone', 'level', 'n', 'state', 'feeling', 'emotion', 'value']);
+
+const clampD = (n) => Math.max(-15, Math.min(15, Math.round(Number(n) || 0)));
+const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 
 /** Turn one raw model tag into a safe canonical tag string, or '' to drop it. */
 function canonTag(type, arg) {
@@ -85,25 +84,15 @@ function canonTag(type, arg) {
       return t ? `[[look:${t}]]` : '';
     }
     case 'stat': {
-      // [[stat:arousal+10]] / [[stat:trust-5]]
+      // [[stat:trust+10]] / [[stat:tension-5]] — clamped to ±15 like the
+      // directive path: the bond tier gates the bed, so one reply can't jump it
       const m = /^([a-z]+)\s*([+-]\s*\d+)$/.exec(arg.toLowerCase().replace(/\s+/g, ''));
-      if (m && STATS.has(m[1])) return `[[stat:${m[1]}${m[2]}]]`;
+      if (m && STATS.has(m[1])) return `[[stat:${m[1]}${signed(clampD(m[2]))}]]`;
       return '';
     }
     case 'outfit': case 'coverage': case 'wardrobe': {
       const o = OUTFITS.has(first) ? first : COVERAGE_MAP[first];
       return o ? `[[outfit:${o}]]` : '';
-    }
-    case 'consent': {
-      // downgrade to an OFFER — real escalation still needs stats + explicitness
-      const tier = GATE_TIERS.has(first) ? first : (first === 'on' || first === 'yes' ? 'kiss' : '');
-      return tier ? `[[gate:offer:${tier}]]` : '';
-    }
-    case 'gate': {
-      const [action, tier] = arg.split(':').map((s) => s.trim().toLowerCase());
-      const safeAction = action === 'grant' ? 'offer' : action; // never let the model hard-grant
-      if (['offer', 'revoke', 'withdraw'].includes(safeAction) && GATE_TIERS.has(tier)) return `[[gate:${safeAction}:${tier}]]`;
-      return '';
     }
     case 'light': {
       const presets = ['neon_night', 'blackout_emergency', 'candlelit', 'fireplace_warm', 'security_red', 'club_pulse', 'golden_hour', 'dawn_grey', 'storm', 'morning_haze'];
@@ -113,7 +102,7 @@ function canonTag(type, arg) {
     }
     case 'look_at':
       return arg ? `[[look:${first}]]` : '';
-    // silently drop tags we don't execute (prop, remember, forget, voice, trait, cam, sfx, scene, pair…)
+    // silently drop tags we don't execute (prop, remember, forget, voice, trait, cam, sfx, scene, pair, gate…)
     default:
       return '';
   }
@@ -134,7 +123,7 @@ export function sanitizeTags(raw) {
   text = text.replace(TAG_RE, (_m, type, arg) => canonTag(type, arg));
   // strip stray markdown FENCE MARKERS (keep the content) and hr separators
   text = text.replace(/```[a-z]*/gi, ' ').replace(/^\s*[-*_]{3,}\s*$/gm, ' ');
-  text = text.replace(/\[\[[^\]]*\]\]/g, (m) => (/^\[\[(move|anim|face|mood|look|stat|outfit|gate|light):/.test(m) ? m : ' '));
+  text = text.replace(/\[\[[^\]]*\]\]/g, (m) => (/^\[\[(move|anim|face|mood|look|stat|outfit|light):/.test(m) ? m : ' '));
   // single-bracket spans are never dialogue — the model leaks tag descriptions
   // like "[the ability to influence…]"; drop them (but keep our real [[tags]]).
   text = text.replace(/(?<!\[)\[[^\[\]]{0,80}\](?!\])/g, ' ');
@@ -178,8 +167,6 @@ export function cleanReply(raw, ctx = {}) {
   return sanitizeTags(scrubPuppeting(String(raw || ''), ctx));
 }
 
-const clampD = (n) => Math.max(-15, Math.min(15, Math.round(Number(n) || 0)));
-const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 
 /**
  * Map the function-model's structured directive object into stage directions
@@ -197,8 +184,6 @@ export function mapStructuredTags(tags, textLen) {
   if (tags.look_at_player) out.push({ at: 1, type: 'look', args: ['player'] });
   if (tags.mood) out.push({ at: 2, type: 'mood', args: [String(tags.mood)] });
   if (tags.face && FACES.has(tags.face)) out.push({ at: 3, type: 'face', args: [tags.face] });
-  const ad = clampD(tags.arousal_delta); if (ad) out.push({ at: end, type: 'stat', args: [`arousal${signed(ad)}`] });
   const td = clampD(tags.tension_delta); if (td) out.push({ at: end, type: 'stat', args: [`tension${signed(td)}`] });
-  if (tags.offer_gate && GATE_TIERS.has(tags.offer_gate)) out.push({ at: end, type: 'gate', args: ['offer', tags.offer_gate] });
   return out.sort((a, b) => a.at - b.at);
 }

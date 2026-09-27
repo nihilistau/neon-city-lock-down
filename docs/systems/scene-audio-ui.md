@@ -1,7 +1,7 @@
 # Scene, Audio & UI
 
 The presentation layers: the three.js scene (`src/scene3d/`), the WebAudio stack (`src/audio/`), the DOM
-UI (`src/ui/`), and the minigames (`src/games/`). This is an inventory — key exports, signatures, and bus
+UI (`src/ui/`), and the mini-games (`src/games/`). This is an inventory — key exports, signatures, and bus
 events. All three react to the same bus topics; the audio conductor and camera director are the reference
 pattern for any new presentation layer.
 
@@ -33,20 +33,22 @@ pattern for any new presentation layer.
 ## Audio (`src/audio/`)
 - **`engine.js` — `class AudioEngine` (singleton `audio`)** — WebAudio bus graph
   (`music/ambience/sfx/voice/ui` → masterGain → compressor → destination). `unlock()` (from a user gesture —
-  the 18+ click), `bus(name)`, `applyVolumes()` (from `settings.volumes`, re-applied on `settings.changed`),
+  the first click, or the main-menu choice), `bus(name)`, `applyVolumes()` (from `settings.volumes`,
+  re-applied on `settings.changed`),
   `duckStart()`/`duckEnd()` (dips music/ambience while a voice line plays).
 - **`music/conductor.js` — `class Conductor(engine, rng)`** — generative music. Mood params
-  `{tension, warmth, energy, intimacy}` 0..1 select scale/tempo/layers; a lookahead scheduler (25 ms tick,
+  `{tension, warmth, energy, closeness}` 0..1 select scale/tempo/layers (`closeness` > .5 shifts to
+  lydian and lengthens note decay); a lookahead scheduler (25 ms tick,
   120 ms ahead) keeps timing sample-accurate; mood retargets land on bar boundaries. `setMood(partial)`,
   `start()`/`stop()`. Driven from `app.js` (the mood matrix):
 
   | Bus topic | setMood |
   |---|---|
   | `threat.changed` | `tension = min(1, threat/90)` |
-  | `combat.started` | `tension:1, energy:.85, intimacy:0, warmth:.1` |
+  | `combat.started` | `tension:1, energy:.85, closeness:0, warmth:.1` |
   | `combat.resolved` | `tension: threat/90, energy:.35, warmth:.45` |
-  | `bedgame.started` | `intimacy:.8, warmth:.7, energy:.28, tension:.05` |
-  | `bedgame.ended` | `intimacy:0, warmth:.45, energy:.3, tension: threat/90` |
+  | `bedscene.started` (stay the night) | `closeness:.5, warmth:.7, energy:.2, tension:.05` |
+  | `bedscene.ended` | `closeness:0, warmth:.45, energy:.3, tension: threat/90` |
 
 - **`sfx/synthKit.js`** — `playSfx(engine, id)` + `SFX_IDS` (recipe ids: `alarm_hard`, `gunshot`,
   `elevator_ding`, `static_burst`, `thump`, `ui_confirm`, …). The `sfx` facade is `id => playSfx(audio, id)`.
@@ -61,9 +63,12 @@ pattern for any new presentation layer.
 ## UI (`src/ui/`)
 DOM overlays, all bus-driven; panels pause the loop by a named reason while open.
 - **`hud.js` — `initHud()`** — clock, resources, hint/prompt, alert, event-choice modal. Consumes
-  `resources.changed`, `player.health`, `event.choice`, `pick.hover`, `world.minute`, `hud.alert`, `camera.mode`.
-- **`statBars.js` — `initStatBars()` / `toggleStatBars(show)`** — per-character 12-stat + gate rail.
-  Consumes `char.registered/removed/stat/mood`, `gate.changed`.
+  `resources.changed`, `player.health`, `event.choice`, `pick.hover`, `world.minute`, `hud.alert`, `camera.mode`,
+  and `bond.changed` — a bond that *rises* becomes a toast ("Kai trusts you."); a fall shows only on the rail.
+- **`statBars.js` — `initStatBars()` / `toggleStatBars(show)`** — per-character 9-stat rail with a bond chip
+  (`stranger / ally / trusted / loyal`, styled per tier). Hidden during combat and the stay-the-night fade.
+  Consumes `char.registered/removed/stat/mood`, `bond.changed`, `combat.started/resolved`,
+  `bedscene.started/ended`.
 - **`chatPanel.js` — `class ChatPanel(engine, cast)`** — chat input + typewriter that calls
   `engine.onReveal(i)` / `flushDirections()` as text reveals; branch chips. Consumes `chat.reply`, `chat.player`.
 - **`combatHud.js` — `class CombatHud(app)`** — wave banner, hostile HP, cover, hit%, turret, shutter button.
@@ -76,23 +81,24 @@ DOM overlays, all bus-driven; panels pause the loop by a named reason while open
   Consumes `inventory.equipped/changed`.
 - **`llmPanel.js` — `class LLMPanel(app)`** (key **L**) — LLM enable/agent/rewrite/thinking, temperature,
   per-character model + mode. Persists via `setSetting(...)`.
-- **`gamesPanel.js` — `class GamesPanel(app)`** — launches `bed(partnerId)`, `tod()`, `mystery(caseId)` and
-  renders their state. Consumes `bedgame.state`, `bedgame.talk`, `tod.resolved`, `mystery.clue/solved`.
+- **`gamesPanel.js` — `class GamesPanel(app)`** — launches `cards()` (Kai's high/low game) and
+  `mystery(caseId)` and renders their state. Consumes `mystery.clue/solved`.
 - **`director/panel.js` — `class DirectorPanel(app)`** (backquote) — a right-side drawer with 8 tabs, each
   `tab<Name>(el, app)`: **scene** (lighting/time/camera), **cast** (stat sliders/outfit/presence),
-  **dialog** (whisper/give-line/gate controls), **actions**, **scenario** (`launchScenario(app, s)`),
+  **dialog** (whisper/give-line + a read-only bond readout), **actions**, **scenario** (`launchScenario(app, s)`),
   **world** (threat/force-event/floor/resources — emits `resources.changed`/`power.changed`), **games**,
   **settings**. Consumes `feed.entry` (activity feed). Only `tabScene`/`tabCast` subscribe to bus events.
 
 ## Games (`src/games/`)
-- **`bedGame.js` — `class BedGame(deps)`** — the intimacy minigame; gate-checked, desire-based willingness.
-  Detailed in [characters-dialogue.md](./characters-dialogue.md). Emits `bedgame.started/state/action/climax/withdraw/ended`.
-- **`truthOrDare.js` — `class TruthOrDare(deps)`** — `deps = {players, explicitness, nowMinute, playerName,
-  rng}`. `start()`, `turn() → {who, isPlayer, name, tier}`, `draw(kind)`, `resolve(prompt, outcome, targetId)`,
-  `autoTurn()`, `end()`. Emits `tod.started/prompt/resolved/ended`. Tier capped by explicitness (`CAP_TIER`).
+- **`cards.js` — `class Cards(deps)`** — Kai's card game: five tricks of high/low; he cheats when his
+  dominance is high. `deps = {rng, kaiDominance?}`. `start()`, `play(call)`, `state()`. Emits
+  `cards.started/trick/ended`.
 - **`gambits.js` — `GAMBITS` + `class Gambits(deps)`** — social "mind-game" moves (`probe, bluff, flatter,
   needle, dare_them, stonewall`). `play(gambitId, target) → {win, line, dice}` (opposed d20 vs `playerSkill`,
   applies `target.applyStats`). Emits `gambit.resolved`.
 - **`mystery.js` — `class Mystery(deps)`** — clue/interrogation/accusation cases (`MYSTERY_CASES`).
   `start(caseId)`, `onProp(propId, zoneId)`, `interrogate(iqId)`, `accuse(accusedId) → {correct, culprit}`,
   `state()`. Emits `mystery.started/clue/interrogation/solved`; solving adds a codex entry (`addCodex`).
+
+The bed is not a mini-game any more — it's furniture with a small state machine in `src/sim/bedScene.js`,
+documented in [characters-dialogue.md](./characters-dialogue.md#the-bed-simbedscenejs).

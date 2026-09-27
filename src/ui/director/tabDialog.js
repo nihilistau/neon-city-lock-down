@@ -1,6 +1,6 @@
 // @ts-check
-// Dialog tab: whisper tool, give-line, consent controls per character.
-import { GATE_LADDER } from '../../chars/gates.js';
+// Dialog tab: whisper tool, give-line, and a read-only bond readout per character.
+import { bondScore } from '../../chars/bond.js';
 
 /** @param {HTMLElement} el @param {import('../../core/app.js').App} app */
 export function tabDialog(el, app) {
@@ -22,17 +22,12 @@ export function tabDialog(el, app) {
       </div>
     </div>
     <div class="dir-section">
-      <div class="dir-label">CONSENT / GATES</div>
-      <div id="td-gates">${chars.map((c) => `
-        <div class="td-gaterow" data-char="${c.id}">
+      <div class="dir-label">BOND — derived from trust + loyalty</div>
+      ${chars.map((c) => `
+        <div class="dir-row">
           <span class="td-name" style="color:${c.persona.accent}">${c.name.split(' ')[0]}</span>
-          <select class="td-tier">${GATE_LADDER.map((t) => `<option>${t}</option>`).join('')}</select>
-          <button data-act="offer">offer</button>
-          <button data-act="grant">grant</button>
-          <button data-act="revoke">revoke</button>
-          <button data-act="withdraw" class="danger">withdraw all</button>
+          <span class="dir-hint">BOND: ${c.bond} (score ${Math.round(bondScore(c.stats))})</span>
         </div>`).join('')}
-      </div>
     </div>`;
 
   const charSel = /** @type {HTMLSelectElement} */ (el.querySelector('#td-char'));
@@ -56,15 +51,4 @@ export function tabDialog(el, app) {
   };
   el.querySelector('#td-line-send').addEventListener('click', sendLine);
   line.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') sendLine(); });
-
-  el.querySelector('#td-gates').addEventListener('click', (e) => {
-    const btn = /** @type {HTMLElement} */ (e.target);
-    const act = btn.dataset?.act;
-    if (!act) return;
-    const row = btn.closest('.td-gaterow');
-    const charId = row.dataset.char;
-    const tier = /** @type {HTMLSelectElement} */ (row.querySelector('.td-tier')).value;
-    if (act === 'withdraw') app.cast[charId].gate(tier, 'withdraw', app.clock.totalMinutes);
-    else app.cast[charId].gate(tier, /** @type {any} */(act), app.clock.totalMinutes);
-  });
 }

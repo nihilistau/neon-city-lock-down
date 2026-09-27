@@ -1,21 +1,10 @@
 // @ts-check
-// Games tab: launch bed game / truth-or-dare / mystery cases.
+// Games tab: launch Kai's card game / mystery cases.
 import { MYSTERY_CASES } from '../../../data/games/mysteryCases.js';
 
 /** @param {HTMLElement} el @param {import('../../core/app.js').App} app */
 export function tabGames(el, app) {
-  const partners = Object.values(app.cast).filter((c) => c.id !== 'vox');
   el.innerHTML = `
-    <div class="dir-section">
-      <div class="dir-label">BED GAME — 38 actions, 5 escalation tiers, consent-gated</div>
-      <div class="dir-row" id="tg-bed">
-        ${partners.map((c) => `<button data-bed="${c.id}">${c.name.split(' ')[0]}</button>`).join('')}
-      </div>
-    </div>
-    <div class="dir-section">
-      <div class="dir-label">TRUTH OR DARE — the whole room</div>
-      <div class="dir-row"><button id="tg-tod">Start a round</button></div>
-    </div>
     <div class="dir-section">
       <div class="dir-label">KAI'S CARD GAME — five tricks of high / low</div>
       <div class="dir-row"><button id="tg-cards">Deal</button></div>
@@ -27,13 +16,6 @@ export function tabGames(el, app) {
       </div>
     </div>`;
 
-  el.querySelector('#tg-bed').addEventListener('click', (e) => {
-    const id = /** @type {HTMLElement} */ (e.target).dataset?.bed;
-    if (id) { app.directorPanel.toggle(); app.gamesPanel.bed(id); }
-  });
-  el.querySelector('#tg-tod').addEventListener('click', () => {
-    app.directorPanel.toggle(); app.gamesPanel.tod();
-  });
   el.querySelector('#tg-cards').addEventListener('click', () => {
     app.directorPanel.toggle(); app.gamesPanel.cards();
   });

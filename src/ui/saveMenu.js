@@ -35,6 +35,13 @@ export class SaveMenu {
   }
 
   show() {
+    // No save/load over the stay-the-night black: a load mid-fade used to let
+    // the skip and stats land on the freshly loaded save (bedScene also guards
+    // with an epoch; this is the belt to that brace).
+    if (this.app.bedScene?.busy) {
+      emit('hud.alert', { text: 'Not now.', kind: 'info' });
+      return;
+    }
     this.open = true;
     this.app.loop.pause('menu'); openModal('menu', () => this.close());
     this._buildScreen();
@@ -80,9 +87,9 @@ export class SaveMenu {
       if (!act) return;
       if (act === 'close') this.close();
       // Real settings, not the debug drawer. This button used to open the
-      // Director panel's settings tab — i.e. the only route to volume,
-      // explicitness and sensitivity was a developer tool, sitting next to
-      // god-mode stat sliders.
+      // Director panel's settings tab — i.e. the only route to volume and
+      // sensitivity was a developer tool, sitting next to god-mode stat
+      // sliders.
       if (act === 'settings') this._showSettings();
       if (act === 'director') {
         this.close();

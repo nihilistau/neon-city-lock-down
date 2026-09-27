@@ -12,8 +12,10 @@ then dive into a subsystem.
 - **[Event Catalog](event-catalog.md)** — the world events + the event-script step vocabulary +
   the scheduler pacing knobs.
 - **[Engine Config](config/README.md)** — the runtime-YAML config layer: every tunable value in
-  editable, validated, documented `config/*.yaml` (camera, combat, sim, chars, humanoid, world,
-  gameplay, lighting, llm, voice), with live edit/save.
+  editable, validated, documented `config/*.yaml` (camera, combat, sim, chars, lighting, render,
+  humanoid, world, llm, voice), with live edit/save.
+- **[Development](development.md)** — run, test, lint, the clean-content guard, and regenerating the
+  screenshots with `tools/screenshots.mjs`.
 - **[Creation Kit](creation-kit/README.md)** — the player-facing guide to authoring scenarios,
   events, cutscenes, dialogue, and voices in-game.
 - **[Demo Script](demo.md)** — a ~3-minute presenter walkthrough (written for v0.2.0; the feature list has moved on considerably), the
@@ -26,9 +28,9 @@ then dive into a subsystem.
 - [Combat](systems/combat.md) — resolver, cover, the combat controller, FPS/TPS shooting, combat FX.
 - [Camera](systems/camera.md) — the rig, first/third-person controller, the situational director,
   cutscenes.
-- [Characters & Dialogue](systems/characters-dialogue.md) — stats, gates, mood, character; the
-  authored dialogue engine; the LLM agent path.
-- [Humanoid](systems/humanoid.md) — the 34-bone skeleton, body/outfit builders, animator, poses,
+- [Characters & Dialogue](systems/characters-dialogue.md) — stats, the bond tier, mood, character; the
+  authored dialogue engine; the LLM agent path; the bed.
+- [Humanoid](systems/humanoid.md) — the 31-bone skeleton, body/outfit builders, animator, poses,
   wardrobe (+ the skinning gotcha).
 - [Scene, Audio & UI](systems/scene-audio-ui.md) — stage/zone/lighting/post-FX, the audio stack,
   the UI panels, the mini-games.
@@ -41,5 +43,7 @@ then dive into a subsystem.
 ## Conventions
 - Plain ES modules, no bundler; three.js is vendored under `vendor/`.
 - Plain JS + JSDoc types. Pure-logic modules have `node --test` unit tests under `test/unit/`.
+- All-audiences. `test/unit/clean-content.test.mjs` fails `npm test` if any word from the retired
+  content register reappears in a shipped source, data, config, tool, or style file.
 - The **event bus** (`src/core/bus.js`) is the ONLY cross-layer channel. UI never reaches into sim
   internals; it subscribes to bus topics and calls the composition root.

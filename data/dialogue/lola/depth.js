@@ -30,7 +30,7 @@ registerTopics([
     cond: { flag: 'survived_breach' },
     lines: [
       { text: "[[face:smirk]] [[look:player]] You held the line when they came up the stairwell. Didn't freeze, didn't run. [[face:smile:0.3]] The stories about you might actually be underselling it.",
-        fx: { trust: 6, arousal: 3 } },
+        fx: { trust: 6 } },
     ],
   }),
   topic('lola.mem.flirt_pattern', {
@@ -39,7 +39,7 @@ registerTopics([
     cond: { minCounter: { flirts: 4 } },
     lines: [
       { text: "[[face:smirk]] [[anim:gesture_lean_in]] That's the fifth time you've tried a line on me, legend. I've been counting. [[face:blush:0.3]] [[look:player]] Persistence. I respect persistence. Almost as much as I enjoy watching you work for it.",
-        fx: { arousal: 6, trust: 3 } },
+        fx: { trust: 3 } },
     ],
   }),
 

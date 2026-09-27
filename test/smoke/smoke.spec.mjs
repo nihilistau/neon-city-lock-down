@@ -25,15 +25,6 @@ async function bootToRun(page) {
 
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
 
-  // 18+ gate — restored in this branch, and its click is also what unlocks
-  // WebAudio autoplay, so skipping it would silently test a muted game. A fresh
-  // browser profile gets the FIRST-RUN variant, which offers both "enter" and
-  // "leave"; a returning player gets a single button. Match the affirmative one
-  // by name rather than by position so both variants work.
-  const gatePanel = page.locator('.gate-panel');
-  await expect(gatePanel, 'the 18+ gate should be the first thing shown').toBeVisible({ timeout: 20000 });
-  await gatePanel.getByRole('button', { name: /enter|18 or older/i }).first().click();
-
   const newRun = page.getByRole('button', { name: /New Run/i });
   await expect(newRun).toBeVisible({ timeout: 10000 });
   await newRun.click();
@@ -49,16 +40,29 @@ async function bootToRun(page) {
   // paused, and CutscenePlayer.play() no-ops (`if (this.playing) return`). Tests
   // that ran against that raced the intro and failed for reasons that had
   // nothing to do with what they assert. Skip it and wait for real gameplay.
-  // Retry, because a single Escape races the cutscene's own start: abort() bails
-  // early if `playing` is not true yet, and under software rendering the opening
-  // beats take a while to get going.
-  for (let i = 0; i < 40; i++) {
-    const clear = await page.evaluate(() => {
+  //
+  // Checking "not playing, not paused" alone isn't enough: startRun() kicks off
+  // applyScenario(), which sleeps `cutsceneDelayMs` (600ms) BEFORE calling
+  // app.cutscene.play() — so a check that lands inside that pre-cutscene window
+  // sees "not playing, not paused" and returns early, before the cutscene (and
+  // its pause reason) has even started. Wait on app.scenarioSettled instead,
+  // which app.js only flips true once the opening beat (scenario placement +
+  // its cutscene, or a resumed save) has fully settled.
+  //
+  // Retry Escape, because a single press races the cutscene's own start: abort()
+  // bails early if `playing` is not true yet, and under software rendering the
+  // opening beats take a while to get going.
+  for (let i = 0; i < 60; i++) {
+    const state = await page.evaluate(() => {
       const app = window.__ncld.app;
-      return app.cutscene?.playing === false && !app.loop.paused;
+      return {
+        settled: app.scenarioSettled === true,
+        playing: app.cutscene?.playing === true,
+        paused: app.loop.paused,
+      };
     });
-    if (clear) return errors;
-    await page.keyboard.press('Escape');
+    if (state.settled && !state.playing && !state.paused) return errors;
+    if (state.playing) await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
   }
   throw new Error('the opening cutscene never released the sim');
@@ -154,12 +158,12 @@ test.describe('Neon-City: Lock-Down', () => {
 
   test('the minigames are reachable from inside a run', async ({ page }) => {
     await bootToRun(page);
-    // 39 bed actions, 42 ToD prompts, the card game and three mystery cases were
-    // openable only from the new-run screen or the debug panel.
+    // The card game and three mystery cases were openable only from the
+    // new-run screen or the debug panel.
     const opened = await page.evaluate(async () => {
       const app = window.__ncld.app;
       const out = {};
-      for (const [name, game] of [['cards', 'cards'], ['tod', 'tod'], ['mystery', 'mystery:dead_drop']]) {
+      for (const [name, game] of [['cards', 'cards'], ['mystery', 'mystery:dead_drop']]) {
         window.__ncld.app.gamesPanel.close();
         const { emit } = await import('/src/core/bus.js');
         emit('game.requested', { game });
@@ -170,7 +174,6 @@ test.describe('Neon-City: Lock-Down', () => {
       return out;
     });
     expect(opened.cards).toBe('cards');
-    expect(opened.tod).toBe('tod');
     expect(opened.mystery).toBe('mystery');
   });
 
@@ -232,6 +235,45 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(result.paused, 'the sim must be running again').toBe(false);
     // the timer backstop lands a little after the declared duration, never never
     expect(result.elapsed).toBeLessThan(20000);
+  });
+
+  test('bed: sit, lie down, get up — no console errors', async ({ page }) => {
+    const errors = await bootToRun(page);
+    // use() cycles the bed: standing -> sitting (first person), sitting ->
+    // lying down, lying down -> back up on your feet.
+    const r = await page.evaluate(() => {
+      const app = window.__ncld.app;
+      const b = app.bedScene;
+      const startMode = app.cameraRig.mode;
+      const states = [b.use(), b.use(), b.use()];
+      return { states, startMode, seated: app.cameraRig.fp.seated, mode: app.cameraRig.mode };
+    });
+    expect(r.states).toEqual(['sitting', 'lying', 'none']);
+    // getting up hands back the seat lock and the camera you had before
+    expect(r.seated).toBe(false);
+    expect(r.mode).toBe(r.startMode === 'cinematic' ? 'auto' : r.startMode);
+    if (r.startMode !== 'firstPerson') expect(r.mode).not.toBe('firstPerson');
+
+    // a forced floor change, or a cutscene starting, gets a seated player up first
+    const forced = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const b = app.bedScene;
+      b.use();
+      app.setFloor('rooftop');
+      const afterFloor = { state: b.playerState, seated: app.cameraRig.fp.seated };
+      app.setFloor('penthouse');
+      b.use();
+      const play = app.cutscene.play([]);
+      const duringCutscene = { state: b.playerState, seated: app.cameraRig.fp.seated };
+      await play;
+      return { afterFloor, duringCutscene, after: { state: b.playerState, seated: app.cameraRig.fp.seated, mode: app.cameraRig.mode } };
+    });
+    expect(forced.afterFloor).toEqual({ state: 'none', seated: false });
+    expect(forced.duringCutscene).toEqual({ state: 'none', seated: false });
+    expect(forced.after.state).toBe('none');
+    expect(forced.after.seated).toBe(false);
+    expect(forced.after.mode).not.toBe('cinematic');
+    expect(errors).toEqual([]);
   });
 
   test('death ends the run and records it', async ({ page }) => {

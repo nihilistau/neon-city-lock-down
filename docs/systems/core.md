@@ -48,8 +48,8 @@ live object deep-merged over `DEFAULTS` on load (new fields appear after updates
 - `saveSettings()` — persist + emit `settings.changed`.
 - `setSetting(path, value)` — dotted path (`setSetting('llm.enabled', true)`), persists + notifies.
 
-Key fields: `confirmed18`, `playerName`, `playerPronouns` (`she`/`he`), `explicitness`
-(`suggestive`/`mature`/`full`), `volumes {master, music, sfx, ambience, voice, ui}`, `cameraMode`,
+Key fields: `playerName`, `playerPronouns` (`she`/`he`), `appearance {skin, hair, hairStyle, height,
+build}`, `volumes {master, music, sfx, ambience, voice, ui}`, `cameraMode`,
 `autoCamera`, `mouseSensitivity`, `subtitleScale`, `llm {enabled, agentMode, thinking, temperature,
 reasoning, chatModel, functionModel, charModels, charModes, baseUrl, …}`, `tts {sidecarUrl, useSidecar}`,
 `debug`.
@@ -74,7 +74,7 @@ reasoning, chatModel, functionModel, charModels, charModes, baseUrl, …}`, `tts
 
 ## Activity feed (`log.js`)
 Ring buffer (cap 250) backing the Director panel feed.
-- `feedEntries[]`, `feed(text, kind = 'info')` — kinds: `info|dialogue|stat|gate|event|combat|system`;
+- `feedEntries[]`, `feed(text, kind = 'info')` — kinds: `info|dialogue|stat|bond|event|combat|system`;
   emits `feed.entry`.
 - `setDebugLogging(v)`, `dbg(...args)` — console logging gated behind `?debug=1`.
 

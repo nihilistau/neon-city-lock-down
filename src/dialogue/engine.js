@@ -69,7 +69,7 @@ export class DialogueEngine {
 
     // a whisper is intimate by nature: closeness bonus before the reply lands
     if (opts.whisper) {
-      addressed.applyStats({ trust: 1.5, arousal: 1 }, 'whisper');
+      addressed.applyStats({ trust: 2.5 }, 'whisper');
     }
 
     // feed the addressee's rolling memory for LLM continuity
@@ -130,7 +130,6 @@ export class DialogueEngine {
       day: this.day(),
       threat: this.stageCtx.threat?.(),
       combat: this.stageCtx.combat?.(),
-      explicitness: this.stageCtx.explicitness?.() || globalThis.__ncldExplicitness,
     };
   }
 

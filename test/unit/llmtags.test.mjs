@@ -5,12 +5,22 @@ import { sanitizeTags, scrubPuppeting, cleanReply } from '../../src/dialogue/llm
 import { compileLine } from '../../src/dialogue/stageDirections.js';
 
 test('valid tags survive; the result compiles without throwing', () => {
-  const raw = 'Come here. [[move:bar]] [[face:smirk]] [[stat:arousal+8]]';
+  const raw = 'Come here. [[move:bar]] [[face:smirk]] [[stat:tension+5]]';
   const clean = sanitizeTags(raw);
   assert.ok(clean.includes('[[move:bar]]'));
   assert.ok(clean.includes('[[face:smirk]]'));
-  assert.ok(clean.includes('[[stat:arousal+8]]'));
+  assert.ok(clean.includes('[[stat:tension+5]]'));
   assert.doesNotThrow(() => compileLine(clean));
+});
+
+test('a retired stat tag (arousal) is dropped', () => {
+  assert.equal(sanitizeTags('x [[stat:arousal+5]]'), 'x');
+});
+
+test('inline stat deltas are clamped to ±15 — the bond gates things now', () => {
+  assert.equal(sanitizeTags('x [[stat:trust+99]]'), 'x [[stat:trust+15]]');
+  assert.equal(sanitizeTags('x [[stat:tension-40]]'), 'x [[stat:tension-15]]');
+  assert.equal(sanitizeTags('x [[stat:trust+7]]'), 'x [[stat:trust+7]]');
 });
 
 test('unknown tags are dropped so compileLine never throws', () => {
@@ -24,7 +34,7 @@ test('alias tags map onto the real vocabulary', () => {
   assert.equal(sanitizeTags('[[emote:happy]]'), '[[face:smile]]');
   assert.equal(sanitizeTags('[[anim:beckon]]'), '[[anim:gesture_lean_in]]');
   assert.equal(sanitizeTags('[[move:bedroom]]'), '[[move:bed_alcove]]');
-  assert.equal(sanitizeTags('[[coverage:nude]]'), '[[outfit:none]]');
+  assert.equal(sanitizeTags('[[coverage:full]]'), '[[outfit:evening_wear]]');
 });
 
 test('invalid anim/move values are dropped, not passed through', () => {
@@ -32,10 +42,8 @@ test('invalid anim/move values are dropped, not passed through', () => {
   assert.equal(sanitizeTags('[[move:mars]]'), '');
 });
 
-test('consent is downgraded to an offer (never a hard grant)', () => {
-  assert.equal(sanitizeTags('[[consent:on]]'), '[[gate:offer:kiss]]');
-  assert.equal(sanitizeTags('[[consent:touch]]'), '[[gate:offer:touch]]');
-  assert.equal(sanitizeTags('[[gate:grant:intimate]]'), '[[gate:offer:intimate]]');
+test('the retired consent/gate tags are dropped entirely', () => {
+  assert.equal(sanitizeTags('hi [[consent:kiss]] [[gate:offer:kiss]]'), 'hi');
 });
 
 test('scrubPuppeting strips a prepended speaker label and guest-puppeting actions', () => {
@@ -55,4 +63,17 @@ test('cleanReply is compile-safe on messy real-world output', () => {
   const clean = cleanReply(raw, { otherNames: ['Aria'] });
   assert.doesNotThrow(() => compileLine(clean));
   assert.ok(clean.includes('[[anim:sit_relaxed]]'));
+});
+
+import { buildSystemPrompt } from '../../src/dialogue/llm/promptBuilder.js';
+
+test('the system prompt is all-audiences and carries the bond', () => {
+  const char = { id: 'kai', name: 'Kai', persona: { archetype: 'a hacker', bio: 'x', personality: {} },
+    stats: { happiness: 50, openness: 50, dominance: 50, trust: 50, tension: 20, energy: 60, sobriety: 100, loyalty: 40, fear: 10 },
+    mood: { id: 'warm' }, bond: 'ally', queue: { zone: 'lounge' } };
+  const p = buildSystemPrompt(/** @type {any} */ (char), { present: [], playerName: 'you', emitTags: true });
+  assert.match(p, /BOND WITH THE GUEST: ally/);
+  for (const bad of [/18\+/, /adults-only/i, /explicit/i, /erotic/i, /sexual/i, /dirty/i, /naked/i]) {
+    assert.doesNotMatch(p.replace(/never sexual/i, ''), bad, `prompt still contains ${bad}`);
+  }
 });

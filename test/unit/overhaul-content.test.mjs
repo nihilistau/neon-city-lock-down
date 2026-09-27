@@ -12,7 +12,6 @@ import { parseSaveEnvelope } from '../../src/core/save.js';
 import { Cards } from '../../src/games/cards.js';
 import { TALK_PROFILES, syllables, sayTalk } from '../../src/audio/talkSynth.js';
 import { applyScenario } from '../../src/sim/scenario.js';
-import { BedGame } from '../../src/games/bedGame.js';
 import { Character } from '../../src/chars/character.js';
 import { Wardrobe } from '../../src/chars/wardrobe.js';
 import { buildSkeleton } from '../../src/humanoid/skeleton.js';
@@ -59,48 +58,6 @@ function stubApp(cast, sink) {
     eventRunner: { fire: async (id) => { sink.fired.push(id); } },
   };
 }
-
-test('staging The Bed Game actually opens the bed engine on a real partner', async () => {
-  // Was: `SCENARIOS.the_bed_game.game === 'bed'` — a constant compared to itself.
-  const cast = makeCast();
-  const sink = { engaged: [], cutscenes: [], fired: [], lighting: null };
-  const app = stubApp(cast, sink);
-  const before = cast.aria.stats.arousal;
-
-  let requested = null;
-  const off = on('game.requested', (p) => { requested = p; });
-  await applyScenario(/** @type {any} */ (app), SCENARIOS.the_bed_game);
-  off();
-
-  // the scenario staged itself for real
-  assert.equal(sink.lighting, 'candlelit', 'the scenario must actually apply its lighting');
-  assert.ok(cast.aria.stats.arousal > before, 'castMoodShifts must reach the real character');
-  assert.ok(requested, 'the scenario never asked for its game');
-
-  // and the payload it asked for is one the bed engine can actually open
-  const partnerId = requested.game.startsWith('bed:') ? requested.game.slice(4) : 'aria';
-  assert.ok(requested.game === 'bed' || requested.game.startsWith('bed:'), `payload ${requested.game}`);
-
-  const game = new BedGame({
-    cast: () => cast, explicitness: () => 'full', nowMinute: () => 0,
-    rng: { pick: (a) => a[0], int: () => 0, range: () => 0, chance: () => false },
-    sfx: () => {},
-  });
-  const opened = game.start(partnerId);
-  assert.equal(opened.ok, true, `bed game refused the scenario's partner: ${opened.reason}`);
-  assert.equal(cast[partnerId].topGate, 'light_touch', 'starting must grant the first rung');
-  const tier1 = opened.state.tiers.find((t) => t.tier === 1);
-  assert.equal(tier1.unlocked, true, 'tier 1 must be open once the scene starts');
-  assert.ok(tier1.actions.every((a) => a.enabled), 'every tier-1 action must be usable');
-  assert.equal(opened.state.tiers.find((t) => t.tier === 3).unlocked, false, 'higher tiers stay shut');
-
-  // a cold partner is refused the next rung; a warmed one is granted it
-  assert.equal(game.askForMore().granted, false, 'a guarded partner must not be escalated on demand');
-  cast[partnerId].applyStats({ arousal: 60, horniness: 45, trust: 40, openness: 40, tension: -30, fear: -20 }, 'test');
-  const asked = game.askForMore();
-  assert.equal(asked.granted, true, `warmed partner still refused (want ${JSON.stringify(asked.want)})`);
-  assert.equal(cast[partnerId].topGate, asked.tier);
-});
 
 test("staging Kai's Card Game places the room and deals a real hand", async () => {
   // Was: `SCENARIOS.kais_card_game.game === 'cards'`.
@@ -153,16 +110,24 @@ test('a dominant Kai cheats the deck, and the cheat is what wins him the trick',
   assert.equal(meek.play('high').cheated, false, 'low dominance must never cheat');
 });
 
-test('the wardrobe dresses a real body, and the explicitness cap changes the RENDER not the state', () => {
-  // Was: `assert.ok(OUTFITS.player.street_armor)`.
+test('no character has an undress outfit state', () => {
+  for (const [id, recipes] of Object.entries(OUTFITS)) {
+    for (const bad of ['none', 'underwear']) {
+      assert.ok(!(bad in recipes), `${id} still has outfit "${bad}"`);
+    }
+  }
+});
+
+test('the wardrobe dresses a real body: parenting, visibility, and refusals', () => {
+  // Was: `assert.ok(OUTFITS.player.street_armor)`. The explicitness-cap render
+  // substitution this test used to also cover (_renderId, __ncldExplicitness)
+  // is gone along with the cap itself — see data/outfits.js and wardrobe.js.
   const persona = { ...lola };
   const rig = buildSkeleton(persona.body);
   const char = { id: 'lola', name: 'Lola', persona, actor: { rig, root: new THREE.Group() } };
 
-  const g = /** @type {any} */ (globalThis);
-  g.__ncldExplicitness = 'full';
   const w = new Wardrobe(/** @type {any} */ (char));
-  assert.ok(w.available().length >= 10, 'lola needs the full outfit matrix');
+  assert.ok(w.available().length >= 8, 'lola needs the full outfit matrix');
 
   assert.equal(w.change('street_armor'), true);
   assert.equal(w.current, 'street_armor');
@@ -172,24 +137,18 @@ test('the wardrobe dresses a real body, and the explicitness cap changes the REN
   assert.ok(armor.every((m) => char.actor.root.children.includes(m)), 'garments must be parented to the body');
 
   assert.equal(w.change('sleepwear'), true);
-  assert.ok(w.layers.street_armor.every((m) => !m.visible), 'exactly one layer renders at a time');
+  assert.ok(w.layers.street_armor.every((m) => !m.visible), 'switching outfits flips visibility — exactly one layer renders at a time');
   assert.ok(w.layers.sleepwear.every((m) => m.visible));
   assert.equal(w.change('sleepwear'), false, 'changing into what you already wear is a no-op');
+  assert.equal(w.current, 'sleepwear', 'a no-op change leaves the current outfit unchanged');
+
+  const before = w.current;
+  assert.equal(w.change('none'), false, '"none" is no longer a real outfit state and is refused like any unknown id');
+  assert.equal(w.current, before, 'a refused change leaves the current outfit untouched');
   assert.equal(w.change('nonsense_outfit'), false, 'unknown outfits are refused');
+  assert.equal(w.current, before, 'a refused change leaves the current outfit untouched');
 
-  // at 'full' the bare state renders bare; at 'suggestive' it renders as a towel
-  // while the LOGICAL state stays honest (warmth/stats read the real state).
-  assert.equal(w.change('none'), true);
-  assert.equal(w._renderId, 'none');
-  w.change('street_armor');
-  g.__ncldExplicitness = 'suggestive';
-  assert.equal(w.change('none'), true);
-  assert.equal(w.current, 'none', 'the wardrobe state stays honest');
-  assert.equal(w._renderId, 'towel', 'the render is capped for taste');
-  assert.ok(w.layers.towel.every((m) => m.visible));
-  g.__ncldExplicitness = undefined;
-
-  assert.equal(Wardrobe.supports('lola'), true);
+  assert.equal(Wardrobe.supports('lola'), true, 'a dressed character supports wardrobes');
   assert.equal(Wardrobe.supports('vox'), false, 'the tower has no body to dress');
 });
 

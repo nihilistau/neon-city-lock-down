@@ -19,8 +19,8 @@ defaults, and any invalid file is skipped with an error rather than crashing.
 ## 1. Tune the engine — `config/*.yaml`
 
 Every tunable value lives in a documented YAML group under `config/`: camera feel, combat balance,
-event pacing, the survival economy, character stat coupling + intimacy thresholds, gait, the day
-clock, bed-game desire, all 10 lighting presets, the LLM, and voice. Edit a file and reload, or edit
+event pacing, the survival economy, character stat coupling + bond thresholds, gait, the day
+clock, all 10 lighting presets, render quality, the LLM, and voice. Edit a file and reload, or edit
 live (the LLM/Voice panels write config for you). Full per-key reference: **[docs/config](../config/README.md)**.
 
 > Example — make nights redder and events rarer: set `config/lighting.yaml` `presets.neon_night`

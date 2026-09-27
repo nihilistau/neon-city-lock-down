@@ -5,7 +5,7 @@
 // legacy REST proxy where the model emits inline [[tags]] we sanitize.
 //
 // Either way respond() returns { text, directions } (or null → authored engine).
-// Gates/consent/explicitness always stay authoritative.
+// The model shifts only its own character's stats; the bond is derived, never set by it.
 import { EngineClient } from './engineClient.js';
 import { LMSClient } from './lmsClient.js';
 import { buildSystemPrompt, buildUserTurn } from './promptBuilder.js';
@@ -67,7 +67,7 @@ export class CharacterAgent {
     if (!(await this.probe())) return null;
     const others = (ctx.present || []).filter((c) => c.id !== char.id).map((c) => c.name);
     const scrubCtx = { playerName: ctx.playerName, otherNames: others };
-    const heated = char.stats.arousal >= 55 || char.gates?.intimate === 'granted' || ctx.combat?.active;
+    const heated = char.stats.tension >= 60 || !!ctx.combat?.active;
     // Budget must cover a THINKING model's reasoning + the reply (it stops at EOS
     // well before this if it's a plain instruct model, so the cap is safe for both).
     const maxTokens = heated ? cfg('llm.budgets.heated', 2200) : cfg('llm.budgets.normal', 1600);

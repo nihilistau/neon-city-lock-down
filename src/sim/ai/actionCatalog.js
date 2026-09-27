@@ -85,13 +85,13 @@ export const ACTIONS = [
     id: 'dance',
     score: (c, n) =>
       (c.stats.happiness > 55 || c.stats.sobriety < 60 ? n.fun * 0.7 : 0) +
-      c.stats.arousal * 0.15 - c.stats.tension * 0.3,
+      n.fun * 0.9 - c.stats.tension * 0.3,
     exec: (c) => {
       c.queue.goto('lounge', 'center');
       c.queue.playClip('dance_sway', 0.5, 30);
     },
     satisfy: { fun: 45, social: 10 },
-    statFx: { energy: -5, happiness: 4, arousal: 3 },
+    statFx: { energy: -5, happiness: 7 },
   },
   {
     id: 'brood',
@@ -131,9 +131,12 @@ export const ACTIONS = [
       const late = (h >= 1 && h < 7) || h >= 22;
       return (c.stats.energy < 35 ? n.rest * 1.1 : 0) + (late ? 18 : 0);
     },
-    exec: (c) => {
-      c.queue.goto('bed_alcove', 'window');
-      c.queue.playClip('lounge', 0.5, 50);
+    exec: (c, ctx) => {
+      // lie on the bed when nobody (player or guest) is using it; else the window.
+      // The brain collects the payoff when the queue drains, so the bed branch
+      // waits and then stands — otherwise the sleeper would stay on the mattress.
+      if (ctx?.bedFree?.()) { c.queue.sit('bed.lie_center'); c.queue.wait(50); c.queue.stand(); }
+      else { c.queue.goto('bed_alcove', 'window'); c.queue.playClip('lounge', 0.5, 50); }
     },
     satisfy: { rest: 60 },
     statFx: { energy: 18, tension: -6 },

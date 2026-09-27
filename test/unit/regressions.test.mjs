@@ -12,17 +12,12 @@ import { GameClock } from '../../src/core/clock.js';
 import { newRunState } from '../../src/sim/world.js';
 import { hourlyTick } from '../../src/sim/survival.js';
 import { Gambits } from '../../src/games/gambits.js';
-import { BedGame } from '../../src/games/bedGame.js';
-import { TruthOrDare } from '../../src/games/truthOrDare.js';
 import { Character } from '../../src/chars/character.js';
 import { ActorQueue, seatRootY, seatClip } from '../../src/sim/actors/actorQueue.js';
-import { GATE_LADDER, tierIndex } from '../../src/chars/gates.js';
 import { vox } from '../../data/cast/vox.js';
 import { lola } from '../../data/cast/lola.js';
-import { BED_ACTIONS, BED_TIERS } from '../../data/games/bedActions.js';
 import { MYSTERY_CASES } from '../../data/games/mysteryCases.js';
 import { Mystery } from '../../src/games/mystery.js';
-import { CONFIG_DEFAULTS } from '../../data/configDefaults.js';
 
 /** minimal Character stand-in for survival's cast loop */
 function fakeChar(persona) {
@@ -109,37 +104,12 @@ test('lie_* sockets recline instead of sitting bolt upright', () => {
   assert.equal(seatClip('gurney0.lie_center'), 'lounge');
   assert.equal(seatClip('couch.seat0'), 'sit_relaxed');
   assert.equal(seatClip('stool2.seat0'), 'sit_relaxed');
-});
-
-test('the bed panel tier ladder includes undress and depraved', () => {
-  // tier rows open on the LOWEST rung any of their actions needs
-  const rowGate = (tier) => BED_TIERS.find((t) => t.tier === tier).actions
-    .map((a) => a.gate).reduce((lo, g) => (tierIndex(g) < tierIndex(lo) ? g : lo));
-  assert.equal(rowGate(4), 'undress', 'row 4 used to claim `intimate`, skipping undress');
-  assert.equal(rowGate(5), 'explicit');
-  // every rung the actions reference is a real ladder tier
-  for (const a of BED_ACTIONS) assert.ok(GATE_LADDER.includes(a.gate), `${a.id}: ${a.gate}`);
-  // and both formerly-skipped rungs are actually used by content
-  const used = new Set(BED_ACTIONS.map((a) => a.gate));
-  assert.ok(used.has('undress') && used.has('depraved'));
-});
-
-test('the explicitness cap comes from config, not three inlined copies', () => {
-  const caps = CONFIG_DEFAULTS.chars.gates.explicitnessCap;
-  const bed = new BedGame({
-    cast: () => ({}), explicitness: () => 'suggestive', nowMinute: () => 0,
-    rng: { pick: (a) => a[0] }, sfx: () => {},
-  });
-  assert.equal(bed._capTier(), caps.suggestive);
-  const tod = new TruthOrDare({
-    players: () => [], explicitness: () => 'mature', nowMinute: () => 0,
-    playerName: 'P', rng: { pick: (a) => a[0], chance: () => false },
-  });
-  assert.equal(tod._capTier(), caps.mature);
-  // and the cap really gates prompts through the ladder
-  assert.equal(tod._withinCap({ tier: 5, gate: 'depraved' }), false);
-  assert.equal(tod._withinCap({ tier: 4, gate: 'touch' }), true);
-  assert.equal(tod._withinCap({ tier: 1 }), true, 'ungated prompts always draw');
+  // the bed's guest seat (src/sim/bedScene.js GUEST_SEAT) sits upright beside the player
+  assert.equal(seatClip('bed.seat1'), 'sit_relaxed');
+  const src = readFileSync(new URL('../../src/scene3d/tower/furniture.js', import.meta.url), 'utf8');
+  const bed = src.slice(src.indexOf('  bed() {'), src.indexOf('  vanity_table() {'));
+  assert.match(bed, /seat0: socket\(group, 'seat0'/, 'bed keeps the player seat');
+  assert.match(bed, /seat1: socket\(group, 'seat1'/, 'bed has a guest seat');
 });
 
 test('every mystery clue prop is a registered interactable', () => {

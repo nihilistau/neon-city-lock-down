@@ -1,7 +1,7 @@
 // @ts-check
-// PURE 12-stat model. No imports from three.js/DOM. Fully unit-tested.
+// PURE 9-stat model. No imports from three.js/DOM. Fully unit-tested.
 // All stats are clamped 0..100. Deltas are scaled by personality receptivity
-// and modulated by cross-stat coupling (e.g. high tension suppresses arousal gain).
+// and modulated by cross-stat coupling (e.g. high tension suppresses trust gain).
 // Coupling/decay/compliance/start values are config-tunable (config/chars.yaml);
 // cfg() falls back to CONFIG_DEFAULTS.chars (so Node unit tests use defaults).
 import { cfg } from '../core/config.js';
@@ -11,8 +11,7 @@ const CH = CONFIG_DEFAULTS.chars;
 /** @typedef {import('../core/types.js').StatKey} StatKey */
 
 export const STAT_KEYS = /** @type {StatKey[]} */ ([
-  'arousal', 'pleasure', 'happiness', 'horniness', 'openness', 'dominance',
-  'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear',
+  'happiness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear',
 ]);
 
 /** @returns {Record<StatKey, number>} */
@@ -35,13 +34,6 @@ export function couplingFactor(s, key, delta) {
   const gaining = delta > 0;
   const c = cfg('chars.coupling', CH.coupling);
   switch (key) {
-    case 'arousal':
-    case 'horniness':
-      // high tension / fear suppresses arousal & horniness gains
-      if (gaining) f *= 1 - (s.tension / 100) * c.tensionSuppress - (s.fear / 100) * c.fearSuppress;
-      // intoxication (low sobriety) amplifies arousal gains
-      if (gaining) f *= 1 + (1 - s.sobriety / 100) * c.intoxArousal;
-      break;
     case 'openness':
       // intoxication opens people up; fear closes them
       if (gaining) f *= 1 + (1 - s.sobriety / 100) * c.intoxOpen - (s.fear / 100) * c.fearClose;
@@ -49,9 +41,6 @@ export function couplingFactor(s, key, delta) {
     case 'trust':
       // trust is hard to gain while tense, easy to lose
       if (gaining) f *= 1 - (s.tension / 100) * c.tensionTrust;
-      break;
-    case 'pleasure':
-      if (gaining) f *= c.pleasureBase + (s.arousal / 100) * c.pleasureArousal; // pleasure tracks arousal
       break;
     case 'tension':
       // tension climbs faster when fearful
@@ -88,7 +77,7 @@ export function applyDelta(stats, deltas, personality = {}) {
 
 /**
  * Passive decay/regression toward homeostatic rest values over game minutes.
- * Arousal/horniness/tension bleed off; energy recovers slowly; sobriety returns.
+ * Tension and fear bleed off; energy recovers slowly; sobriety returns.
  * @param {Record<StatKey, number>} stats
  * @param {number} minutes
  */

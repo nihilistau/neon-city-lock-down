@@ -13,7 +13,7 @@ export const feedEntries = [];
 /**
  * Add an entry to the activity feed.
  * @param {string} text
- * @param {string} [kind]  'info'|'dialogue'|'stat'|'gate'|'event'|'combat'|'system'
+ * @param {string} [kind]  'info'|'dialogue'|'stat'|'bond'|'event'|'combat'|'system'
  */
 export function feed(text, kind = 'info') {
   const entry = { t: Date.now(), kind, text };

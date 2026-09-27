@@ -24,7 +24,7 @@ into any Node project. It is the culmination of several roleplay-engine iteratio
 
 LM Studio API keys are `sk-lm-<identifier>:<passkey>`. The SDK authenticates over
 WebSocket with those two parts (not a bearer token); the engine parses them for
-you from an explicit key, `LMS_API_KEY`, or a key file.
+you from a key you pass in, `LMS_API_KEY`, or a key file.
 
 ```js
 import { Engine } from './lmstudio-engine/index.mjs';
@@ -41,20 +41,20 @@ await engine.health();                     // { ok, model, loaded }
 
 ```js
 engine.template('persona', `You are {{ name }}, {{ archetype }}. You feel {{ mood }}.
-{% if stats.arousal > 50 %}Your body is humming.{% endif %} Reply in character.`);
+{% if stats.tension > 50 %}Your hand keeps drifting to the knife.{% endif %} Reply in character.`);
 
-const system = engine.render('persona', { name: 'Lola', archetype: 'a fixer', mood: 'sultry', stats: { arousal: 62 } });
+const system = engine.render('persona', { name: 'Lola', archetype: 'a fixer', mood: 'guarded', stats: { tension: 62 } });
 
 const res = await engine.chat(
-  { system, input: 'Come here.', maxTokens: 120 },
+  { system, input: 'Watch the door with me.', maxTokens: 120 },
   (frag, m) => { if (!m.reasoning) process.stdout.write(frag); },  // live typewriter
 );
 
 import { z } from './lmstudio-engine/index.mjs';
 const tags = await engine.extract({
   input: `Roleplay line: "${res.content}". Pick the scene cues that fit.`,
-  schema: z.object({ move: z.enum(['', 'bar', 'bed']), arousal_delta: z.number().int() }),
-});   // → { move: 'bed', arousal_delta: 8 }
+  schema: z.object({ move: z.enum(['', 'bar', 'window']), trust_delta: z.number().int() }),
+});   // → { move: 'window', trust_delta: 3 }
 ```
 
 ## SSE server
@@ -104,4 +104,4 @@ lmstudio-engine/
 ```
 
 Requires `@lmstudio/sdk` and `zod` (declared in the host project's `package.json`).
-Node 18+.
+Node 18 or newer.

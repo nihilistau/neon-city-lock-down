@@ -81,8 +81,7 @@ export const CONFIG_SCHEMA = {
   chars: {
     startStats: { map: num(0, 100) },
     coupling: {
-      tensionSuppress: num(0, 2), fearSuppress: num(0, 2), intoxArousal: num(0, 2), intoxOpen: num(0, 2),
-      fearClose: num(0, 2), tensionTrust: num(0, 2), pleasureBase: num(0, 2), pleasureArousal: num(0, 2), fearTension: num(0, 2),
+      intoxOpen: num(0, 2), fearClose: num(0, 2), tensionTrust: num(0, 2), fearTension: num(0, 2),
     },
     decay: {
       rest: { map: num(0, 100) }, rate: { map: num(0, 20) }, approachFactor: num(0, 2), sobrietyRegain: num(0, 10),
@@ -91,9 +90,9 @@ export const CONFIG_SCHEMA = {
       trust: num(0, 1), openness: num(0, 1), happiness: num(0, 1), loyalty: num(0, 1), calm: num(0, 1), brave: num(0, 1),
       clashScale: num(0, 2), clashMin: num(-100, 0), clashMax: num(0, 100),
     },
-    gates: {
-      thresholds: { map: { map: num(0, 100) } },
-      explicitnessCap: { suggestive: { type: 'string' }, mature: { type: 'string' }, full: { type: 'string' } },
+    bond: {
+      thresholds: { ally: num(0, 100), trusted: num(0, 100), loyal: num(0, 100) },
+      hysteresis: num(0, 50),
     },
   },
   lighting: {
@@ -152,16 +151,6 @@ export const CONFIG_SCHEMA = {
     clock: {
       startHour: num(0, 23), speed: num(0.01, 240),
       dawnStart: num(0, 24), dayStart: num(0, 24), duskStart: num(0, 24), nightStart: num(0, 24),
-    },
-  },
-  gameplay: {
-    bed: {
-      startTrust: num(0, 100), startArousal: num(0, 100),
-      willing: {
-        arousal: num(0, 2), horniness: num(0, 2), trust: num(0, 2), openness: num(0, 2),
-        tension: num(0, 2), fear: num(0, 2), base: num(0, 100), perTier: num(0, 50),
-      },
-      climaxTier: num(0, 7), climaxPleasure: num(0, 100), climaxArousal: num(0, 100), safewordGap: num(0, 100),
     },
   },
   llm: {

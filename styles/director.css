@@ -31,8 +31,6 @@
 .dir-hint { font-size: 10px; color: var(--text-dim); }
 .st-vlabel { width: 64px; font-size: 11px; color: var(--text-dim); }
 .st-check { font-size: 11px; color: var(--text); display: flex; gap: 5px; align-items: center; }
-.td-gaterow { display: flex; gap: 4px; align-items: center; margin-bottom: 5px; flex-wrap: wrap; }
-.td-gaterow button { font-size: 9.5px; padding: 3px 6px; }
 .td-name { font-size: 11px; width: 40px; font-weight: 700; }
 
 #dir-feed { border-top: 1px solid var(--panel-edge); max-height: 200px; display: flex; flex-direction: column; }
@@ -42,7 +40,7 @@
 .dir-feed-row.kind-dialogue { color: var(--text); }
 .dir-feed-row.kind-event { color: var(--amber); }
 .dir-feed-row.kind-combat { color: var(--red); }
-.dir-feed-row.kind-gate { color: var(--magenta); }
+.dir-feed-row.kind-bond { color: var(--magenta); }
 .dir-feed-row.kind-system { color: var(--cyan-dim); }
 
 /* Cast tab */

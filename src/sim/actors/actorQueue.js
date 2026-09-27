@@ -1,8 +1,8 @@
 // @ts-check
 // THE command spine. Every character movement/pose/expression — from AI,
 // dialogue stage directions, events, cutscenes, or Director tools — goes
-// through here. Single writer to the Actor3D. Gate-tier-tagged commands are
-// checked before acceptance (wired to gates.js in P1.3+).
+// through here. Single writer to the Actor3D. Bond-tagged commands (minBond)
+// are checked before acceptance.
 import * as THREE from 'three';
 import { emit } from '../../core/bus.js';
 import { findPath, zoneAt, travelMinutes, elevatorPos } from './nav.js';
@@ -45,14 +45,14 @@ export function seatClip(socketRef) {
  * @typedef {Object} Command
  * @property {string} type  goto|sit|stand|playClip|face|look|turn|wait|call
  * @property {any[]} [args]
- * @property {string} [gateTier]
+ * @property {string} [minBond]
  */
 
 export class ActorQueue {
   /**
    * @param {import('../../humanoid/actor3d.js').Actor3D} actor
    * @param {import('../../scene3d/tower/zoneBuilder.js').World3D} world
-   * @param {{ gateCheck?: (tier:string) => {allowed:boolean, reason?:string} }} [hooks]
+   * @param {{ bondCheck?: (tier:string) => boolean }} [hooks]
    */
   constructor(actor, world, hooks = {}) {
     this.actor = actor;
@@ -75,12 +75,9 @@ export class ActorQueue {
   /** @param {Command} cmd */
   push(cmd) {
     if (this.frozen) return false;
-    if (cmd.gateTier && this.hooks.gateCheck) {
-      const res = this.hooks.gateCheck(cmd.gateTier);
-      if (!res.allowed) {
-        emit('actor.refused', { id: this.actor.id, cmd, reason: res.reason });
-        return false;
-      }
+    if (cmd.minBond && this.hooks.bondCheck && !this.hooks.bondCheck(cmd.minBond)) {
+      emit('actor.refused', { id: this.actor.id, cmd, reason: 'bond' });
+      return false;
     }
     this.queue.push(cmd);
     return true;
@@ -109,6 +106,13 @@ export class ActorQueue {
   gotoSocket(socketRef) { return this.push({ type: 'gotoSocket', args: [socketRef] }); }
   sit(socketRef) { this.gotoSocket(socketRef); return this.push({ type: 'sit', args: [socketRef] }); }
   stand() { return this.push({ type: 'stand', args: [] }); }
+  /**
+   * Stand up immediately rather than in queue order. clear() deliberately does
+   * NOT touch seatedAt (callers such as dialogue engagement clear the queue of
+   * someone who should stay seated), so a queued stand() followed by a clear()
+   * would leave seatedAt stale — src/sim/bedScene.js uses this instead.
+   */
+  standNow() { if (this.seatedAt && !this.frozen) this._standUp(); }
   playClip(id, fade, holdSec) { return this.push({ type: 'playClip', args: [id, fade, holdSec] }); }
   face(expr) { return this.push({ type: 'face', args: [expr] }); }
   look(target) { return this.push({ type: 'look', args: [target] }); }

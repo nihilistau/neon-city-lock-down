@@ -4,6 +4,7 @@ import { recordRun, unlock } from './meta.js';
 import { deleteAutosave } from '../core/save.js';
 import { emit } from '../core/bus.js';
 import { feed } from '../core/log.js';
+import { bondTier } from '../chars/bond.js';
 
 /**
  * @param {import('../core/app.js').App} app
@@ -11,11 +12,17 @@ import { feed } from '../core/log.js';
  */
 export function endRun(app, endedBy) {
   const run = app.run;
+  // `bonds` stays raw trust: meta run history and the vox_confided unlock read
+  // it. `bondTiers` is what the run summary shows — the character's live tier
+  // (src/chars/bond.js, hysteresis included), not a second set of thresholds.
   const bonds = {};
+  /** @type {Record<string, string>} */
+  const bondTiers = {};
   /** cast who didn't make it — NPCs can die now (Character.die), so record them */
   const lost = [];
   for (const c of Object.values(app.cast)) {
     bonds[c.id] = Math.round(c.stats.trust);
+    bondTiers[c.id] = c.bond || bondTier(c.stats);
     if (!c.alive) lost.push(c.id);
   }
   const summary = {
@@ -27,6 +34,7 @@ export function endRun(app, endedBy) {
     extractedWith: Array.isArray(run.flags.extractedWith) ? run.flags.extractedWith : [],
     stayed: !!run.flags.stayed,
     bonds,
+    bondTiers,
     eventsSurvived: run.eventsFired.length,
     choices: run.history.choices.length,
     resourcesSpent: run.history.resourcesSpent,

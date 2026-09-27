@@ -72,11 +72,11 @@ verifies the defaults themselves satisfy the schema, catching default/schema dri
 | camera | `config/camera.yaml` | [camera.md](camera.md) |
 | combat | `config/combat.yaml` | [combat.md](combat.md) |
 | sim | `config/sim.yaml` | [sim.md](sim.md) |
-| chars | `config/chars.yaml` | [chars.md](chars.md) |
+| chars | `config/chars.yaml` | [chars.md](chars.md) — stat coupling/decay/compliance and the `bond` tier thresholds + hysteresis |
 | humanoid | `config/humanoid.yaml` | [humanoid.md](humanoid.md) |
 | world | `config/world.yaml` | [world.md](world.md) |
-| gameplay | `config/gameplay.yaml` | [gameplay.md](gameplay.md) |
 | lighting | `config/lighting.yaml` | [lighting.md](lighting.md) |
+| render | `config/render.yaml` | shadows, AO, bloom, grain, FOV — documented inline in `data/configDefaults.js` |
 | llm | `config/llm.yaml` | [llm.md](llm.md) |
 | voice | `config/voice.yaml` | [systems/voice.md](../systems/voice.md) |
 

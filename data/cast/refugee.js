@@ -46,7 +46,7 @@ export function buildRefugee(index) {
       idleClip: 'idle_stand',
     },
     stats: {
-      arousal: 4, pleasure: 10, happiness: 22, horniness: 8, openness: 40,
+      happiness: 22, openness: 40,
       dominance: 18, trust: 12, tension: 55, energy: 38, sobriety: 100,
       loyalty: 6, fear: 62,
     },

@@ -27,6 +27,18 @@ test('tone detects hostility and flirt', () => {
   assert.ok(flirty.flirt > 0);
 });
 
+test('tone lexicon is all-audiences: charm reads as flirt, sexual words read as nothing', () => {
+  assert.ok(toneOf(normalize('you look gorgeous tonight')).flirt > 0);
+  assert.ok(toneOf(normalize('stop being so charming')).flirt > 0);
+  for (const line of ['you are so sexy', 'naughty', 'strip', 'kneel', 'come to bed', 'your lips your skin']) {
+    const t = toneOf(normalize(line));
+    assert.equal(t.flirt, 0, `"${line}" must not read as flirt`);
+  }
+  // retired words don't count as a command either (only 'come' does, above)
+  assert.equal(toneOf(normalize('strip')).command, 0);
+  assert.equal(toneOf(normalize('kneel')).command, 0);
+});
+
 test('compileLine strips tags and records offsets', () => {
   const { cleanText, directions } = compileLine('Hi. [[face:smirk]] Come [[anim:walk]] here.');
   assert.equal(cleanText, 'Hi. Come here.');
@@ -44,13 +56,18 @@ test('compileLine throws on unknown tag', () => {
 
 test('compileLine validates arity', () => {
   assert.throws(() => compileLine('[[anim]]'), /needs 1 arg/);
-  assert.throws(() => compileLine('[[gate]]'), /needs >=1 arg/);
+  assert.throws(() => compileLine('[[face]]'), /needs >=1 arg/);
 });
 
 test('every tag type is documented', () => {
-  for (const t of ['anim', 'face', 'move', 'sit', 'gate', 'light', 'sfx', 'vox']) {
+  for (const t of ['anim', 'face', 'move', 'sit', 'light', 'sfx', 'vox']) {
     assert.ok(t in TAG_TYPES, `${t} missing from TAG_TYPES`);
   }
+});
+
+test('the retired intimacy tags are unknown now', () => {
+  assert.throws(() => compileLine('[[gate:offer:kiss]] hi'), /unknown stage tag/);
+  assert.throws(() => compileLine('[[pair:couch_close:lola:kiss]] hi'), /unknown stage tag/);
 });
 
 test('intent matcher ranks by weighted score', () => {

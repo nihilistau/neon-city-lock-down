@@ -20,6 +20,7 @@ export class CutscenePlayer {
    * @param {import('../audio/voice.js').Voice} deps.voiceBank
    * @param {import('../audio/voxVoice.js').VoxVoice} deps.vox
    * @param {any} deps.lighting
+   * @param {() => void} [deps.onStart] runs before the scene takes the camera
    */
   constructor(deps) {
     this.d = deps;
@@ -107,6 +108,7 @@ export class CutscenePlayer {
     this.playing = true;
     this._skip = false;
     const d = this.d;
+    d.onStart?.();
     d.loop.pause('cutscene');
     const prevMode = d.cameraRig.mode;
     d.cameraRig.setMode('cinematic');
