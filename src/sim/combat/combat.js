@@ -133,10 +133,10 @@ export class Combat {
     for (let i = 0; i < waveSpec.count; i++) {
       const persona = hostilePersona(waveSpec.archetype, i, this.d.rng);
       const actor = new Actor3D(persona);
-      // Dress them. Hostiles used to spawn as bare skinned bodies wearing only
-      // an accessory kit — a hood over a naked torso, a backpack on bare
-      // shoulders — in an adults-only game where nudity is supposed to be a
-      // deliberate wardrobe state, not the default for anyone who breaks in.
+      // Dress them. Hostiles used to spawn as the base body with only an
+      // accessory kit on top — a hood with nothing under it, a backpack with
+      // no shirt — which read as unfinished, not as a raider. Every archetype
+      // now wears a full kit from data/outfits.js.
       const wardrobeId = `hostile_${waveSpec.archetype}`;
       const kitRecipe = OUTFITS[wardrobeId]?.[DEFAULT_OUTFIT[wardrobeId]];
       if (kitRecipe) {

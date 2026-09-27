@@ -64,9 +64,9 @@ export const OUTFITS = {
   },
 
   // ── hostiles ────────────────────────────────────────────────────────────
-  // Combat spawned bare skinned bodies with an accessory kit on top: a hoodie
-  // hood over a naked torso, a backpack strapped to bare shoulders, a visor on
-  // an otherwise unclothed merc. Three archetypes, one recipe each — hostiles
+  // Combat used to spawn the base body with only an accessory kit on top: a
+  // hoodie hood with no shirt, a backpack with nothing under the straps, a
+  // visor and little else on a merc. Three archetypes, one recipe each — hostiles
   // never change clothes, so a full 8-state matrix would be dead data.
   // Palettes stay desaturated and dark so a hostile silhouette reads instantly
   // against the cast's saturated wardrobe under the same neon.
