@@ -865,7 +865,8 @@ export class World3D {
 
   /** @param {THREE.Color} color the preset's sky grade (Lighting.skyColor) */
   setSkyGrade(color) {
-    this._skyGrade = color.clone();
+    // runs every frame of a preset fade: copy, never allocate
+    (this._skyGrade ??= new THREE.Color()).copy(color);
     for (const ext of this.exteriors) {
       if (ext.dome) /** @type {THREE.MeshBasicMaterial} */ (ext.dome.material).color.copy(color);
     }

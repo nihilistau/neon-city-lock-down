@@ -208,7 +208,7 @@ export const CONFIG_DEFAULTS = {
     hdri: {
       id: 'shanghai_bund',       // assets/manifest.json hdri entries are `${id}_${1k|2k}`
       gain: 0.14,                // the photograph's absolute radiance → the IBL capture's level
-      clamp: 3.0,                // soft cap on a texel's brightest channel (knee 1.0): lamp cores
+      clamp: 3.0,                // soft cap on a texel's brightest channel (knee 1.0), capture + dome
       domeGain: 0.1,             // the visible exterior dome's level (graded by each preset on top)
     },
     fov: 55,                     // vertical field of view, degrees
