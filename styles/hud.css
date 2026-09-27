@@ -200,14 +200,8 @@
 .game-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .bg-line { min-height: 40px; font-size: 14px; line-height: 1.5; color: var(--text); font-style: italic;
   background: rgba(255,255,255,0.03); padding: 8px 12px; margin: 8px 0; border-left: 2px solid var(--magenta-dim); }
-.bg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.bg-actions button { font-size: 11px; padding: 5px 10px; }
-.bg-actions button.disabled { opacity: 0.3; }
-.bg-ask { margin-top: 8px; color: var(--magenta); border-color: var(--magenta-dim); width: 100%; }
 .bg-hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
-.tod-turn { text-align: center; }
 .tod-who { font-size: 13px; color: var(--cyan); margin-bottom: 12px; letter-spacing: 0.1em; }
-.tod-prompt { font-size: 16px; line-height: 1.5; margin: 14px 0; color: var(--text); }
 .mys-intro { font-size: 13px; line-height: 1.6; color: var(--text-dim); margin-bottom: 12px; }
 .mys-clues { font-size: 12px; color: var(--amber); margin-bottom: 10px; }
 .mys-section { font-size: 10px; letter-spacing: 0.15em; color: var(--text-dim); margin: 12px 0 6px; }

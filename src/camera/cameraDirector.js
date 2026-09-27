@@ -40,7 +40,7 @@ export class CameraDirector {
     this._look = new THREE.Vector3(-3.5, 1.1, 0);
     this._activeType = null;
     this._shake = 0;
-    this._suspended = false;   // bed game is first-person; stand down
+    this._suspended = false;   // the bed scene is first-person; stand down
     this._subscribe();
   }
 

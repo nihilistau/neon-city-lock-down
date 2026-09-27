@@ -1,5 +1,5 @@
 // @ts-check
-// Cast tab: full 12-stat readout per character, live-editable via sliders,
+// Cast tab: full 9-stat readout per character, live-editable via sliders,
 // outfit picker, mood readout, camera focus, and presence (send away / bring
 // back). Refreshes on char.stat / char.mood while open.
 import { STAT_KEYS } from '../../chars/stats.js';

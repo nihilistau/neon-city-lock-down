@@ -49,6 +49,8 @@ const RETIRED_OUTFITS = new Set(['none', 'underwear']);
  * @param {any} save
  */
 export function migrate(save) {
+  // Mutates the envelope in place. Safe: every caller hands it a freshly
+  // JSON.parse'd object (readSlot, importSave), never live or shared state.
   const s = save;
   while (s && s.version < VERSION) {
     switch (s.version) {
