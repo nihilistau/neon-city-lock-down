@@ -59,6 +59,38 @@ After any UI change a README screenshot shows, re-run the matching shot
   Nothing in it reaches into the DOM or three.js directly; `app.js` wires it to
   the camera, scheduler, and cast.
 
+## Blender (dev tool, optional)
+
+Blender 5.2 LTS is the offline tool for inspecting, converting and previewing
+models; the game never runs it and nothing in `npm run lint` needs it.
+
+- **Where:** `tools/blender/run.mjs` finds it via `$BLENDER_EXE`, then `PATH`,
+  then `D:\Program Files\Blender Foundation\Blender 5.2lender.exe`, then the
+  highest `C:\Program Files\Blender Foundation\Blender */blender.exe`. Set
+  `BLENDER_EXE` if it lives elsewhere.
+- **Runner CLI:**
+
+```bash
+node tools/blender/run.mjs inspect <in>                            # objects, tris, materials, bones, actions, bounds (JSON)
+node tools/blender/run.mjs convert <in> <out.glb> [--lod 0.5] [--apply-scale]   # → GLB, Y-up, optional Decimate LOD
+node tools/blender/run.mjs preview <in> <out.png>                  # 512² EEVEE render (Workbench fallback)
+```
+
+  `<in>` is `.glb`/`.gltf`/`.fbx`/`.obj`/`.blend`. From code:
+  `runBlender(verb, {in, out, lod, apply_scale}, {timeoutMs})`.
+- **Headless rules:** always `blender -b --factory-startup --python-exit-code 1`
+  (no user prefs or add-ons, a Python error is a non-zero exit). Each script in
+  `tools/blender/scripts/` starts from an empty scene and prints exactly one
+  `@@RESULT <json>` line — keep it that way when adding a script; everything
+  else on stdout is Blender chatter.
+- **Tests:** `test/unit/blender.test.mjs` round-trips a Kenney GLB through
+  inspect → convert → preview. It SKIPS the Blender-dependent tests when no
+  Blender is found (CI has none), so run it locally after touching a script.
+- **Interactive sessions:** a `blender` MCP server (`mcp-for-blender`) is
+  configured for agent sessions that want to drive a live Blender UI; its
+  telemetry is disabled (`DISABLE_TELEMETRY=1`). Scripted, repeatable work
+  goes through the headless runner instead.
+
 ## Content rules
 
 - **All-audiences.** No sexual content, no arousal-type stats, no

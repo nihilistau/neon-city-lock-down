@@ -63,3 +63,25 @@ line, or a mid-loading scene means the staging needs more settling time.
 
 Keep each file under ~450KB. Existing numbers are stable (the README references them); new shots
 take the next free number.
+
+## Blender (optional)
+
+`tools/blender/` drives a headless Blender (5.2 LTS here) for offline model work — inspecting a
+download, converting it to GLB with LODs, rendering a preview. The game never runs Blender; it is a
+dev tool only.
+
+```bash
+node tools/blender/run.mjs inspect assets/props/kenney_furniture/laptop.glb    # JSON: objects, tris, materials, bones, actions, bounds
+node tools/blender/run.mjs convert in.fbx out.glb --lod 0.5 --apply-scale      # GLB, Y-up, modifiers applied, animations kept
+node tools/blender/run.mjs preview in.glb out.png                              # 512² EEVEE render, Workbench if EEVEE can't start
+```
+
+`findBlender()` looks at `$BLENDER_EXE`, then `PATH`, then the default install folders under
+`Program Files\Blender Foundation\`. Every run is `blender -b --factory-startup
+--python-exit-code 1 -P tools/blender/scripts/<script>.py -- '<json args>'`; the script starts from
+an empty scene and prints one `@@RESULT <json>` line, which `runBlender()` parses. A Python error
+or a missing result line throws with the tail of Blender's stderr.
+
+`test/unit/blender.test.mjs` runs the three scripts for real when Blender is installed (about 30 s)
+and skips them, with a message, when it is not — CI has no Blender. For interactive work, agent
+sessions also have a `blender` MCP server (telemetry disabled) that talks to a running Blender UI.
