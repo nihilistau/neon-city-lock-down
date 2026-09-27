@@ -1,9 +1,9 @@
 {
   "name": "neon-city-lock-down",
-  "version": "0.5.0",
+  "version": "0.6.0-beta.1",
   "private": true,
   "type": "module",
-  "description": "Neon-City: Lock-Down \u2014 18+ neon-noir 3D roleplay/survival game (three.js).",
+  "description": "Neon-City: Lock-Down \u2014 neon-noir 3D survival game in a sealed cyberpunk tower (three.js).",
   "scripts": {
     "serve": "node tools/serve.mjs 8420",
     "test": "node --test \"test/unit/**/*.test.mjs\"",

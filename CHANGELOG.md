@@ -3,6 +3,82 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.6.0-beta.1] — 2026-09-27 — The bed is just a bed
+
+0.6 turns Lock-Down into an all-audiences survival game — sub-project 1 of the 7-part
+upgrade (content cleanse → render quality → characters → survival loop → combat &
+stealth → story → UI polish). Beta.1 closes out that first sub-project: the bed
+becomes ordinary furniture instead of a game screen.
+
+### Added
+- **Bed interactions** (`src/sim/bedScene.js`) — **E** sits on the bed, **E** again
+  lies down, **E** or any movement key gets back up. Inviting an ally over (bond
+  `ally` or higher) walks them to a second seat socket (`bed.seat1`, added to
+  `furniture.bed()`) for a quiet-talk beat: trust +3, tension −5. A trusted
+  companion (bond `trusted` or higher) can be asked to stay the night — a ~1.2s
+  fade, one narration line drawn from a small per-character pool
+  (`data/dialogue/bed.js`), +3h on the clock, the event scheduler held for the
+  skip, both the player and the guest rested on return. Nothing is modal; the sim
+  keeps running and chat stays open throughout.
+- NPCs sleep on the free bed on their own; a reservation (`bedUsers()`) stops
+  double-booking, and sitting down or starting a stay evicts a sleeping NPC.
+- Refusals for combat, an active event, or a cutscene ("Not in the middle of a
+  fight.", "Not now — something is happening."), and for inviting or asking
+  someone to stay while the player isn't on the bed yet.
+- `BedScene#reset()` runs on every load — releases any held guest brain and
+  stands the player up regardless of state, so a save can never resume with
+  someone stuck sitting.
+- A `#fade` CSS layer for the stay-the-night transition.
+- **AGENTS.md** (repo root) — this release starts a guide for AI coding agents
+  working on the codebase: run/test/lint commands, the architecture spine,
+  content rules, and release discipline.
+
+### Removed
+- `src/humanoid/pairedPoses.js` — orphaned once the guest brain-hold moved onto
+  `Brain#hold()`/`release()`.
+
+### Fixed
+- Bed intents now match bed-specific phrasing only ("come sit", "stay the
+  night") instead of everyday words like "come here" or "tonight" that used to
+  misfire into a bed action.
+- A guest's AI brain now stays held only as long as the bed scene needs it —
+  combat starting or the guest dying releases it instead of leaving it stuck.
+
+## [0.6.0-alpha.2] — 2026-09-27 — Bonds, not gates
+
+### Added
+- **Bond tier** (`src/chars/bond.js`) — a trust+loyalty relationship ladder
+  (`stranger → ally → trusted → loyal`) with hysteresis, replacing the 7-tier
+  intimacy ladder end to end: `actorQueue`'s command refusal hook is now
+  `minBond`, dialogue conditions are `bondAtLeast`/`bondBelow`, the stat rail
+  shows a bond chip in place of gate pips, a tier change toasts and reaches the
+  activity feed, and the LLM prompt carries a read-only bond line.
+- **Save format v2** — migrates a v1 (v0.5) save past the retired gates/consent
+  state and the three dropped stats; `parseSaveEnvelope` now runs the migration
+  before checking the version, so a legacy save validates instead of being
+  rejected outright.
+
+### Changed
+- **Stat model: 12 → 9.** `arousal`, `pleasure` and `horniness` are gone from
+  `STAT_KEYS`. Mood's `sultry` is renamed `warm`, animation tempo now reads
+  energy and tension instead of arousal, the AI's dance action scores on the fun
+  need, and whisper/flirt tone raise trust and happiness instead.
+
+## [0.6.0-alpha.1] — 2026-09-27 — Clean slate begins
+
+### Added
+- `src/chars/bond.js` foundation + `chars.bond` config (entry thresholds,
+  hysteresis margin) — the relationship model the rest of 0.6 is built on.
+
+### Removed
+- The bed game (39 actions), truth-or-dare (21 truths + 21 dares), the intimate
+  pose set, the `gameplay` config group, the explicitness setting, the 18+ boot
+  gate, and the undress (`none`/`underwear`) outfit states.
+
+### Fixed
+- The smoke test now covers what's actually reachable (cards + mystery) instead
+  of a truth-or-dare case that no longer exists.
+
 ## [0.5.0] — 2026-08-24 — Consequence, reachability, honesty
 
 A review-and-repair pass over v0.4. Every claim below was measured in a live run

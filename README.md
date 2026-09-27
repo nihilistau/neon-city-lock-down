@@ -1,17 +1,19 @@
 <h1 align="center">NEON-CITY: LOCK-DOWN</h1>
 
-<p align="center"><em>an adults-only (18+) neon-noir 3D roleplay + survival game</em></p>
+<p align="center"><em>an all-audiences neon-noir 3D roleplay + survival game</em></p>
 
 <p align="center">
-  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-39e6ff?labelColor=0a0a12" alt="v0.5.0"></a>
+  <a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-beta.1"><img src="https://img.shields.io/badge/release-v0.6.0--beta.1-39e6ff?labelColor=0a0a12" alt="v0.6.0-beta.1"></a>
 </p>
 
 <blockquote align="center">
-🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.5.0">v0.5.0 — Consequence, reachability, honesty</a></b> is out.<br>
-Neon-City is now an <b>engine + creation kit</b>: every value tunable in editable YAML, a full
-Voxtral <b>voice studio</b> (realtime TTS, library, baking, cloning — press <b>V</b>), and an
-in-game <b>Creation Kit</b> (press <b>G</b>) to author your own scenarios, events, cutscenes, and
-dialogue. <a href="https://github.com/nihilistau/neon-city-lock-down/CHANGELOG.md">Changelog →</a>
+🎉 <b><a href="https://github.com/nihilistau/neon-city-lock-down/releases/tag/v0.6.0-beta.1">v0.6.0-beta.1 — The bed is just a bed</a></b> is out.<br>
+0.6 turns Lock-Down into an <b>all-audiences survival game</b> — sub-project 1 of a
+7-part upgrade. The intimacy ladder, the bed game, and every 18+ system are gone;
+in their place a <b>bond tier</b> (stranger → ally → trusted → loyal) gates
+companion trust, and the bed is ordinary furniture you can sit, lie on, and share
+with a trusted ally.
+<a href="https://github.com/nihilistau/neon-city-lock-down/CHANGELOG.md">Changelog →</a>
 </blockquote>
 
 <p align="center">
@@ -22,7 +24,7 @@ Neon-City is in lockdown. Riots, police, military, and faction wars tear the
 streets apart below while three dangerous acquaintances — and you — are sealed
 inside a luxury penthouse tower for days. Talk to them. Play them against each
 other. Ration the food and the ammo. Repair the systems. Survive the nights,
-however they play out — mind-games, violence, or intimacy.
+however they play out — mind-games, alliances, or violence.
 
 The tower itself is awake: **VOX**, an advanced building intelligence with cameras
 for eyes and doors for hands, watches everything and is quietly starved for
@@ -33,8 +35,8 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
 (vendored, no build step). Character voices are baked with a local
 [voxtral](https://huggingface.co/mistralai/Voxtral-4B-TTS-2603) text-to-speech model.
 
-> **Adult game.** Adult themes, strong language, violence, and consensual sexual
-> content between fictional adult characters. All characters are adults.
+> **All-audiences.** Noir themes, strong language, and survival violence.
+> No sexual content.
 
 ---
 
@@ -59,14 +61,13 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   </tr>
   <tr>
     <td><img src="docs/screenshots/06-events-choices.jpg" alt="World events and choices"><br><sub><b>The living tower</b> — news tickers, world events, and branching choices with real consequences.</sub></td>
-    <td><img src="docs/screenshots/05-cast-outfits.jpg" alt="The cast in outfits"><br><sub><b>Autonomous cast</b> — 12 stats each, moods, memory, in-fighting, and 10 outfit states.</sub></td>
+    <td><img src="docs/screenshots/05-cast-outfits.jpg" alt="The cast in outfits"><br><sub><b>Autonomous cast</b> — 9 stats each, moods, memory, in-fighting, and 8 outfit states.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/07-bed-game.jpg" alt="The bed game"><br><sub><b>Games</b> — the bed game escalates through a consent-gated 5-tier ladder.</sub></td>
     <td><img src="docs/screenshots/08-director-panel.jpg" alt="Director panel"><br><sub><b>Director panel</b> — 8 tabs to stage scenes, launch scenarios, whisper, and tune the world.</sub></td>
+    <td><img src="docs/screenshots/09-combat.jpg" alt="Combat"><br><sub><b>Combat</b> — riots spill inside; hostiles breach the floor and the cast fights back.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/09-combat.jpg" alt="Combat"><br><sub><b>Combat</b> — riots spill inside; hostiles breach the floor and the cast fights back.</sub></td>
     <td><img src="docs/screenshots/10-extraction-victory.jpg" alt="Extraction ending"><br><sub><b>Perma-death & endings</b> — survive to the extraction, or don't. A run summary either way.</sub></td>
   </tr>
 </table>
@@ -80,15 +81,16 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   engine (keyword/intent parser, topic graph, mood-reactive line variants,
   per-character memory, tone side-effects, fallback ladders) drives it — with an
   **optional LLM adapter** that only restyles surface text while the game's
-  stat/gate/consent systems stay authoritative.
+  stat/bond systems stay authoritative.
 - **Living stage directions.** Every authored line can carry inline
   `[[stage:directions]]` that drive animation, facial expression, movement between
   rooms, lighting, camera, and sound as the text reveals.
-- **Emotion & intimacy systems.** 12 stats per character (arousal, trust,
-  dominance, tension, openness, loyalty, fear…), a derived mood, compliance
-  scoring, and a **7-tier intimacy-gate ladder** (`light_touch → kiss → touch →
-  undress → intimate → explicit → depraved`) with in-fiction consent flags and a
-  global explicitness cap (Suggestive / Mature / Full).
+- **Emotion & bonds.** 9 stats per character (happiness, openness, dominance,
+  trust, tension, energy, sobriety, loyalty, fear), a derived mood, compliance
+  scoring, and a **bond tier** (`stranger → ally → trusted → loyal`, derived from
+  trust + loyalty with hysteresis so it never flickers) that gates how far a
+  companion's trust in you reaches — from a private conversation to inviting you
+  to sit with them.
 - **Procedural 3D everything.** Stylized humanoids on programmatic 34-bone
   skeletons with parametric skinning, physically-shaded skin (sheen) and hair
   (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
@@ -96,7 +98,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   floors, elevator transit, 10 lighting presets, time-of-day, a procedural city
   backdrop, rain, news-ticker monitors, and **openable velvet curtains** that draw
   across the glass to shut out the city.
-- **New-game flow & roguelike.** A main menu picks from 17 scenarios (three earned by play) and 3
+- **New-game flow & roguelike.** A main menu picks from 15 scenarios (three earned by play) and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
   repair, **28 world events** plus a scheduled extraction endgame (shuttle seats
@@ -115,17 +117,18 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   consumables, valuables, and key items. Equip a weapon and combat uses it
   (ranged spend ammo, melee need reach); use medkits, stims, rations, whiskey, and
   a signal jammer; loot the armoury, med cabinet, and crates for real gear.
-- **Games & mind-games.** A bed game (39 actions, consent-ladder escalation),
-  truth-or-dare (21 truths + 21 dares that heat the whole room), 3 mystery cases, 6 conversational
-  gambits resolved on dice, and 3 mystery cases with clue discovery,
-  interrogation, and accusation.
+- **Games, mind-games & the bed.** A card game, 3 mystery cases with clue
+  discovery, interrogation and accusation, and 6 conversational gambits resolved
+  on dice. The bed is ordinary furniture — sit, lie down, invite an ally to join
+  you, or ask a trusted companion to stay the night (implied only: a fade, one
+  narration line, nothing shown).
 - **Generative audio.** A WebAudio bus graph with voice ducking, a music
-  conductor whose mood matrix reacts to threat / combat / intimacy, 12 synth SFX,
+  conductor whose mood matrix reacts to threat, combat, and calm, 12 synth SFX,
   per-zone ambience beds, VOX's formant/ring-mod voice, and **26 baked character
   voice lines** (plus an optional live TTS sidecar for un-baked lines).
 - **Cinematics & a Director panel.** Camera-spline cutscenes with letterbox and
   subtitles; an 8-tab director console to stage lighting, cast, dialogue,
-  actions, 17 scenarios, the world, games, and settings.
+  actions, 15 scenarios, the world, games, and settings.
 - **Save/load & easter eggs.** Multiple save slots + autosave (deleted on death),
   JSON export and import, a playable bar synth, a
   fish tank that dies in long blackouts, a balcony telescope, VOX growing fond of
@@ -164,7 +167,7 @@ baking, per-character voice assignment, and cloning. See [docs/systems/voice.md]
 
 ### Optional — LLM-rewritten / authored dialogue
 Point LM Studio (or any OpenAI-compatible endpoint) in the **LLM Engine panel (L)**; every knob is
-tunable there and in `config/llm.yaml`. The authored stat/gate/consent machinery stays in charge.
+tunable there and in `config/llm.yaml`. The authored stat/bond machinery stays in charge.
 
 If your LM Studio instance requires auth, supply the credential one of two ways — **never commit
 it** (`lmstudio-api-key*.txt` is gitignored):
@@ -192,7 +195,8 @@ base game. Full guide: [docs/creation-kit](docs/creation-kit/README.md).
 | **WASD** / mouselook | Move the player avatar + aim (first / third person) |
 | **LMB** / **R** | Fire weapon / reload (in combat) · **Space** context action |
 | **F** | Cycle camera focus between the cast (orbit mode) |
-| **E** / click | Interact with props (bar synth, telescope, fireplace, curtains, VOX terminal, loot…) |
+| **E** / click | Interact with props (bar synth, telescope, fireplace, curtains, VOX terminal, loot, the bed…) |
+| **E** on the bed | Sit → lie down → get up (also **W**/**A**/**S**/**D** while seated) |
 | **P** | Day plan — spend action points (repair, fortify, forage, drill, rest, deal) + objectives |
 | **`** (backtick) | Director panel (8 tabs) · **L** — LLM engine panel · **V** — Voice controls · **G** — Creation Kit (author scenarios, events, cutscenes, dialogue) |
 | **I** | Inventory · **K** — codex · **Esc** — save/load menu |
@@ -209,8 +213,8 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — unit suites (stats, gates, dialogue, combat, sim…)
-npm run test:e2e                      # playwright — 8 end-to-end tests in a real headless browser
+npm test                              # node --test — 242 unit tests (stats, bond, dialogue, combat, sim…)
+npm run test:e2e                      # playwright — 9 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
 node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js
@@ -227,14 +231,14 @@ in `src/` as many small focused modules.
 ```
 index.html            importmap + UI mounts
 src/core/             loop, bus, clock, rng, settings, save, script interpreter, config (YAML), userContent
-src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains, relationships
-src/chars/            stats, gates, mood, memory, wardrobe (pure logic) + Character aggregate
+src/sim/              world tick, survival, threat, events, scheduler, combat, AI brains, bedScene, relationships
+src/chars/            stats, bond, mood, memory, wardrobe (pure logic) + Character aggregate
 src/dialogue/         normalize/intents/tone parser, topic graph, selector, effects,
                       stage directions, engine, LLM adapter, TTS router
 src/scene3d/          stage, zone/furniture builders, procedural materials, lighting, monitors, post-FX
-src/humanoid/         skeleton, body/outfit builders, face rig, animator, gait, paired poses
+src/humanoid/         skeleton, body/outfit builders, face rig, animator, gait
 src/audio/            engine, music (theory/conductor/instruments/sequencer), sfx, ambience, voice, sidecar
-src/games/            bed game, truth-or-dare, gambits, mystery
+src/games/            cards, gambits, mystery
 src/ui/               HUD, chat, stat bars, director panel + 8 tabs, games, codex, elevator
 src/camera/           camera rig, first-person, director orbit, cinematic
 src/cutscene/         cutscene player (timeline over the shared script interpreter)
@@ -242,7 +246,7 @@ data/                 cast, dialogue packs, zones, events, scenarios, outfits, p
                       games, cutscenes, news, voice script — all validated at import
                       configDefaults/configSchema/lightingPresets (the engine-config source)
 config/               editable engine tuning per group — camera, combat, sim, chars, humanoid,
-                      world, gameplay, lighting, llm, voice (docs/config/)
+                      world, lighting, llm, render, voice (docs/config/)
 user/                 your authored scenarios/events/cutscenes/dialogue + saved voices (gitignored)
 tools/                serve (+ configApi/userApi/gameEngine/llmProxy), serverConfig, sidecar (voice
                       server), bake-tts, lint-data, lint-config
@@ -255,21 +259,42 @@ test/                 node --test unit suites + a headless smoke contract
 ### Architecture notes
 - **The ActorQueue is the single command spine.** Every character
   movement/pose/expression — from AI, dialogue stage-directions, events,
-  cutscenes, or the director — routes through one per-character queue. Intimacy-
-  tier commands are consent-gated at the queue.
-- **`gates.js` is the sole authority** on the intimacy ladder, consent flags, and
-  explicitness caps. Every escalation passes through it.
+  cutscenes, or the director — routes through one per-character queue. A command
+  can carry a `minBond` requirement, refused at the queue if the character's
+  current bond tier doesn't reach it.
+- **`src/chars/bond.js` is the sole authority** on the bond tier, derived from
+  trust + loyalty with hysteresis so a character's tier can't flicker line to
+  line. Nothing stores a tier as truth; it's always recomputed from the stats.
 - **The bus is the only cross-layer channel** (UI ↔ sim ↔ 3D); the composition
   root (`src/core/app.js`) is the one module that wires everything together.
+- **`src/sim/bedScene.js`** owns the bed as a small state machine (player
+  sitting/lying/none, seated guests), port-injected into `app.js` rather than
+  reaching into the sim or scene graph directly.
 
 ---
 
 ## Content note
-The intimacy-gate ladder is fully modeled **mechanically** — thresholds, consent
-flags, scene states, explicitness caps. Authored prose runs at a mature
-adult-romance register, with the top tiers written stylized and implied rather
-than graphic. All characters are adults; every escalation is consent-gated
-in-fiction.
+Neon-City: Lock-Down is an all-audiences survival game. It has noir themes,
+strong language, and survival violence — riots, gunfights, injury, and
+perma-death. There is no sexual content, no age gate, and no explicitness
+setting. A **bond tier** (stranger → ally → trusted → loyal), derived from trust
+and loyalty, governs how far a companion's trust in you reaches: a private
+conversation, an invitation to sit together, or — at the highest tier — asking
+them to stay the night, which is implied only (a fade to black and one
+narration line; nothing shown).
+
+## Roadmap
+0.6 is the first of seven planned sub-projects that take Lock-Down from its
+v0.5 base toward a full AAA-style overhaul:
+
+1. **Content cleanse + bonds** (v0.6, in progress) — remove every 18+ system,
+   replace it with the bond tier.
+2. Asset pipeline + render quality
+3. GLTF characters
+4. Survival/lockdown loop
+5. Combat and stealth
+6. Story and exploration
+7. UI / AAA polish
 
 ## License
 Original work. All geometry, audio and UI are procedurally generated or
