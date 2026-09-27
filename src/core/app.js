@@ -688,8 +688,8 @@ export class App {
           .catch((e) => console.error('[bed] stay the night failed', e));
       }
     });
-    // switching the camera out of first person (C) gets you off the bed; the
-    // cutscene's temporary 'cinematic' hands back to first person afterwards
+    // switching the camera out of first person (C) gets you off the bed
+    // (a cutscene gets you up itself before it takes the camera — onStart)
     on('camera.mode', ({ mode }) => {
       if (mode !== 'firstPerson' && mode !== 'cinematic' && this.bedScene.playerState !== 'none') this.bedScene.getUp();
     });
@@ -713,6 +713,9 @@ export class App {
     this.cutscene = new CutscenePlayer({
       stage: this.stage, cameraRig: this.cameraRig, loop: this.loop,
       cast: this.cast, voiceBank: this.voiceBank, vox: this.vox, lighting: this.lighting,
+      // a seated player gets up before the scene takes the camera, so the
+      // scene hands back a normal camera, not a first-person seat lock
+      onStart: () => this.bedScene?.getUp(),
     });
     this.saveMenu = new SaveMenu(this);
     this.codex = new Codex(this);
@@ -1123,13 +1126,16 @@ export class App {
    * world units away. Three copies of a ritual is how a step goes missing.
    *
    * @param {string} floorId
-   * @param {{movePlayer?: boolean, from?: string}} [opts]
+   * @param {{movePlayer?: boolean, from?: string, fromBed?: boolean}} [opts]
    *   movePlayer: place the player at that floor's elevator (default true).
    *   Pass false when the caller positions the player itself.
    */
   setFloor(floorId, opts = {}) {
     const floor = FLOORS[floorId];
     if (!floor || !this.world?.floorGroups?.[floorId]) return false;
+    // a forced move (elevator, event, debug) gets a seated player up first —
+    // except the bed's own move to the penthouse when you sit down
+    if (!opts.fromBed && this.bedScene && this.bedScene.playerState !== 'none') this.bedScene.getUp();
     const from = opts.from ?? this.world.activeFloor;
     this.world.setActiveFloor(floorId);
     this.lighting.setFloorOffset(floor.offsetX);
@@ -1205,7 +1211,7 @@ export class App {
    * @param {'sitting'|'lying'} pose
    */
   _placeOnBed(pose) {
-    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false });
+    if (this.world.activeFloor !== 'penthouse') this.setFloor('penthouse', { movePlayer: false, fromBed: true });
     const ref = pose === 'lying' ? 'bed.lie_center' : 'bed.seat0';
     const sock = this.world.getSocket(ref);
     const p = sock ? sock.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(-12.1, 0, 3.6);

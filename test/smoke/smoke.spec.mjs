@@ -253,6 +253,26 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(r.seated).toBe(false);
     expect(r.mode).toBe(r.startMode === 'cinematic' ? 'auto' : r.startMode);
     if (r.startMode !== 'firstPerson') expect(r.mode).not.toBe('firstPerson');
+
+    // a forced floor change, or a cutscene starting, gets a seated player up first
+    const forced = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const b = app.bedScene;
+      b.use();
+      app.setFloor('rooftop');
+      const afterFloor = { state: b.playerState, seated: app.cameraRig.fp.seated };
+      app.setFloor('penthouse');
+      b.use();
+      const play = app.cutscene.play([]);
+      const duringCutscene = { state: b.playerState, seated: app.cameraRig.fp.seated };
+      await play;
+      return { afterFloor, duringCutscene, after: { state: b.playerState, seated: app.cameraRig.fp.seated, mode: app.cameraRig.mode } };
+    });
+    expect(forced.afterFloor).toEqual({ state: 'none', seated: false });
+    expect(forced.duringCutscene).toEqual({ state: 'none', seated: false });
+    expect(forced.after.state).toBe('none');
+    expect(forced.after.seated).toBe(false);
+    expect(forced.after.mode).not.toBe('cinematic');
     expect(errors).toEqual([]);
   });
 
