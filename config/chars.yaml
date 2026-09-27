@@ -45,6 +45,10 @@ compliance:                   # compliance() weights (0..1) + dominance clash
   clashMin: -20
   clashMax: 35
 
+bond:                         # relationship tier on (trust + loyalty) / 2 (src/chars/bond.js)
+  thresholds: { ally: 35, trusted: 55, loyal: 75 }
+  hysteresis: 5               # a held tier survives until the score drops below entry - this
+
 gates:                        # intimacy ladder thresholds (min stats to OFFER a tier)
   thresholds:
     light_touch: { trust: 15, openness: 18 }

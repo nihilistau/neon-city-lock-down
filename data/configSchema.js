@@ -91,6 +91,10 @@ export const CONFIG_SCHEMA = {
       trust: num(0, 1), openness: num(0, 1), happiness: num(0, 1), loyalty: num(0, 1), calm: num(0, 1), brave: num(0, 1),
       clashScale: num(0, 2), clashMin: num(-100, 0), clashMax: num(0, 100),
     },
+    bond: {
+      thresholds: { ally: num(0, 100), trusted: num(0, 100), loyal: num(0, 100) },
+      hysteresis: num(0, 50),
+    },
     gates: {
       thresholds: { map: { map: num(0, 100) } },
       explicitnessCap: { suggestive: { type: 'string' }, mature: { type: 'string' }, full: { type: 'string' } },

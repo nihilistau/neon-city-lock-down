@@ -173,6 +173,10 @@ export const CONFIG_DEFAULTS = {
       trust: 0.30, openness: 0.22, happiness: 0.14, loyalty: 0.14, calm: 0.12, brave: 0.08,
       clashScale: 0.35, clashMin: -20, clashMax: 35,
     },
+    bond: {         // relationship tier (src/chars/bond.js), on (trust + loyalty) / 2
+      thresholds: { ally: 35, trusted: 55, loyal: 75 },
+      hysteresis: 5,  // a held tier survives until the score drops below entry - this
+    },
     gates: {        // intimacy ladder (src/chars/gates.js)
       thresholds: {   // minimum stats to OFFER each tier
         light_touch: { trust: 15, openness: 18 },
