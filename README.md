@@ -101,8 +101,9 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   trust, tension, energy, sobriety, loyalty, fear), a derived mood, compliance
   scoring, and a **bond tier** (`stranger → ally → trusted → loyal`, derived from
   trust + loyalty with hysteresis so it never flickers) that gates how far a
-  companion's trust in you reaches — from a private conversation to inviting you
-  to sit with them.
+  companion's trust in you reaches — from a private conversation to their
+  accepting your invitation to sit with you (ally) or to stay the night
+  (trusted).
 - **Procedural 3D everything.** Stylized humanoids on programmatic 31-bone
   skeletons with parametric skinning, physically-shaded skin (sheen) and hair
   (anisotropic clearcoat), canvas + 3D-eye face rigs, and a layered animator
@@ -297,9 +298,9 @@ strong language, and survival violence — riots, gunfights, injury, and
 perma-death. There is no sexual content and no age gate. A **bond tier**
 (stranger → ally → trusted → loyal), derived from trust
 and loyalty, governs how far a companion's trust in you reaches: a private
-conversation, an invitation to sit together, or — at the highest tier — asking
-them to stay the night, which is implied only (a fade to black and one
-narration line; nothing shown).
+conversation, an invitation to sit together (ally), or — once they trust you
+(trusted) — asking them to stay the night, which is implied only (a fade to
+black and one narration line; nothing shown).
 
 ## Roadmap
 0.6 is the first of seven planned sub-projects that take Lock-Down from its
