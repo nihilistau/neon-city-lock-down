@@ -56,3 +56,27 @@ test('a material swapped in while hovered is not reverted on unhover', () => {
   setPickGlow(a, 0);
   assert.equal(a.material, other);
 });
+
+test('releasing a target hands its shared materials back and disposes the glow copies', async () => {
+  const { releasePickGlow, Picker } = await import('../../src/scene3d/picking.js');
+  const mat = shared();
+  const a = new THREE.Mesh(new THREE.BoxGeometry(), mat);
+  const root = new THREE.Group().add(a);
+  setPickGlow(root, 0.5);
+  const copy = a.material;
+  let disposed = 0;
+  copy.addEventListener('dispose', () => disposed++);
+  releasePickGlow(root);
+  assert.equal(a.material, mat);
+  assert.equal(disposed, 1, 'the per-mesh copy is freed with the target');
+  assert.equal(a.userData.pickGlowMat, undefined);
+
+  // a hostile removed while hovered: the picker lets go of it too
+  const p = /** @type {any} */ (Object.create(Picker.prototype));
+  const target = { mesh: root, id: 'h1', prompt: '' };
+  p.hovered = target;
+  setPickGlow(root, 0.5);
+  p.release(root);
+  assert.equal(p.hovered, null);
+  assert.equal(a.material, mat);
+});

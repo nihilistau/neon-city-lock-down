@@ -54,6 +54,24 @@ export function setPickGlow(root, amount) {
   });
 }
 
+/**
+ * A target is going away (a hostile's body is cleaned up): put each mesh back on
+ * its shared material and free the glow copies, which would otherwise hold their
+ * GPU program state for the rest of the session.
+ * @param {THREE.Object3D} root
+ */
+export function releasePickGlow(root) {
+  root.traverse((o) => {
+    const ud = o.userData;
+    if (!ud.pickGlowMat) return;
+    const m = /** @type {THREE.Mesh} */ (o);
+    if (m.material === ud.pickGlowMat) m.material = ud.pickBaseMat;
+    ud.pickGlowMat.dispose();
+    delete ud.pickGlowMat;
+    delete ud.pickBaseMat;
+  });
+}
+
 export class Picker {
   /**
    * @param {import('./stage.js').Stage} stage
@@ -169,4 +187,17 @@ export class Picker {
   }
 
   _setGlow(root, amount) { setPickGlow(root, amount); }
+
+  /**
+   * Let go of a mesh that is leaving the scene: un-glow it, free its glow
+   * copies, and drop it as the hover so the prompt does not point at nothing.
+   * @param {THREE.Object3D} root
+   */
+  release(root) {
+    releasePickGlow(root);
+    if (this.hovered?.mesh === root) {
+      this.hovered = null;
+      emit('pick.hover', null);
+    }
+  }
 }

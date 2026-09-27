@@ -694,6 +694,9 @@ export class Combat {
     for (const h of this.hostiles) {
       if (h.hp <= 0 && !h.looted) this._lootBody(h);
       this.d.stage.scene.remove(h.actor.root);
+      // before dispose: the picker may hold per-mesh glow copies of its
+      // materials, and may still be hovering the body
+      this.d.picker?.release?.(h.actor.root);
       h.actor.dispose();
       if (this.d.picker?.targets) {
         this.d.picker.targets = this.d.picker.targets.filter(
