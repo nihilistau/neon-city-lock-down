@@ -20,6 +20,24 @@ export function dipAndSwap(t, dur) {
 }
 
 /**
+ * Aim the dip at a new preset. Restarting it from t = 0 (what a preset change
+ * mid-dip used to do) snapped a rising intensity straight back to full — the
+ * very pop the dip exists to hide. Still descending: keep the time, just swap
+ * to the new map at the bottom. Already swapped and rising: mirror the time
+ * into the descending half (smoothstep is symmetric, so k is unchanged) and
+ * swap again at the bottom.
+ * @param {{t:number, dur:number, id:string, swapped:boolean}|null} dip
+ * @param {string} id the preset to swap in
+ * @param {number} dur dip length for a fresh dip, seconds
+ * @returns {{t:number, dur:number, id:string, swapped:boolean}}
+ */
+export function retargetDip(dip, id, dur) {
+  if (!dip) return { t: 0, dur, id, swapped: false };
+  if (!dip.swapped) return { t: dip.t, dur: dip.dur, id, swapped: false };
+  return { t: Math.max(0, dip.dur - dip.t), dur: dip.dur, id, swapped: false };
+}
+
+/**
  * Per-tower offsets into the lit-window texture, so no two neighbouring towers
  * show the same windows. Snapped to 1/8 — the texture's window grid — so every
  * offset lands a whole window, never half of one.

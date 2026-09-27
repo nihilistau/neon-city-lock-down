@@ -7,7 +7,7 @@
 // intensity really comes back.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dipAndSwap, windowOffsets, rainLayout, rainCount, RAIN_BASE, RAIN_MAX } from '../../src/scene3d/envMath.js';
+import { dipAndSwap, retargetDip, windowOffsets, rainLayout, rainCount, RAIN_BASE, RAIN_MAX } from '../../src/scene3d/envMath.js';
 
 const seq = (vals) => { let i = 0; return { next: () => vals[i++ % vals.length] }; };
 
@@ -68,4 +68,20 @@ test('every lighting preset grades the IBL and the sky; a blackout darkens the s
     for (const k of ['envIntensity', 'rotation', 'skyTint', 'skyExposure']) assert.equal(typeof p.ibl[k], 'number', `${id}.ibl.${k}`);
   }
   assert.ok(LIGHTING_PRESETS.blackout_emergency.ibl.skyExposure < LIGHTING_PRESETS.neon_night.ibl.skyExposure);
+});
+
+test('retargetDip: a preset change mid-dip never pops the environment intensity', () => {
+  const dur = 0.6;
+  assert.deepEqual(retargetDip(null, 'a', dur), { t: 0, dur, id: 'a', swapped: false }, 'no dip: start one');
+  // still going down: keep the time, just aim the swap at the new preset
+  const down = retargetDip({ t: 0.1, dur, id: 'a', swapped: false }, 'b', dur);
+  assert.deepEqual(down, { t: 0.1, dur, id: 'b', swapped: false });
+  // already swapped and rising: mirror the time so it heads down again from the same k
+  for (const t of [0.3, 0.35, 0.45, 0.59]) {
+    const before = dipAndSwap(t, dur).k;
+    const up = retargetDip({ t, dur, id: 'a', swapped: true }, 'b', dur);
+    assert.equal(up.id, 'b');
+    assert.equal(up.swapped, false, 'the new map still has to be swapped in');
+    assert.ok(Math.abs(dipAndSwap(up.t, up.dur).k - before) < 1e-9, `k continuous at t=${t}`);
+  }
 });

@@ -8,7 +8,7 @@ import { PALETTE } from './materials/palette.js';
 import { cfg } from '../core/config.js';
 import { LIGHTING_PRESETS, TOD_KEYS } from '../../data/lightingPresets.js';
 import { EnvBuilder } from './env.js';
-import { dipAndSwap } from './envMath.js';
+import { dipAndSwap, retargetDip } from './envMath.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
@@ -129,7 +129,8 @@ export class Lighting {
   _applyEnv(id, { dip = true } = {}) {
     if (!presets()[id]) return;
     if (!dip) { this._envDip = null; this._swapEnv(id); return; }
-    this._envDip = { t: 0, dur: ENV_DIP_SEC, id, swapped: false };
+    // a change mid-dip carries on from the current intensity (envMath.retargetDip)
+    this._envDip = retargetDip(this._envDip, id, ENV_DIP_SEC);
   }
 
   /** @param {string} id */
