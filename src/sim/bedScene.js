@@ -65,6 +65,8 @@ export class BedScene {
     this.guests = [];
     /** true while the stay-the-night fade runs; input is ignored until it ends */
     this.busy = false;
+    /** bumped by reset(): an in-flight stayNight from before a load aborts */
+    this._epoch = 0;
     /** @type {Map<string, any>} */
     this._guestChars = new Map();
     // A guest who dies leaves the bed; combat gets everyone up.
@@ -90,6 +92,7 @@ export class BedScene {
    * player is standing and nobody is a guest afterwards, whatever was running.
    */
   reset() {
+    this._epoch++;
     this.busy = false;
     if (this.playerState !== 'none') {
       this.playerState = 'none';
@@ -199,13 +202,20 @@ export class BedScene {
       if (!r.ok) return r;
     }
     this.busy = true;
+    // A load can land mid-fade (Esc reaches the save menu over the black). After
+    // every await, if reset() ran, the loaded save owns the world: no placing,
+    // no skip, no stats — just release the scheduler and fade back in.
+    const ep = this._epoch;
+    const stale = () => this._epoch !== ep;
     emit('bedscene.started', { id: char.id });
     try {
       await this.p.fade(true);
+      if (stale()) return { ok: false, reason: 'reset' };
       this.p.scheduler.hold = true;
       this._evictSleepers();
       if (this.playerState !== 'lying') this._setPlayer('lying');
       await this.p.narrate(this.p.narration(char.id));
+      if (stale()) return { ok: false, reason: 'reset' };
       this.p.skip(STAY_MINUTES);
       const brain = this.p.brain(char.id);
       if (brain) brain.needs.rest = 0;
@@ -214,7 +224,7 @@ export class BedScene {
       pl.morale = Math.min(100, (pl.morale ?? 50) + 10);
     } finally {
       this.p.scheduler.hold = false;
-      this.busy = false;
+      if (!stale()) this.busy = false;
       await this.p.fade(false);
       emit('bedscene.ended', { id: char.id });
     }

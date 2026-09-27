@@ -229,6 +229,42 @@ test('dismiss is ignored during the stay-the-night fade', async () => {
   await stay;
 });
 
+for (const phase of ['fade', 'narrate']) {
+  test(`a load (reset) during the stay-the-night ${phase} aborts it: no skip, no stats, no re-placing`, async () => {
+    resetBus();
+    /** @type {() => void} */
+    let release = () => {};
+    const gate = new Promise((r) => { release = () => r(undefined); });
+    const over = phase === 'fade'
+      ? { fade: (on) => { calls.fades.push(on); return on ? gate : Promise.resolve(); } }
+      : { narrate: () => gate };
+    const made = ports(over);
+    const { p, player, needs, scheduler } = made;
+    const calls = made.calls;
+    const b = new BedScene(p);
+    b.use();   // sitting
+    const aria = fakeChar('aria', 'trusted');
+    const stay = b.stayNight(aria);
+    await new Promise((r) => setImmediate(r));
+    assert.equal(b.busy, true);
+    const placedBefore = calls.placed.length;
+    b.reset();   // applySave
+    const appliedBefore = aria.applied.length;
+    release();
+    assert.deepEqual(await stay, { ok: false, reason: 'reset' });
+    assert.equal(calls.skipped, 0, 'no clock skip over the loaded save');
+    assert.equal(player.morale, 50, 'no morale applied');
+    assert.equal(needs.rest, 80, 'no rest applied');
+    assert.equal(aria.applied.length, appliedBefore, 'no bed:stay stats applied');
+    assert.ok(!aria.applied.some(([, why]) => why === 'bed:stay'));
+    assert.equal(calls.placed.length, placedBefore, 'player not re-placed after the load');
+    assert.equal(b.playerState, 'none');
+    assert.equal(b.busy, false);
+    assert.equal(scheduler.hold, false);
+    assert.equal(calls.fades.at(-1), false, 'still fades back in');
+  });
+}
+
 test('a guest who dies frees the seat; combat gets every guest up', () => {
   resetBus();
   const b = new BedScene(ports().p);
@@ -339,4 +375,25 @@ test('everyday chat does not trigger the bed intents; bed phrasings still do', a
   }
   assert.equal(top('stay the night'), 'bed_stay');
   assert.equal(top('come sit with me'), 'bed_invite');
+});
+
+test('the save menu refuses to open during the stay-the-night fade', async () => {
+  resetBus();
+  const hadDoc = 'document' in globalThis;
+  const prevDoc = globalThis.document;
+  // @ts-ignore — the menu only registers a keydown listener at construction
+  globalThis.document = { addEventListener() {} };
+  try {
+    const { SaveMenu } = await import('../../src/ui/saveMenu.js');
+    const alerts = [];
+    on('hud.alert', (a) => alerts.push(a));
+    const app = /** @type {any} */ ({ bedScene: { busy: true }, loop: { pause() { throw new Error('paused'); } } });
+    const menu = new SaveMenu(app);
+    menu.toggle();
+    assert.equal(menu.open, false, 'no loading over the black');
+    assert.equal(alerts.length, 1);
+  } finally {
+    // @ts-ignore
+    if (hadDoc) globalThis.document = prevDoc; else delete globalThis.document;
+  }
 });

@@ -35,6 +35,13 @@ export class SaveMenu {
   }
 
   show() {
+    // No save/load over the stay-the-night black: a load mid-fade used to let
+    // the skip and stats land on the freshly loaded save (bedScene also guards
+    // with an epoch; this is the belt to that brace).
+    if (this.app.bedScene?.busy) {
+      emit('hud.alert', { text: 'Not now.', kind: 'info' });
+      return;
+    }
     this.open = true;
     this.app.loop.pause('menu'); openModal('menu', () => this.close());
     this._buildScreen();
