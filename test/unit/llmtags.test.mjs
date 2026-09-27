@@ -17,6 +17,12 @@ test('a retired stat tag (arousal) is dropped', () => {
   assert.equal(sanitizeTags('x [[stat:arousal+5]]'), 'x');
 });
 
+test('inline stat deltas are clamped to ±15 — the bond gates things now', () => {
+  assert.equal(sanitizeTags('x [[stat:trust+99]]'), 'x [[stat:trust+15]]');
+  assert.equal(sanitizeTags('x [[stat:tension-40]]'), 'x [[stat:tension-15]]');
+  assert.equal(sanitizeTags('x [[stat:trust+7]]'), 'x [[stat:trust+7]]');
+});
+
 test('unknown tags are dropped so compileLine never throws', () => {
   const raw = 'Hi [[prop:champagne]] [[teleport:moon]] [[remember:they like gin]] there.';
   const clean = sanitizeTags(raw);

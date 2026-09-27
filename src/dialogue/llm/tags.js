@@ -55,6 +55,9 @@ const TAG_RE = /\[\[\s*([a-zA-Z_]+)\s*(?::([^\]]*))?\]\]/g;
 // The model sometimes copies the placeholder token from the tag sheet verbatim.
 const PLACEHOLDERS = new Set(['x', 'word', 'name', 'tier', 'preset', 'clip', 'expr', 'zone', 'level', 'n', 'state', 'feeling', 'emotion', 'value']);
 
+const clampD = (n) => Math.max(-15, Math.min(15, Math.round(Number(n) || 0)));
+const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
+
 /** Turn one raw model tag into a safe canonical tag string, or '' to drop it. */
 function canonTag(type, arg) {
   type = type.toLowerCase();
@@ -81,9 +84,10 @@ function canonTag(type, arg) {
       return t ? `[[look:${t}]]` : '';
     }
     case 'stat': {
-      // [[stat:trust+10]] / [[stat:tension-5]]
+      // [[stat:trust+10]] / [[stat:tension-5]] — clamped to ±15 like the
+      // directive path: the bond tier gates the bed, so one reply can't jump it
       const m = /^([a-z]+)\s*([+-]\s*\d+)$/.exec(arg.toLowerCase().replace(/\s+/g, ''));
-      if (m && STATS.has(m[1])) return `[[stat:${m[1]}${m[2]}]]`;
+      if (m && STATS.has(m[1])) return `[[stat:${m[1]}${signed(clampD(m[2]))}]]`;
       return '';
     }
     case 'outfit': case 'coverage': case 'wardrobe': {
@@ -163,8 +167,6 @@ export function cleanReply(raw, ctx = {}) {
   return sanitizeTags(scrubPuppeting(String(raw || ''), ctx));
 }
 
-const clampD = (n) => Math.max(-15, Math.min(15, Math.round(Number(n) || 0)));
-const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 
 /**
  * Map the function-model's structured directive object into stage directions
