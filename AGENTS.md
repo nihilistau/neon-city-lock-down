@@ -21,7 +21,11 @@ npm test                    # node --test — unit suites
 npm run lint                # lint-data.mjs + lint-config.mjs
 npm run test:e2e            # playwright — end-to-end smoke suite
 npm run test:all            # unit + lint + e2e
+node tools/screenshots.mjs  # regenerate docs/screenshots/ (server on 8420; see docs/development.md)
 ```
+
+After any UI change a README screenshot shows, re-run the matching shot
+(`node tools/screenshots.mjs --list`) and look at the image before committing.
 
 ## Architecture spine (don't break)
 
@@ -54,11 +58,11 @@ npm run test:all            # unit + lint + e2e
 ## Content rules
 
 - **All-audiences.** No sexual content, no arousal-type stats, no
-  explicitness settings. A guard test that greps for banned terms across
-  `src/`, `data/`, `config/`, `tools/`, `styles/` and `index.html` is coming in
-  rc.1 — until then, don't reintroduce any of the retired vocabulary
-  (arousal/horniness/pleasure-as-a-stat, explicit/explicitness, 18+, nude,
-  naked, erotic, `bed_*` clip names, gate/gateTier, consent-gate).
+  explicitness settings. `test/unit/clean-content.test.mjs` walks `src/`,
+  `data/`, `config/`, `tools/`, `styles/` and `index.html` and fails `npm test`
+  with `file:line` on any retired-register word. Fix a hit by rewording or
+  deleting the text — never by loosening the test's `BANNED` list; a word with
+  an unrelated meaning in context gets reworded too.
 - **The LLM contract is a noir survival drama.** Characters may be warm,
   loyal, or lightly flirtatious (PG-13); no sexual content. `src/dialogue/llm/promptBuilder.js`'s
   `CONTRACT` reflects this as of this release — never sexual, never graphic,

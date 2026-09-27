@@ -14,6 +14,8 @@ then dive into a subsystem.
 - **[Engine Config](config/README.md)** — the runtime-YAML config layer: every tunable value in
   editable, validated, documented `config/*.yaml` (camera, combat, sim, chars, lighting, render,
   humanoid, world, llm, voice), with live edit/save.
+- **[Development](development.md)** — run, test, lint, the clean-content guard, and regenerating the
+  screenshots with `tools/screenshots.mjs`.
 - **[Creation Kit](creation-kit/README.md)** — the player-facing guide to authoring scenarios,
   events, cutscenes, dialogue, and voices in-game.
 - **[Demo Script](demo.md)** — a ~3-minute presenter walkthrough (written for v0.2.0; the feature list has moved on considerably), the
