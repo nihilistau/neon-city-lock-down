@@ -135,3 +135,21 @@ test('a sphere unrolls to its arc lengths', () => {
   assert.ok(near(umax, Math.PI), 'equator = 2π·0.5 m');
   assert.ok(near(vmax, Math.PI / 2), 'pole to pole = π·0.5 m');
 });
+
+test('a uvRotate material gets U and V swapped, so plank boards run along the panel', () => {
+  // the plank scan's boards run along V; box projection puts V up every side
+  // face, so a counter front read as vertical slats
+  const plain = new THREE.MeshStandardMaterial();
+  plain.userData.metresPerRepeat = 1;
+  const planks = plain.clone();
+  planks.userData.uvRotate = true;
+  const a = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 0.5), plain);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 0.5), planks);
+  applyWorldUVsTo(a);
+  applyWorldUVsTo(b);
+  assert.ok(near(faceSpan(a.geometry, [0, 0, 1], 0), 3) && near(faceSpan(a.geometry, [0, 0, 1], 1), 1));
+  assert.ok(near(faceSpan(b.geometry, [0, 0, 1], 0), 1), 'u now runs up the face');
+  assert.ok(near(faceSpan(b.geometry, [0, 0, 1], 1), 3), 'v, the board direction, runs along its 3 m');
+  const ua = a.geometry.getAttribute('uv'), ub = b.geometry.getAttribute('uv');
+  for (let i = 0; i < ua.count; i++) assert.ok(near(ub.getX(i), ua.getY(i)) && near(ub.getY(i), ua.getX(i)));
+});

@@ -91,8 +91,9 @@ const PROJECTABLE = new Set([...BOXY, 'CylinderGeometry', 'SphereGeometry']);
  * @param {THREE.BufferGeometry} geometry
  * @param {number} metresPerRepeat
  * @param {number[]} [scale] the owning mesh's scale (xyz); default unscaled
+ * @param {boolean} [rotate] swap U and V (materials/pbr.js `rotate`: plank boards along the panel)
  */
-export function applyWorldUVs(geometry, metresPerRepeat, scale = [1, 1, 1]) {
+export function applyWorldUVs(geometry, metresPerRepeat, scale = [1, 1, 1], rotate = false) {
   const pos = geometry.getAttribute('position');
   const nor = geometry.getAttribute('normal');
   if (!pos || !nor || !(metresPerRepeat > 0)) return geometry;
@@ -101,6 +102,7 @@ export function applyWorldUVs(geometry, metresPerRepeat, scale = [1, 1, 1]) {
   const uv = g.type === 'CylinderGeometry' && g.getAttribute('uv') ? cylinderUVs(g, k, scale)
     : g.type === 'SphereGeometry' && g.getAttribute('uv') ? sphereUVs(g, k, scale)
       : boxProjectUVs(pos.array, nor.array, metresPerRepeat, scale);
+  if (rotate) for (let i = 0; i < uv.length; i += 2) { const u = uv[i]; uv[i] = uv[i + 1]; uv[i + 1] = u; }
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return geometry;
 }
@@ -122,7 +124,7 @@ export function applyWorldUVsTo(root) {
     const mpr = /** @type {THREE.Material} */ (mesh.material)?.userData?.metresPerRepeat;
     const g = mesh.geometry;
     if (!mpr || g.userData.worldUV || !PROJECTABLE.has(g.type)) return;
-    applyWorldUVs(g, mpr, mesh.scale.toArray());
+    applyWorldUVs(g, mpr, mesh.scale.toArray(), mesh.material.userData.uvRotate === true);
     g.userData.worldUV = mpr;
     n++;
   });
