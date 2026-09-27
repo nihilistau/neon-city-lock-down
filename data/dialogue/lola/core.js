@@ -195,7 +195,7 @@ registerTopics([
       { when: { statGte: { trust: 65 } },
         text: "[[face:blush:0.3]] [[face:smirk]] [[look:player]] You've stopped performing at me. [[anim:gesture_lean_in]] That's the part that's actually working. Keep not trying.",
         fx: { arousal: 6, trust: 2, horniness: 3 } },
-      { when: { gateAtLeast: 'kiss' },
+      { when: { bondAtLeast: 'ally' },
         text: "[[face:blush:0.4]] [[look:player]] We're past the part where you have to talk me into anything. [[face:smirk]] [[anim:gesture_lean_in]] Doesn't mean I've stopped enjoying being talked into it.",
         fx: { arousal: 9, horniness: 6 } },
       { when: { statGte: { tension: 60 } },
@@ -214,10 +214,10 @@ registerTopics([
   topic('lola.flirt.closer', {
     char: 'lola', priority: 7,
     triggers: [onIntent('flirt', 0.4), onIntent('escalate', 0.4)],
-    cond: { flag: 'lola_flirting', minStat: { arousal: 30, trust: 30 } },
+    cond: { flag: 'lola_flirting', bondAtLeast: 'ally' },
     lines: [
       { when: { statGte: { arousal: 45, trust: 40 } },
-        text: "[[face:blush:0.5]] [[anim:gesture_lean_in]] [[look:player]] ...You don't scare easy. [[gate:offer:light_touch]] Good. Come here, then. Slowly. I bruise people who rush me.",
+        text: "[[face:blush:0.5]] [[anim:gesture_lean_in]] [[look:player]] ...You don't scare easy. Good. Come here, then. Slowly. I bruise people who rush me.",
         fx: { arousal: 8, horniness: 6 } },
       { text: "[[face:smirk]] [[face:blush:0.3]] Easy, legend. [[look:player]] The night's long and I don't reward impatience. Earn the next step.",
         fx: { arousal: 4, tension: 2 } },

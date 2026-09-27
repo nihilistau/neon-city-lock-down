@@ -100,7 +100,8 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   app.run.history.choices.push({ prompt: 'p', chose: 'c' });
   app.run.lastEventEndMinute = 1170;
   app.cast.lola.applyStats({ trust: 20, arousal: 15 }, 'test');
-  app.cast.lola.gate('kiss', 'grant', 100);
+  // lift Lola into a non-default bond so the round-trip is not trivially 'stranger'
+  app.cast.lola.stats.trust = 60; app.cast.lola.stats.loyalty = 60; app.cast.lola._refreshBond();
   app.cast.lola.memory.setFlag('lola_job');
   app.cast.aria.alive = false;
   app.cast.aria.health = 0;
@@ -116,7 +117,7 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
     clock: app.clock.serialize(),
     run: structuredClone(app.run),
     lolaStats: { ...app.cast.lola.stats },
-    lolaGates: structuredClone(app.cast.lola.gates),
+    lolaBond: app.cast.lola.bond,
     ariaPos: app.cast.aria.actor.root.position.toArray(),
   };
 
@@ -145,7 +146,7 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   app.run.eventsFired.length = 0;
   app.run.systems.power.hp = 100;
   app.cast.lola.applyStats({ trust: -50, arousal: -50 }, 'wreck');
-  app.cast.lola.gates = {};
+  app.cast.lola.stats.loyalty = 0; app.cast.lola._refreshBond();
   app.cast.aria.alive = true;
   app.cast.aria.injuries = [];
   app.cast.aria.actor.root.position.set(0, 0, 0);
@@ -159,7 +160,8 @@ test('a save round-trips the whole run: clock, rng, run state, cast, subsystems'
   assert.deepEqual(app.clock.serialize(), snapshot.clock, 'clock restored exactly');
   assert.deepEqual(app.run, snapshot.run, 'run state restored exactly');
   assert.deepEqual(app.cast.lola.stats, snapshot.lolaStats, 'stats restored');
-  assert.deepEqual(app.cast.lola.gates, snapshot.lolaGates, 'gates restored');
+  assert.equal(snapshot.lolaBond, 'trusted');
+  assert.equal(app.cast.lola.bond, snapshot.lolaBond, 'bond restored');
   assert.equal(app.cast.lola.memory.hasFlag('lola_job'), true, 'memory flags restored');
   assert.equal(app.cast.aria.alive, false, 'the dead must come back dead');
   assert.equal(app.cast.aria.actor.downed, true, 'and downed in the 3D layer');

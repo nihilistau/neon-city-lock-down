@@ -1,11 +1,12 @@
 // @ts-check
 // In-world HUD: interaction prompt, game clock, resource strip, camera hint,
 // alerts, event-choice modal.
-import { on } from '../core/bus.js';
+import { on, emit } from '../core/bus.js';
 import { settings } from '../core/settings.js';
 import { escapeHtml } from './widgets.js';
 import { loadHudIcons, iconUrl } from './icons.js';
 import { FLOORS } from '../../data/zones.js';
+import { BOND_TIERS } from '../chars/bond.js';
 
 let root = null;
 
@@ -173,6 +174,14 @@ export function initHud() {
     alertEl.className = `visible ${kind || ''}`;
     clearTimeout(alertTimer);
     alertTimer = setTimeout(() => alertEl.classList.remove('visible'), 4200);
+  });
+
+  // a character's bond with the player rising is news; a fall shows on the rail
+  on('bond.changed', ({ name, from, to }) => {
+    if (BOND_TIERS.indexOf(to) <= BOND_TIERS.indexOf(from)) return;   // losses show on the rail, not as a toast
+    const first = String(name).split(' ')[0];
+    const text = { ally: `${first} is on your side now.`, trusted: `${first} trusts you.`, loyal: `${first} would follow you anywhere.` }[to];
+    if (text) emit('hud.alert', { text, kind: 'info' });
   });
 
   const helpEl = root.querySelector('#hud-help');

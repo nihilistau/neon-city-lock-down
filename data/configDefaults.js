@@ -177,18 +177,6 @@ export const CONFIG_DEFAULTS = {
       thresholds: { ally: 35, trusted: 55, loyal: 75 },
       hysteresis: 5,  // a held tier survives until the score drops below entry - this
     },
-    gates: {        // intimacy ladder (src/chars/gates.js)
-      thresholds: {   // minimum stats to OFFER each tier
-        light_touch: { trust: 15, openness: 18 },
-        kiss: { trust: 26, arousal: 22, openness: 30 },
-        touch: { trust: 34, arousal: 38, horniness: 28 },
-        undress: { trust: 42, arousal: 52, horniness: 42, openness: 46 },
-        intimate: { trust: 48, arousal: 62, horniness: 56 },
-        explicit: { trust: 54, arousal: 72, horniness: 66, openness: 56 },
-        depraved: { trust: 60, arousal: 82, horniness: 78, openness: 66, loyalty: 28 },
-      },
-      explicitnessCap: { suggestive: 'kiss', mature: 'intimate', full: 'depraved' },
-    },
   },
 
   // ── lighting: named presets + time-of-day keyframes (see data/lightingPresets.js) ──

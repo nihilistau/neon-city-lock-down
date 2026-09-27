@@ -1,7 +1,7 @@
 // @ts-check
 // Paired poses: two characters anchored to furniture sockets with role clips
 // sharing a phase clock. Contact is baked FK-style into the role clips; runtime
-// IK refinement is a Phase 4 deepening. Gate tiers are enforced by the queue.
+// IK refinement is a Phase 4 deepening.
 import { emit } from '../core/bus.js';
 
 /**
@@ -9,7 +9,6 @@ import { emit } from '../core/bus.js';
  * @property {string} id
  * @property {string} furnitureId  world furniture that carries the role sockets
  * @property {{socket:string, clip:string}[]} roles [roleA, roleB]
- * @property {import('../core/types.js').GateTier} [gateTier] required intimacy gate
  * @property {boolean} [faceEachOther]
  */
 
@@ -27,7 +26,6 @@ export const PAIRED_POSES = {
   couch_close: {
     id: 'couch_close',
     furnitureId: 'couch',
-    gateTier: 'light_touch',
     roles: [
       { socket: 'seat0', clip: 'sit_relaxed' },
       { socket: 'seat1', clip: 'sit_lean_partner' },
@@ -38,7 +36,7 @@ export const PAIRED_POSES = {
 
 /**
  * Start a paired pose between two characters. Each character walks to their
- * socket via their own queue; the pair command is gate-checked on the initiator.
+ * socket via their own queue.
  * @param {string} poseId
  * @param {import('../chars/character.js').Character} a role 0
  * @param {import('../chars/character.js').Character} b role 1
@@ -47,12 +45,6 @@ export const PAIRED_POSES = {
 export function startPairedPose(poseId, a, b) {
   const def = PAIRED_POSES[poseId];
   if (!def) return false;
-
-  // gate check on both participants for tiered poses
-  if (def.gateTier) {
-    if (!a.gateCheck(def.gateTier).allowed) return false;
-    if (!b.gateCheck(def.gateTier).allowed) return false;
-  }
 
   // hold both brains FIRST (the engage handler may clear queues), then stage
   emit('pose.paired', { pose: poseId, a: a.id, b: b.id, holdMinutes: 45 });

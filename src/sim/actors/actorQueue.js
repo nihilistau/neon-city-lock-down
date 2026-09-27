@@ -1,8 +1,8 @@
 // @ts-check
 // THE command spine. Every character movement/pose/expression — from AI,
 // dialogue stage directions, events, cutscenes, or Director tools — goes
-// through here. Single writer to the Actor3D. Gate-tier-tagged commands are
-// checked before acceptance (wired to gates.js in P1.3+).
+// through here. Single writer to the Actor3D. Bond-tagged commands (minBond)
+// are checked before acceptance.
 import * as THREE from 'three';
 import { emit } from '../../core/bus.js';
 import { findPath, zoneAt, travelMinutes, elevatorPos } from './nav.js';
@@ -45,14 +45,14 @@ export function seatClip(socketRef) {
  * @typedef {Object} Command
  * @property {string} type  goto|sit|stand|playClip|face|look|turn|wait|call
  * @property {any[]} [args]
- * @property {string} [gateTier]
+ * @property {string} [minBond]
  */
 
 export class ActorQueue {
   /**
    * @param {import('../../humanoid/actor3d.js').Actor3D} actor
    * @param {import('../../scene3d/tower/zoneBuilder.js').World3D} world
-   * @param {{ gateCheck?: (tier:string) => {allowed:boolean, reason?:string} }} [hooks]
+   * @param {{ bondCheck?: (tier:string) => boolean }} [hooks]
    */
   constructor(actor, world, hooks = {}) {
     this.actor = actor;
@@ -75,12 +75,9 @@ export class ActorQueue {
   /** @param {Command} cmd */
   push(cmd) {
     if (this.frozen) return false;
-    if (cmd.gateTier && this.hooks.gateCheck) {
-      const res = this.hooks.gateCheck(cmd.gateTier);
-      if (!res.allowed) {
-        emit('actor.refused', { id: this.actor.id, cmd, reason: res.reason });
-        return false;
-      }
+    if (cmd.minBond && this.hooks.bondCheck && !this.hooks.bondCheck(cmd.minBond)) {
+      emit('actor.refused', { id: this.actor.id, cmd, reason: 'bond' });
+      return false;
     }
     this.queue.push(cmd);
     return true;

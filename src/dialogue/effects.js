@@ -1,6 +1,6 @@
 // @ts-check
 // Applies a chosen line's effects atomically: stat deltas (through Character →
-// stats.js coupling), flags, memory, gate offers/grants, tone side-effects.
+// stats.js coupling), flags, memory, tone side-effects.
 
 import { emit } from '../core/bus.js';
 
@@ -22,10 +22,6 @@ export function applyLineEffects(char, line, topic, ctx) {
     if (eff.clearFlag) char.memory.clearFlag(eff.clearFlag);
     if (eff.fact) for (const [k, v] of Object.entries(eff.fact)) char.memory.fact(k, v);
     if (eff.counter) char.memory.bump(eff.counter);
-    if (eff.gate) {
-      // eff.gate = { tier, action }
-      char.gate(eff.gate.tier, eff.gate.action, ctx.nowMinute);
-    }
     // eff.game = 'cards' | 'mystery:<caseId>'
     //
     // The minigames were a large pool of unreachable content in the repo: a
@@ -35,7 +31,7 @@ export function applyLineEffects(char, line, topic, ctx) {
     // how a person would actually start a game, so that is now the door.
     //
     // Emitted rather than called: this module is pure over (char, line, topic)
-    // and has no App handle. src/core/app.js owns the consent checks.
+    // and has no App handle. src/core/app.js decides whether the game opens.
     if (eff.game) emit('game.requested', { game: eff.game, charId: char.id });
   }
   // A LINE may carry its own `game`, for topics where only SOME answers open

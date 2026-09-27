@@ -44,13 +44,18 @@ test('compileLine throws on unknown tag', () => {
 
 test('compileLine validates arity', () => {
   assert.throws(() => compileLine('[[anim]]'), /needs 1 arg/);
-  assert.throws(() => compileLine('[[gate]]'), /needs >=1 arg/);
+  assert.throws(() => compileLine('[[face]]'), /needs >=1 arg/);
 });
 
 test('every tag type is documented', () => {
-  for (const t of ['anim', 'face', 'move', 'sit', 'gate', 'light', 'sfx', 'vox']) {
+  for (const t of ['anim', 'face', 'move', 'sit', 'light', 'sfx', 'vox']) {
     assert.ok(t in TAG_TYPES, `${t} missing from TAG_TYPES`);
   }
+});
+
+test('the retired intimacy tags are unknown now', () => {
+  assert.throws(() => compileLine('[[gate:offer:kiss]] hi'), /unknown stage tag/);
+  assert.throws(() => compileLine('[[pair:couch_close:lola:kiss]] hi'), /unknown stage tag/);
 });
 
 test('intent matcher ranks by weighted score', () => {

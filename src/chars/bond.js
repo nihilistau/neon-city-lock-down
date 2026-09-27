@@ -8,7 +8,7 @@
 import { cfg } from '../core/config.js';
 import { CONFIG_DEFAULTS } from '../../data/configDefaults.js';
 
-/** @typedef {'stranger'|'ally'|'trusted'|'loyal'} BondTier */
+/** @typedef {import('../core/types.js').BondTier} BondTier */
 
 /** Ordered low → high. Order is structural; thresholds are config-tunable. */
 export const BOND_TIERS = /** @type {BondTier[]} */ (['stranger', 'ally', 'trusted', 'loyal']);

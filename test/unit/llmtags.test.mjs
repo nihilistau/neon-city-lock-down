@@ -32,10 +32,8 @@ test('invalid anim/move values are dropped, not passed through', () => {
   assert.equal(sanitizeTags('[[move:mars]]'), '');
 });
 
-test('consent is downgraded to an offer (never a hard grant)', () => {
-  assert.equal(sanitizeTags('[[consent:on]]'), '[[gate:offer:kiss]]');
-  assert.equal(sanitizeTags('[[consent:touch]]'), '[[gate:offer:touch]]');
-  assert.equal(sanitizeTags('[[gate:grant:intimate]]'), '[[gate:offer:intimate]]');
+test('the retired consent/gate tags are dropped entirely', () => {
+  assert.equal(sanitizeTags('hi [[consent:kiss]] [[gate:offer:kiss]]'), 'hi');
 });
 
 test('scrubPuppeting strips a prepended speaker label and guest-puppeting actions', () => {

@@ -1,14 +1,12 @@
 // @ts-check
 // Assembles a character's system prompt for the LLM agent: persona + live
-// stats/mood + intimacy gates + who else is present + the scene (zone, light,
+// stats/mood + bond with the guest + who else is present + the scene (zone, light,
 // time, threat) + a combat block when a breach is live + the tag contract
 // (OUR exact executable vocabulary) + the output/no-puppeting contract.
 //
 // The model authors the reply AS the character, embedding [[tags]] that drive
 // the 3D scene through the same compileLine → dispatcher → ActorQueue path the
 // authored engine uses.
-
-const GATE_ORDER = ['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved'];
 
 const ZONE_LABEL = {
   lounge: 'the lounge', fireplace: 'the fireplace nook', bar: 'the bar',
@@ -30,16 +28,6 @@ function describeState(stats) {
   return notes.length ? notes.join(', ') : 'even-keeled';
 }
 
-/** Which intimacy tiers this character has opened, and consent state. */
-function describeGates(char) {
-  const open = GATE_ORDER.filter((t) => char.gates?.[t] === 'granted');
-  const offered = GATE_ORDER.filter((t) => char.gates?.[t] === 'offered');
-  const top = open.length ? open[open.length - 1].replace('_', ' ') : 'nothing past light touch';
-  const consent = !!(char.consent?.ladder && Object.values(char.consent.ladder).some((c) => c?.given))
-    && !char.consent.withdrawn;
-  return { top, offered, consent };
-}
-
 const TAG_SHEET = `SCENE TAGS — embed 1-3 of these INSIDE your reply, right where the action happens (in addition to describing the action in words). Only these, only the listed values:
 [[move:X]] walk to a room: lounge, bar, balcony, fireplace, bed_alcove, vanity, shower
 [[anim:X]] a motion: idle_stand, idle_confident, idle_shy, walk, sit_relaxed, lounge, dance_sway, gesture_lean_in, gesture_shrug, gesture_cross_arms, crouch
@@ -47,7 +35,6 @@ const TAG_SHEET = `SCENE TAGS — embed 1-3 of these INSIDE your reply, right wh
 [[mood:X]] inner mood: flirty, sultry, tense, playful, warm, cold
 [[look:player]] look at the guest
 [[stat:NAME±N]] shift your own feeling, e.g. [[stat:arousal+8]] [[stat:tension-5]]
-[[gate:offer:TIER]] signal you'd welcome more — TIER: kiss, touch, undress, intimate
 [[light:X]] room light: neon_night, candlelit, fireplace_warm, security_red, blackout_emergency`;
 
 const CONTRACT = (name, emitTags) => `WRITE THE REPLY AS ${name.toUpperCase()}, first person, present tense — story prose only.
@@ -72,7 +59,6 @@ HARD RULES:
 export function buildSystemPrompt(char, ctx) {
   const p = char.persona;
   const mood = char.mood?.id || p.personality?.baseMood || 'neutral';
-  const { top, offered, consent } = describeGates(char);
   const others = (ctx.present || []).filter((c) => c.id !== char.id);
   const othersLine = others.length
     ? others.map((c) => `${c.name.split(' ')[0]} (${c.mood?.id || 'here'})`).join(', ')
@@ -86,7 +72,7 @@ export function buildSystemPrompt(char, ctx) {
     `You are ${char.name}, ${p.archetype}, a character in NEON-CITY: LOCK-DOWN — an adults-only (18+) neon-noir roleplay. You are locked in a luxury cyberpunk tower with the guest (the player) and the others while the city riots below.`,
     p.bio ? `WHO YOU ARE: ${p.bio.replace(/\s+/g, ' ').trim()}` : '',
     `Right now you feel ${mood}, and physically you are ${describeState(char.stats)}.`,
-    `INTIMACY: you've welcomed ${top}.${consent ? ' You have given consent for intimacy.' : ' You have NOT consented to intimacy yet — escalation past teasing is your genuine in-character choice.'}${offered.length ? ` You've hinted you're open to: ${offered.join(', ')}.` : ''}`,
+    `YOUR BOND WITH THE GUEST: ${char.bond || 'stranger'} (stranger → ally → trusted → loyal). Let it colour how much you share and how far you'd go for them.`,
     `WHERE: ${zone}. Lighting: ${ctx.lighting || 'neon night'}. It's ${ctx.timeOfDay || 'night'}, day ${ctx.day || 1} of the lockdown.`,
     `ALSO HERE: ${othersLine}. The guest is the player — speak to them as "you"; their words and actions are their own.`,
     combatBlock,

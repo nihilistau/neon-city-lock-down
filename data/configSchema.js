@@ -95,10 +95,6 @@ export const CONFIG_SCHEMA = {
       thresholds: { ally: num(0, 100), trusted: num(0, 100), loyal: num(0, 100) },
       hysteresis: num(0, 50),
     },
-    gates: {
-      thresholds: { map: { map: num(0, 100) } },
-      explicitnessCap: { suggestive: { type: 'string' }, mature: { type: 'string' }, full: { type: 'string' } },
-    },
   },
   lighting: {
     // presets/tod are deep free-form structures (colors, intensities, pulse variants);

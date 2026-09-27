@@ -8,9 +8,7 @@
 //   2. drops any tag we cannot execute (so compileLine never throws),
 //   3. scrubs prose that narrates the player or other characters.
 //
-// Gates stay authoritative: [[consent:*]] is downgraded to [[gate:offer:*]] —
-// the character can SIGNAL willingness, but actual escalation still goes through
-// stat thresholds + the explicitness cap at the ActorQueue.
+// The model can shift its own stats but never the player's bond directly.
 
 // Our dispatcher's real animation clips (data/poses/*).
 const CLIPS = new Set([
@@ -51,7 +49,6 @@ const FACE_ALIAS = {
 const OUTFITS = new Set(['street_armor', 'evening_wear', 'casual_lounge', 'workout', 'swim', 'sleepwear', 'robe', 'towel']);
 const COVERAGE_MAP = { full: 'evening_wear', partial: 'towel', robe: 'robe', towel: 'towel' };
 const STATS = new Set(['arousal', 'pleasure', 'happiness', 'horniness', 'openness', 'dominance', 'trust', 'tension', 'energy', 'sobriety', 'loyalty', 'fear']);
-const GATE_TIERS = new Set(['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved']);
 
 const TAG_RE = /\[\[\s*([a-zA-Z_]+)\s*(?::([^\]]*))?\]\]/g;
 
@@ -93,17 +90,6 @@ function canonTag(type, arg) {
       const o = OUTFITS.has(first) ? first : COVERAGE_MAP[first];
       return o ? `[[outfit:${o}]]` : '';
     }
-    case 'consent': {
-      // downgrade to an OFFER — real escalation still needs stats + explicitness
-      const tier = GATE_TIERS.has(first) ? first : (first === 'on' || first === 'yes' ? 'kiss' : '');
-      return tier ? `[[gate:offer:${tier}]]` : '';
-    }
-    case 'gate': {
-      const [action, tier] = arg.split(':').map((s) => s.trim().toLowerCase());
-      const safeAction = action === 'grant' ? 'offer' : action; // never let the model hard-grant
-      if (['offer', 'revoke', 'withdraw'].includes(safeAction) && GATE_TIERS.has(tier)) return `[[gate:${safeAction}:${tier}]]`;
-      return '';
-    }
     case 'light': {
       const presets = ['neon_night', 'blackout_emergency', 'candlelit', 'fireplace_warm', 'security_red', 'club_pulse', 'golden_hour', 'dawn_grey', 'storm', 'morning_haze'];
       const L = { evening: 'neon_night', night: 'neon_night', candle: 'candlelit', candlelight: 'candlelit', red: 'security_red', red_light: 'security_red', blackout: 'blackout_emergency', warm: 'fireplace_warm', fire: 'fireplace_warm' };
@@ -112,7 +98,7 @@ function canonTag(type, arg) {
     }
     case 'look_at':
       return arg ? `[[look:${first}]]` : '';
-    // silently drop tags we don't execute (prop, remember, forget, voice, trait, cam, sfx, scene, pair…)
+    // silently drop tags we don't execute (prop, remember, forget, voice, trait, cam, sfx, scene, pair, gate…)
     default:
       return '';
   }
@@ -133,7 +119,7 @@ export function sanitizeTags(raw) {
   text = text.replace(TAG_RE, (_m, type, arg) => canonTag(type, arg));
   // strip stray markdown FENCE MARKERS (keep the content) and hr separators
   text = text.replace(/```[a-z]*/gi, ' ').replace(/^\s*[-*_]{3,}\s*$/gm, ' ');
-  text = text.replace(/\[\[[^\]]*\]\]/g, (m) => (/^\[\[(move|anim|face|mood|look|stat|outfit|gate|light):/.test(m) ? m : ' '));
+  text = text.replace(/\[\[[^\]]*\]\]/g, (m) => (/^\[\[(move|anim|face|mood|look|stat|outfit|light):/.test(m) ? m : ' '));
   // single-bracket spans are never dialogue — the model leaks tag descriptions
   // like "[the ability to influence…]"; drop them (but keep our real [[tags]]).
   text = text.replace(/(?<!\[)\[[^\[\]]{0,80}\](?!\])/g, ' ');
@@ -198,6 +184,5 @@ export function mapStructuredTags(tags, textLen) {
   if (tags.face && FACES.has(tags.face)) out.push({ at: 3, type: 'face', args: [tags.face] });
   const ad = clampD(tags.arousal_delta); if (ad) out.push({ at: end, type: 'stat', args: [`arousal${signed(ad)}`] });
   const td = clampD(tags.tension_delta); if (td) out.push({ at: end, type: 'stat', args: [`tension${signed(td)}`] });
-  if (tags.offer_gate && GATE_TIERS.has(tags.offer_gate)) out.push({ at: end, type: 'gate', args: ['offer', tags.offer_gate] });
   return out.sort((a, b) => a.at - b.at);
 }

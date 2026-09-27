@@ -1,15 +1,13 @@
 // @ts-check
-// Live per-character stat bars + gate pips (the Director rail, always visible).
+// Live per-character stat bars + bond chip (the Director rail, always visible).
 import { on } from '../core/bus.js';
 import { STAT_KEYS } from '../chars/stats.js';
-import { GATE_LADDER } from '../chars/gates.js';
 
 const STAT_COLOR = {
   arousal: '#ff5fa8', pleasure: '#ff8fc0', happiness: '#ffd23f', horniness: '#ff3f6a',
   openness: '#3dff9a', dominance: '#9d6bff', trust: '#39e6ff', tension: '#ff7043',
   energy: '#7fff5a', sobriety: '#8ec7ff', loyalty: '#c39bff', fear: '#ff4757',
 };
-const GATE_SHORT = { light_touch: 'T', kiss: 'K', touch: 'H', undress: 'U', intimate: 'I', explicit: 'X', depraved: 'D' };
 const HERO = ['trust', 'tension', 'openness', 'arousal'];
 const STAT_LABEL = {
   arousal: 'arousal', pleasure: 'pleasure', happiness: 'happy', horniness: 'heat',
@@ -39,7 +37,10 @@ export function initStatBars() {
   on('char.removed', ({ id }) => { const c = cards.get(id); if (c) { c.remove(); cards.delete(id); } });
   on('char.stat', ({ id, stats }) => updateBars(id, stats));
   on('char.mood', ({ id, mood }) => { const c = cards.get(id); if (c) c.querySelector('.mood').textContent = mood; });
-  on('gate.changed', ({ id, gates }) => updateGates(id, gates));
+  on('bond.changed', ({ id, to }) => {
+    const chip = cards.get(id)?.querySelector('.sb-bond');
+    if (chip) { chip.textContent = to; /** @type {HTMLElement} */ (chip).dataset.tier = to; }
+  });
 }
 
 function addCard(character) {
@@ -56,21 +57,17 @@ function addCard(character) {
        <span class="sb-track"><span class="sb-fill" style="background:${STAT_COLOR[k]}"></span></span>
        <span class="sb-val"></span>
      </div>`).join('');
-  const pips = GATE_LADDER.map((t) =>
-    `<span class="sb-pip" data-tier="${t}" title="${t}">${GATE_SHORT[t]}</span>`).join('');
   card.innerHTML = `
-    <div class="sb-head clickable"><span class="sb-name">${character.name}</span><span class="mood">—</span></div>
+    <div class="sb-head clickable"><span class="sb-name">${character.name}</span><span class="mood">—</span><span class="sb-bond" data-tier="${character.bond}">${character.bond}</span></div>
     <div class="sb-body">
       <div class="sb-bars">${bars}</div>
-      <div class="sb-gates">${pips}</div>
     </div>`;
   root.appendChild(card);
   cards.set(character.id, card);
-  // click the header to collapse to name + mood + gates only
+  // click the header to collapse to name + mood + bond only
   card.querySelector('.sb-head').addEventListener('click', () => card.classList.toggle('collapsed'));
   card.classList.add('collapsed');
   updateBars(character.id, character.stats);
-  updateGates(character.id, character.gates);
 }
 
 function updateBars(id, stats) {
@@ -82,15 +79,6 @@ function updateBars(id, stats) {
     const v = Math.round(stats[k]);
     row.querySelector('.sb-fill').style.width = v + '%';
     row.querySelector('.sb-val').textContent = v;
-  }
-}
-
-function updateGates(id, gates) {
-  const card = cards.get(id);
-  if (!card) return;
-  for (const t of GATE_LADDER) {
-    const pip = card.querySelector(`.sb-pip[data-tier="${t}"]`);
-    if (pip) pip.className = `sb-pip ${gates[t]}`;
   }
 }
 

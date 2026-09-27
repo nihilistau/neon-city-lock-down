@@ -7,18 +7,12 @@
  *           'trust'|'tension'|'energy'|'sobriety'|'loyalty'|'fear'} StatKey
  */
 
-/**
- * @typedef {'light_touch'|'kiss'|'touch'|'undress'|'intimate'|'explicit'|'depraved'} GateTier
- */
-
-/** @typedef {'locked'|'offered'|'granted'|'revoked'} GateState */
-
-/** @typedef {'suggestive'|'mature'|'full'} Explicitness */
+/** @typedef {'stranger'|'ally'|'trusted'|'loyal'} BondTier */
 
 /**
  * @typedef {Object} StageDirection
  * @property {number} at        character offset in cleanText where it fires
- * @property {string} type      'anim'|'face'|'mood'|'look'|'move'|'sit'|'pair'|'outfit'|'light'|'cam'|'sfx'|'vox'|'gate'|'wait'|'fx'|'beat'
+ * @property {string} type      'anim'|'face'|'mood'|'look'|'move'|'sit'|'outfit'|'light'|'cam'|'sfx'|'vox'|'wait'|'fx'|'beat'|'stat'
  * @property {string[]} args
  */
 
@@ -33,7 +27,7 @@
  * @property {'goto'|'sit'|'stand'|'playClip'|'face'|'look'|'pairWith'|'unpair'|'say'|'wait'|'outfit'} type
  * @property {any[]} args
  * @property {boolean} [priority]   preempts current queue (events/combat)
- * @property {import('./types.js').GateTier} [gateTier] required gate for intimate commands
+ * @property {import('./types.js').BondTier} [minBond] bond the character must hold for the queue to accept it
  */
 
 export {};

@@ -82,7 +82,6 @@ async function main() {
       for (const d of ln.compiled.directions) {
         if (d.type === 'anim' && !anims.has(d.args[0])) err(`${topic.id}: [[anim:${d.args[0]}]] not a known clip`);
         if (d.type === 'move' && !knownZones.includes(d.args[0])) err(`${topic.id}: [[move:${d.args[0]}]] not a known zone`);
-        if (d.type === 'gate' && !['offer', 'grant', 'revoke'].includes(d.args[0])) err(`${topic.id}: [[gate:${d.args[0]}]] bad action`);
       }
     }
     // triggers reference known intents

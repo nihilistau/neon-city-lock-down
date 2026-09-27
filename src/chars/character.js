@@ -1,8 +1,8 @@
 // @ts-check
-// Character aggregate: the runtime state (stats, gates, consent, memory, mood,
-// wardrobe) bound to its Actor3D + ActorQueue. Bridges pure logic → 3D + bus.
+// Character aggregate: the runtime state (stats, bond, memory, mood, wardrobe)
+// bound to its Actor3D + ActorQueue. Bridges pure logic → 3D + bus.
 import { defaultStats, applyDelta, decayTick, compliance } from './stats.js';
-import { defaultGates, defaultConsent, gateCheck, setGate, highestGranted } from './gates.js';
+import { bondTier, bondAtLeast } from './bond.js';
 import { deriveMood, animTempo } from './mood.js';
 import { Memory } from './memory.js';
 import { emit } from '../core/bus.js';
@@ -34,8 +34,6 @@ export class Character {
     this.queue = queue;
 
     this.stats = { ...defaultStats(), ...(persona.stats || {}) };
-    this.gates = defaultGates();
-    this.consent = defaultConsent();
     this.memory = new Memory();
     this.alive = true;
     this.health = MAX_HEALTH;  // body integrity; 0 → dead (see hurt()/die())
@@ -45,13 +43,32 @@ export class Character {
     this._moodId = null;
     this._moodTimer = 0;
     this.refreshMood(true);
+    /** @type {import('./bond.js').BondTier} */
+    this._bond = bondTier(this.stats);
 
-    // let the ActorQueue consult gates before accepting intimate commands
-    queue.hooks.gateCheck = (tier) => this.gateCheck(tier);
+    // the ActorQueue consults the bond before accepting a minBond-tagged command
+    queue.hooks.bondCheck = (tier) => this.bondAtLeast(tier);
   }
 
   get compliance() { return compliance(this.stats, this._playerDominance ?? 50); }
-  get topGate() { return highestGranted(this.gates); }
+
+  /** Relationship tier with the player — derived from trust + loyalty (src/chars/bond.js). */
+  get bond() { return this._bond; }
+
+  /** @param {import('./bond.js').BondTier} tier */
+  bondAtLeast(tier) { return bondAtLeast(this.stats, tier, this._bond); }
+
+  /**
+   * Re-derive the tier after stats move; announce real crossings only.
+   * @param {boolean} [silent] set when seeding (constructor / restore)
+   */
+  _refreshBond(silent = false) {
+    const next = bondTier(this.stats, this._bond);
+    if (next === this._bond) return;
+    const from = this._bond;
+    this._bond = next;
+    if (!silent) emit('bond.changed', { id: this.id, name: this.name, from, to: next });
+  }
 
   /** @param {number} pd player's dominance for compliance clash */
   setPlayerDominance(pd) { this._playerDominance = pd; }
@@ -66,6 +83,7 @@ export class Character {
     const applied = applyDelta(this.stats, deltas, this.persona.personality);
     emit('char.stat', { id: this.id, applied, stats: this.stats, cause });
     this.refreshMood();
+    this._refreshBond();
     return applied;
   }
 
@@ -74,6 +92,7 @@ export class Character {
     if (!this.alive) return;
     decayTick(this.stats, minutes);
     this.refreshMood();
+    this._refreshBond();
   }
 
   /**
@@ -151,29 +170,6 @@ export class Character {
     this.actor.setDowned(true);
   }
 
-  /** @param {import('../core/types.js').GateTier} tier */
-  gateCheck(tier) {
-    // explicitness read lazily to avoid a settings import cycle at module load
-    const explicitness = (globalThis.__ncldExplicitness) || 'mature';
-    return gateCheck(this, tier, { explicitness });
-  }
-
-  /**
-   * Sanctioned gate transition + side effects (feed, bus).
-   * @param {import('../core/types.js').GateTier} tier
-   * @param {'offer'|'grant'|'revoke'|'withdraw'|'safeword'|'reset_withdraw'} action
-   * @param {number} [atMinute]
-   */
-  gate(tier, action, atMinute = 0) {
-    const ok = setGate(this, tier, action, atMinute);
-    if (ok) {
-      emit('gate.changed', { id: this.id, tier, action, gates: this.gates });
-      if (action === 'grant') feed(`${this.name} welcomed ${tier.replace('_', ' ')}.`, 'gate');
-      if (action === 'withdraw' || action === 'safeword') feed(`${this.name} pulled back.`, 'gate');
-    }
-    return ok;
-  }
-
   /** recompute mood; push face + idle + tempo to the actor when it changes */
   refreshMood(force = false) {
     if (!this.alive) return;   // the dead don't emote
@@ -190,7 +186,7 @@ export class Character {
 
   serialize() {
     return {
-      id: this.id, stats: this.stats, gates: this.gates, consent: this.consent,
+      id: this.id, stats: this.stats, bond: this._bond,
       memory: this.memory.serialize(), alive: this.alive, health: this.health,
       injuries: this.injuries,
       pos: this.actor.root.position.toArray(), zone: this.queue.zone,
@@ -199,7 +195,9 @@ export class Character {
   /** @param {any} d */
   restore(d) {
     Object.assign(this.stats, d.stats);
-    this.gates = d.gates; this.consent = d.consent;
+    // legacy v0.5 saves carry gates/consent from the retired intimacy ladder; ignored
+    this._bond = d.bond || undefined;
+    this._refreshBond(true);
     this.memory = Memory.deserialize(d.memory);
     this.alive = d.alive ?? true;
     this.health = d.health ?? (this.alive ? MAX_HEALTH : 0);

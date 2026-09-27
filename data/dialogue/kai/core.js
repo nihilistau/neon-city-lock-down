@@ -158,7 +158,7 @@ registerTopics([
       { when: { statGte: { trust: 60 } },
         text: "[[face:neutral]] [[look:player]] I should tell you I'm very good at this and none of it would be true tonight. [[face:smile:0.3]] [[anim:gesture_lean_in]] That's the compliment. I've stopped working on you.",
         fx: { arousal: 7, trust: 3, openness: 3 } },
-      { when: { gateAtLeast: 'kiss' },
+      { when: { bondAtLeast: 'ally' },
         text: "[[anim:gesture_lean_in]] [[face:smile:0.4]] [[look:player]] You've noticed I don't ask twice for anything. [[face:smirk]] I've asked you rather a lot of times. Draw the obvious conclusion and act on it.",
         fx: { arousal: 9, horniness: 6 } },
       { when: { statLte: { sobriety: 60 } },

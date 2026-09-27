@@ -4,12 +4,20 @@
 // tools/lint-data.mjs without launching a browser).
 
 import { STAT_KEYS } from '../src/chars/stats.js';
-import { GATE_LADDER } from '../src/chars/gates.js';
+import { BOND_TIERS } from '../src/chars/bond.js';
 
 const STAT_SET = new Set(STAT_KEYS);
-const GATE_SET = new Set(GATE_LADDER);
+const BOND_SET = new Set(BOND_TIERS);
 
 function assert(cond, msg) { if (!cond) throw new Error(`[schema] ${msg}`); }
+
+/** @param {any} c @param {string} where */
+function assertBond(c, where) {
+  if (!c) return;
+  for (const k of ['bondAtLeast', 'bondBelow']) {
+    if (c[k] != null) assert(BOND_SET.has(c[k]), `${where}.${k} must be one of ${BOND_TIERS.join('|')}`);
+  }
+}
 
 function validateStatMap(map, where) {
   if (!map) return;
@@ -41,12 +49,11 @@ export function topic(id, def) {
     assert(typeof ln.text === 'string', `topic ${id}: line.text must be a string`);
     validateStatMap(ln.fx, `topic ${id} line.fx`);
     if (ln.game) assertGame(ln.game, `topic ${id} line.game`);
+    assertBond(ln.when, `topic ${id} line.when`);
   }
+  assertBond(def.cond, `topic ${id} cond`);
   if (def.effects) {
     validateStatMap(def.effects.stat, `topic ${id} effects.stat`);
-    if (def.effects.gate) {
-      assert(GATE_SET.has(def.effects.gate.tier), `topic ${id}: bad gate tier`);
-    }
     if (def.effects.game) assertGame(def.effects.game, `topic ${id}: effects.game`);
   }
   if (def.triggers) for (const t of def.triggers) {

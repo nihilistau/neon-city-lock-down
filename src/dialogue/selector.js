@@ -59,10 +59,7 @@ function whenOk(when, char) {
   if (when.mood && !when.mood.includes(char.mood?.id)) return false;
   if (when.flag && !char.memory.hasFlag(when.flag)) return false;
   if (when.notFlag && char.memory.hasFlag(when.notFlag)) return false;
-  if (when.gateAtLeast) {
-    const order = ['light_touch', 'kiss', 'touch', 'undress', 'intimate', 'explicit', 'depraved'];
-    const top = char.topGate;
-    if (!top || order.indexOf(top) < order.indexOf(when.gateAtLeast)) return false;
-  }
+  if (when.bondAtLeast && !char.bondAtLeast(when.bondAtLeast)) return false;
+  if (when.bondBelow && char.bondAtLeast(when.bondBelow)) return false;
   return true;
 }

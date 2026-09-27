@@ -73,7 +73,6 @@ import { Brain } from '../sim/ai/brain.js';
 import { Relationships } from '../sim/ai/relationships.js';
 import { VoxActorStub, VoxQueueStub } from '../chars/voxPresence.js';
 import { Wardrobe } from '../chars/wardrobe.js';
-import { startPairedPose } from '../humanoid/pairedPoses.js';
 import { ZONES, FLOORS } from '../../data/zones.js';
 import { MYSTERY_CASES } from '../../data/games/mysteryCases.js';
 import { zoneAt, waypointPos, elevatorPos } from '../sim/actors/nav.js';
@@ -1297,12 +1296,11 @@ export class App {
         light: (preset) => this.lighting.apply(preset),
         setStat: (id, deltas) => this.cast[id]?.applyStats(deltas, 'debug'),
         stats: (id) => this.cast[id]?.stats,
-        gate: (id, tier, action) => this.cast[id]?.gate(tier, action, this.clock.totalMinutes),
+        bond: (id) => this.cast[id]?.bond,
         say: (text, target) => this.dialogue?.playerSays(text, target),
         forceEvent: (id) => this.eventRunner?.fire(id),
         run: () => this.run,
         threat: () => this.run?.threat,
-        pair: (poseId, a, b) => startPairedPose(poseId, this.cast[a], this.cast[b]),
         outfit: (id, outfitId) => this.cast[id]?.wardrobe?.change(outfitId),
         needs: (id) => this.brains?.[id]?.needs,
         save: (slot) => saveToSlot(this, slot ?? 1),

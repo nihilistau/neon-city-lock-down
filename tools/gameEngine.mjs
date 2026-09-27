@@ -22,7 +22,6 @@ const CLIPS = ['none', 'idle_stand', 'idle_confident', 'idle_shy', 'walk', 'sit_
   'lounge', 'dance_sway', 'gesture_lean_in', 'gesture_shrug', 'gesture_cross_arms', 'crouch'];
 const FACES = ['neutral', 'smile', 'smirk', 'grin', 'frown', 'pout', 'glare', 'blush', 'wink', 'open', 'brow'];
 const MOODS = ['flirty', 'sultry', 'playful', 'cold', 'tense', 'warm', 'guarded', 'confident'];
-const GATES = ['', 'kiss', 'touch', 'undress', 'intimate'];
 
 const TAG_SCHEMA = z.object({
   move: z.enum(ZONES).describe('room the character walks to, or "" to stay put'),
@@ -32,7 +31,6 @@ const TAG_SCHEMA = z.object({
   look_at_player: z.boolean().describe('are they looking at the guest'),
   arousal_delta: z.number().int().describe('change in the character\'s arousal, -15..+15'),
   tension_delta: z.number().int().describe('change in tension, -15..+15'),
-  offer_gate: z.enum(GATES).describe('an intimacy the character now welcomes, or ""'),
 });
 
 let _engine = null;
@@ -69,7 +67,6 @@ RULES:
 - face/mood: the expression/feeling the line conveys.
 - look_at_player: true only if their gaze is on the guest.
 - arousal_delta / tension_delta: small (-10..10), 0 if unchanged.
-- offer_gate: an intimacy they clearly invite (kiss/touch/undress/intimate), else "".
 Be conservative: prefer ""/"none"/0 unless the line clearly shows it.`;
 }
 

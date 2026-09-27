@@ -3,6 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOND_TIERS, bondScore, bondTier, bondAtLeast, bondIndex } from '../../src/chars/bond.js';
+import { Character } from '../../src/chars/character.js';
+import { on, resetBus } from '../../src/core/bus.js';
+import * as THREE from 'three';
+import lola from '../../data/cast/lola.js';
 
 const s = (trust, loyalty) => ({ trust, loyalty });
 
@@ -46,4 +50,51 @@ test('bondAtLeast compares against the (hysteresis-aware) tier', () => {
   assert.equal(bondAtLeast(s(40, 40), 'trusted'), false);
   assert.equal(bondAtLeast(s(33, 33), 'ally', 'ally'), true);
   assert.equal(bondAtLeast(s(0, 0), 'stranger'), true);
+});
+
+function stubChar(persona) {
+  const actor = { root: { position: new THREE.Vector3() }, setTempo() {}, playClip() {}, setDowned() {},
+    face: { setExpression() {} } };
+  const queue = { hooks: {}, zone: null, clear() {}, goto() {} };
+  return new Character(persona, /** @type {any} */ (actor), /** @type {any} */ (queue));
+}
+
+test('Character exposes bond and emits bond.changed once per real crossing', () => {
+  resetBus();
+  const c = stubChar(lola);
+  c.stats.trust = 20; c.stats.loyalty = 20; c._refreshBond(true);
+  assert.equal(c.bond, 'stranger');
+  const seen = [];
+  on('bond.changed', (e) => seen.push(e));
+  c.applyStats({ trust: 30, loyalty: 30 }, 'test');     // → ally (unless receptivity dampens; see below)
+  c.stats.trust = 40; c.stats.loyalty = 40; c._refreshBond();
+  assert.equal(c.bond, 'ally');
+  c.stats.trust = 33; c.stats.loyalty = 33; c._refreshBond();   // dip inside hysteresis
+  assert.equal(c.bond, 'ally');
+  assert.equal(seen.filter((e) => e.to === 'ally').length, 1);
+  assert.ok(c.bondAtLeast('ally'));
+  assert.ok(!c.bondAtLeast('trusted'));
+});
+
+test('serialize carries bond; restore ignores legacy gates/consent', () => {
+  const c = stubChar(lola);
+  c.stats.trust = 60; c.stats.loyalty = 60; c._refreshBond(true);
+  const d = c.serialize();
+  assert.equal(d.bond, 'trusted');
+  assert.ok(!('gates' in d) && !('consent' in d));
+  const c2 = stubChar(lola);
+  c2.restore({ ...d, gates: { kiss: 'granted' }, consent: {} });
+  assert.equal(c2.bond, 'trusted');
+  assert.ok(!('gates' in c2));
+});
+
+test('ActorQueue refuses a minBond command the character has not reached', async () => {
+  const { ActorQueue } = await import('../../src/sim/actors/actorQueue.js');
+  const actor = { id: 'x', root: { position: new THREE.Vector3() } };
+  const q = new ActorQueue(/** @type {any} */ (actor), /** @type {any} */ ({}), {
+    bondCheck: (tier) => tier === 'ally',
+  });
+  assert.equal(q.push({ type: 'wait', args: [1], minBond: 'trusted' }), false);
+  assert.equal(q.push({ type: 'wait', args: [1], minBond: 'ally' }), true);
+  assert.equal(q.push({ type: 'wait', args: [1] }), true);
 });
