@@ -81,7 +81,7 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   </tr>
 </table>
 
-<sub>All but the extraction screen are captured from the running game by <code>node tools/screenshots.mjs</code> — see <a href="docs/development.md">docs/development.md</a>.</sub>
+<sub>Every image is captured from the running game by <code>node tools/screenshots.mjs</code> — see <a href="docs/development.md">docs/development.md</a>.</sub>
 
 ---
 

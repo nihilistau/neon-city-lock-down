@@ -23,8 +23,9 @@ and adds a test that keeps it that way.
   AGENTS.md.
 - **New screenshots:** `01-main-menu`, `11-bond-rail` (all four bond tiers on
   the stat rail, with the "would follow you anywhere" toast), `12-bed-together`
-  (sitting on the bed with an ally beside you), `13-stay-the-night` (the fade
-  and its one narration line).
+  (you and an ally sitting side by side on the bed, from a cinematic
+  three-quarter camera), `13-stay-the-night` (the fade and its one narration
+  line, framed large and centred).
 
 ### Changed
 - **docs/ rewritten for bonds and the bed scene.** `docs/systems/characters-
@@ -36,10 +37,22 @@ and adds a test that keeps it that way.
   `camera.md`, `humanoid.md`, `scenario-toolkit.md`, `docs/config/chars.md`,
   the config and creation-kit guides, the demo script and the lmstudio-engine
   README no longer describe anything that was removed.
-- **Re-captured screenshots** `02` through `06`, `08` and `09` with the new
-  tool: all but the cutscene still showed the 12-stat rail with gate pips, and
-  `08` showed removed outfit and stat buttons in the Director's Cast tab.
-  `10-extraction-victory` is unchanged.
+- **Re-captured screenshots** `02` through `06` and `08` through `10` with the
+  new tool: all but the cutscene still showed the 12-stat rail with gate pips,
+  `08` showed removed outfit and stat buttons in the Director's Cast tab, and
+  `10` showed the old cold/wary/warm/devoted bond labels.
+- **The run summary's Bonds list speaks the bond tier.** The death/extraction
+  screen (`src/ui/deathScreen.js`) labelled bonds cold/wary/warm/devoted from
+  raw trust on thresholds of its own; it now shows each character's tier
+  (stranger / ally / trusted / loyal) as `endRun()` records it
+  (`summary.bondTiers`, from `src/chars/bond.js`, hysteresis included). Raw
+  trust is still recorded for meta history and the `vox_confided` unlock.
+- **All-audiences tone lexicon.** `src/dialogue/parser/tone.js` no longer
+  counts sexy, naughty, dirty, seduce, lips, skin, body, bed, hot, crave,
+  desire or touch as flirt, or kneel and strip as a command. Flirt is PG-13
+  only: kiss, flirt, tease, wink, charm, cute, pretty, handsome, gorgeous,
+  date, dance, blush, want, need, close, closer.
+- The stat rail is 200px wide (was 186px).
 - The music conductor's `intimacy` mood axis is now `closeness` — it only picks
   the lydian scale and a longer note decay.
 - Aria's background is consistent everywhere: the README cast table and two of
@@ -61,6 +74,10 @@ and adds a test that keeps it that way.
   game".
 - `migrate()` in `src/core/save.js` now says that it mutates the envelope in
   place and why that's safe (every caller passes a freshly parsed object).
+- The stat-rail header ran a character's name straight into their mood
+  ("Aria ChenWARM"): the bond chip's `margin-left: auto` inside a
+  `space-between` header ate every free pixel. The header now has a gap, the
+  name and chip never shrink, and a long mood ellipsises (full text on hover).
 
 ## [0.6.0-beta.1] — 2026-09-27 — The bed is just a bed
 
