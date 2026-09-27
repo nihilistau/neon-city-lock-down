@@ -89,6 +89,12 @@ async function boot(page, to) {
     await until(page, 'the opening cutscene', (app) => app.cutscene?.playing === true);
     return;
   }
+  // Quiet the world the moment the run exists, not after the settle: in a batch,
+  // a dinner beat or world event fired during the settle took the camera, and
+  // the director shots came out as the lounge's auto camera. The scheduler is
+  // built a few lines after mode flips to 'run', so wait for it first.
+  await until(page, 'the scheduler', (app) => !!app.scheduler);
+  await quiet(page);
   // Same settle loop as test/smoke/smoke.spec.mjs: wait for scenarioSettled and
   // keep pressing Escape while the intro plays (a single press races its start).
   for (let i = 0; i < 90; i++) {
@@ -115,6 +121,29 @@ async function boot(page, to) {
  * handed it back in a different mode.
  */
 const quiet = (page) => game(page, (app) => { app.scheduler.hold = true; app._beatPlayable = () => false; });
+
+/**
+ * Frame a director-camera shot and make sure it is still framed at capture
+ * time. Anything that plays a cutscene hands the camera back in another mode;
+ * like the two-shot guard, check after settling — but re-stage once (after
+ * ending the cutscene) before giving up, since a stray beat is transient.
+ * @param {Page} page @param {(app: any) => void} frame @param {number} settleMs
+ */
+async function directorShot(page, frame, settleMs) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await quiet(page);
+    await game(page, frame);
+    await sleep(settleMs);
+    const s = await game(page, (app) => ({ mode: app.cameraRig.mode, playing: app.cutscene?.playing === true }));
+    if (s.mode === 'director' && !s.playing) return;
+    console.warn(`  (camera left the director shot: mode ${s.mode}, cutscene ${s.playing}; re-staging)`);
+    for (let i = 0; i < 20 && (await game(page, (app) => app.cutscene?.playing === true)); i++) {
+      await page.keyboard.press('Escape');
+      await sleep(500);
+    }
+  }
+  throw new Error('the camera would not stay on the director shot');
+}
 
 /**
  * Raise trust + loyalty until a character reaches a bond tier (debug.setStat
@@ -337,45 +366,39 @@ const SHOTS = [
     // surfaces the PBR pass changes most
     name: 'bar', file: '14-bar', size: WIDE,
     stage: async (page) => {
-      await quiet(page);
-      await game(page, (app) => {
+      await directorShot(page, (app) => {
         app.cameraRig.setMode('director');
         app.cameraRig.orbit.maxDistance = 60;
         app.cameraRig.orbit.target.set(4.6, 1.05, -4.6);
         app.stage.camera.position.set(1.4, 1.75, -0.9);
         app.cameraRig.orbit.update();
-      });
-      await sleep(3000);
+      }, 3000);
     },
   },
   {
     name: 'rooftop', file: '15-rooftop', size: WIDE,
     stage: async (page) => {
-      await quiet(page);
-      await game(page, (app) => {
-        app.setFloor('rooftop');
+      await directorShot(page, (app) => {
+        if (app.world.activeFloor !== 'rooftop') app.setFloor('rooftop');
         app.cameraRig.setMode('director');
         app.cameraRig.orbit.maxDistance = 60;
         app.cameraRig.orbit.target.set(203, 0.8, 0.5);    // rooftop floor offset is x+200
         app.stage.camera.position.set(193.5, 4.2, 7.2);
         app.cameraRig.orbit.update();
-      });
-      await sleep(4000);
+      }, 4000);
     },
   },
   {
     // through the curtain wall: skyline, towers, rain
     name: 'exterior', file: '16-exterior', size: WIDE,
     stage: async (page) => {
-      await quiet(page);
-      await game(page, (app) => {
+      await directorShot(page, (app) => {
         app.cameraRig.setMode('director');
         app.cameraRig.orbit.maxDistance = 60;
         app.cameraRig.orbit.target.set(3, 3.5, 30);
         app.stage.camera.position.set(2.2, 1.7, 6.4);
         app.cameraRig.orbit.update();
-      });
-      await sleep(4000);
+      }, 4000);
     },
   },
   {
