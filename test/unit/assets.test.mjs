@@ -116,6 +116,59 @@ test('every loadGLTF / peekGLTF returns its own clone', async () => {
   assert.equal(await assets.loadGLTF('pack/saucer'), null, 'a model name the pack does not have');
 });
 
+test('a throwing model clone resolves loadGLTF to null (never rejects) and warns once', async () => {
+  const logs = [];
+  const assets = createAssets({
+    loaders: {
+      texture: async (url) => new THREE.Texture(),
+      hdr: async (url) => new THREE.DataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType),
+      gltf: async (url) => {
+        const scene = new THREE.Group();
+        scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+        return { scene };
+      },
+      lut: async (url) => ({ texture3D: new THREE.Data3DTexture(new Uint8Array(32), 2, 2, 2) }),
+      clone: () => { throw new Error('boom'); },
+    },
+    log: (m) => logs.push(m),
+    fetchJson: async () => MANIFEST,
+  });
+  await assets.init();
+  await assert.doesNotReject(async () => {
+    const r = await assets.loadGLTF('pack/cup');
+    assert.equal(r, null);
+  });
+  assert.equal(await assets.loadGLTF('pack/cup'), null);
+  assert.equal(logs.length, 1);
+  assert.match(logs[0], /pack\/cup/);
+});
+
+test('a throwing model clone makes peekGLTF resolve to null (never throws) and warns once', async () => {
+  const logs = [];
+  const assets = createAssets({
+    loaders: {
+      texture: async (url) => new THREE.Texture(),
+      hdr: async (url) => new THREE.DataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType),
+      gltf: async (url) => {
+        const scene = new THREE.Group();
+        scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+        return { scene };
+      },
+      lut: async (url) => ({ texture3D: new THREE.Data3DTexture(new Uint8Array(32), 2, 2, 2) }),
+      clone: () => { throw new Error('boom'); },
+    },
+    log: (m) => logs.push(m),
+    fetchJson: async () => MANIFEST,
+  });
+  await assets.init();
+  await assets.preload([{ kind: 'gltf', id: 'pack/cup' }]);
+  assert.equal(logs.length, 1, 'the failed load-time clone already warned once');
+  assert.doesNotThrow(() => {
+    assert.equal(assets.peekGLTF('pack/cup'), null);
+  });
+  assert.equal(logs.length, 1, 'peekGLTF reuses the same warn-once key');
+});
+
 test('loadEquirect marks the mapping; loadHDRI hands back the PMREM texture', async () => {
   const { assets } = make();
   await assets.init();

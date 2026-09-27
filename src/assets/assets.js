@@ -79,11 +79,11 @@ export function createAssets(opts = {}) {
   const url = (/** @type {ManifestFile} */ f) => `${base}${f.path}`;
   const cloneScene = (/** @type {THREE.Object3D} */ s) => (resolved?.clone ?? ((x) => x.clone(true)))(s);
 
-  /** @param {string} id @param {string} kind */
+  /** @param {string} id @param {string} [kind] */
   function entry(id, kind) {
     const e = entries.get(id);
     if (!e) throw new Error(`"${id}" is not in assets/manifest.json`);
-    if (e.kind !== kind) throw new Error(`"${id}" is a ${e.kind}, not a ${kind}`);
+    if (kind !== undefined && e.kind !== kind) throw new Error(`"${id}" is a ${e.kind}, not a ${kind}`);
     return e;
   }
   /** @param {ManifestEntry} e @param {string} role @param {string} [name] */
@@ -147,8 +147,7 @@ export function createAssets(opts = {}) {
     /** @param {string} id @param {string} role e.g. 'diff' */
     loadTexture(id, role) {
       return once(`texture:${id}:${role}`, async () => {
-        const e = entries.get(id);
-        if (!e) throw new Error(`"${id}" is not in assets/manifest.json`);
+        const e = entry(id);
         const t = await (await loaders()).texture(url(file(e, role)));
         return prep(t, role === 'diff');
       });
@@ -194,17 +193,30 @@ export function createAssets(opts = {}) {
     },
 
     /** @param {string} ref 'pack/model' @returns {Promise<THREE.Object3D|null>} a fresh clone */
-    loadGLTF(ref) {
-      return once(`gltf:${ref}`, async () => {
+    async loadGLTF(ref) {
+      const scene = await once(`gltf:${ref}`, async () => {
         const [pack, name] = splitRef(ref);
         const g = await (await loaders()).gltf(url(file(entry(pack, 'gltf'), 'model', name)));
         return g.scene;
-      }).then((scene) => (scene ? cloneScene(scene) : null));
+      });
+      if (!scene) return null;
+      try {
+        return cloneScene(scene);
+      } catch (err) {
+        warnOnce(`gltf-clone:${ref}`, `gltf:${ref} clone failed (${err instanceof Error ? err.message : err}) — using the procedural fallback`);
+        return null;
+      }
     },
     /** @param {string} ref @returns {THREE.Object3D|null} a fresh clone */
     peekGLTF(ref) {
       const s = done.get(`gltf:${ref}`);
-      return s ? cloneScene(s) : null;
+      if (!s) return null;
+      try {
+        return cloneScene(s);
+      } catch (err) {
+        warnOnce(`gltf-clone:${ref}`, `gltf:${ref} clone failed (${err instanceof Error ? err.message : err}) — using the procedural fallback`);
+        return null;
+      }
     },
 
     /** @param {string} id */
