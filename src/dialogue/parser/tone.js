@@ -13,8 +13,7 @@ const LEX = {
   command: ['do', 'go', 'come', 'stop', 'give', 'get', 'move', 'now', 'must', 'will', 'obey',
     'kneel', 'strip', 'tell', 'show', 'bring', 'sit', 'stand', 'wait', 'listen', 'drink'],
   flirt: ['kiss', 'touch', 'want', 'need', 'desire', 'tease', 'seduce', 'body', 'lips', 'skin',
-    'bed', 'close', 'closer', 'hot', 'sexy', 'naughty', 'dirty', 'wet', 'hard', 'undress',
-    'naked', 'pleasure', 'moan', 'crave'],
+    'bed', 'close', 'closer', 'hot', 'sexy', 'naughty', 'dirty', 'crave'],
   fear: ['scared', 'afraid', 'help', 'please', 'run', 'hide', 'danger', 'panic', 'terrified'],
 };
 

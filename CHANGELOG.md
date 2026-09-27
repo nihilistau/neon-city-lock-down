@@ -33,6 +33,31 @@ becomes ordinary furniture instead of a game screen.
   working on the codebase: run/test/lint commands, the architecture spine,
   content rules, and release discipline.
 
+### Changed
+- **The LLM contract is now all-audiences.** `src/dialogue/llm/promptBuilder.js`'s
+  `CONTRACT` no longer describes the game as "adults-only (18+)" or instructs the
+  model to write explicit sexual content; characters can be warm, loyal, wry,
+  scared, angry, or lightly flirtatious, but never sexual or graphic, and are
+  told to deflect a guest who pushes for sex. `config/llm.yaml` and
+  `docs/config/llm.md`'s `heated` budget comment now reads "high tension or
+  live combat" instead of naming arousal/intimacy.
+- **Intents and tone vocabulary scrub.** `data/dialogue/intents.js`'s `flirt`
+  intent drops `sexy`, `bed`, `naughty`, and the `take off` phrase; its
+  `command` intent drops `kneel` and `strip`; the standalone `escalate` intent
+  is retired (Lola's "Push closer" branch and `lola.flirt.closer` trigger off
+  `flirt` alone now). `src/dialogue/parser/tone.js`'s `flirt` lexicon drops
+  `wet`, `hard`, `undress`, `naked`, `pleasure`, and `moan`.
+- **Aria Chen is now a corporate negotiator**, not a street-level escort: her
+  bio (`data/cast/aria.js`) says she closed deals and smoothed scandals for
+  executives with too much money and knows exactly what they're afraid of.
+  Her matching flirt line in `data/dialogue/aria/core.js` was rewritten to fit.
+- **Flirt-line text pass.** Rewrote authored dialogue that implied sex,
+  staged intimacy, or undressing rather than PG-13 banter: Kai's "draw the
+  obvious conclusion" line (`data/dialogue/kai/core.js`), and Lola's "talked
+  into it" / "ask again when the sirens stop" / "earn the next step" lines
+  (`data/dialogue/lola/core.js`). Every `[[tag]]`, `when`, and `fx` is
+  unchanged — only the prose.
+
 ### Removed
 - `src/humanoid/pairedPoses.js` — orphaned once the guest brain-hold moved onto
   `Brain#hold()`/`release()`.

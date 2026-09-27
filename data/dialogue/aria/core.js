@@ -129,7 +129,7 @@ registerTopics([
         text: "[[face:blush:0.5]] [[face:grin]] Careful. I'm shy, not made of glass. [[look:player]] Say it again. Slower.",
         fx: { happiness: 3 } },
       { when: { statGte: { trust: 65 } },
-        text: "[[face:blush:0.5]] [[face:smile]] [[look:player]] You know what's strange? I've been paid a great deal of money to hear things like that. [[anim:gesture_lean_in]] This is the first time one landed anywhere.",
+        text: "[[face:blush:0.5]] [[face:smile]] [[look:player]] You know what's strange? I used to get paid to make rich men feel listened to. [[anim:gesture_lean_in]] You're the first one I actually wanted to listen to.",
         fx: { trust: 4, happiness: 4 } },
       { when: { bondAtLeast: 'ally' },
         text: "[[face:blush:0.6]] [[face:grin]] [[look:player]] You're allowed to just come here, you know. [[anim:gesture_lean_in]] You don't have to build up to me every single time. [[face:smile]] ...Though I do like watching you try.",

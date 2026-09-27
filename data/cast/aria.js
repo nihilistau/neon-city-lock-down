@@ -1,6 +1,6 @@
 // @ts-check
 // Aria Chen — shy → playful. Sweet newcomer whose nerves lose to her curiosity.
-// High-end street-girl; new to this level of the city, not new to people.
+// A corporate negotiator; new to this level of the city, not new to people.
 
 export const aria = {
   id: 'aria',
@@ -40,10 +40,11 @@ export const aria = {
     loyalty: 20, fear: 22,
   },
 
-  bio: `Aria came up from the street markets selling company and conversation to
-people with too much money. She talked her way into the tower for a client meeting
-the night the gates dropped. Everyone assumes she's fragile. Everyone is wrong —
-her nerves are loud but her curiosity is louder, and she's watching everything.`,
+  bio: `Aria came up negotiating deals and smoothing scandals for executives with
+too much money — she knows exactly what they're afraid of. She talked her way into
+the tower for a client meeting the night the gates dropped. Everyone assumes she's
+fragile. Everyone is wrong — her nerves are loud but her curiosity is louder, and
+she's watching everything.`,
 };
 
 export default aria;

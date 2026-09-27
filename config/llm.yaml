@@ -24,7 +24,7 @@ sampling:                             # extra per-request sampling (temperature 
 
 budgets:                              # max reply tokens by situation
   normal: 1600
-  heated: 2200                        # tense / flirty / combat scenes
+  heated: 2200                        # high tension or live combat
   rewrite: 300                        # restyle-authored-line mode
 
 reasoning:                            # <think> parsing markers (thinking toggle is in the panel)

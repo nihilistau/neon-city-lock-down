@@ -159,7 +159,7 @@ registerTopics([
         text: "[[face:neutral]] [[look:player]] I should tell you I'm very good at this and none of it would be true tonight. [[face:smile:0.3]] [[anim:gesture_lean_in]] That's the compliment. I've stopped working on you.",
         fx: { trust: 3, openness: 3 } },
       { when: { bondAtLeast: 'ally' },
-        text: "[[anim:gesture_lean_in]] [[face:smile:0.4]] [[look:player]] You've noticed I don't ask twice for anything. [[face:smirk]] I've asked you rather a lot of times. Draw the obvious conclusion and act on it.",
+        text: "[[anim:gesture_lean_in]] [[face:smile:0.4]] [[look:player]] You've noticed I don't ask twice for anything. [[face:smirk]] I've asked you rather a lot of times. Draw the obvious conclusion — I like the company.",
         fx: { happiness: 2, trust: 1 } },
       { when: { statLte: { sobriety: 60 } },
         text: "[[face:smile:0.3]] [[look:player]] Two drinks and I get precise instead of quiet. [[anim:gesture_lean_in]] So: I'd like you to stay in this chair, and I'd like to keep talking, and I'd like both of those to take a while.",

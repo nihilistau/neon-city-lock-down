@@ -61,10 +61,8 @@ npm run test:all            # unit + lint + e2e
   naked, erotic, `bed_*` clip names, gate/gateTier, consent-gate).
 - **The LLM contract is a noir survival drama.** Characters may be warm,
   loyal, or lightly flirtatious (PG-13); no sexual content. `src/dialogue/llm/promptBuilder.js`'s
-  `CONTRACT` still contains pre-cleanse adults-only/explicit instructions as of
-  this release — that rewrite is scoped to a follow-up LLM task, not yet
-  landed. Don't copy that prompt's current wording into new work; treat it as
-  known-stale.
+  `CONTRACT` reflects this as of this release — never sexual, never graphic,
+  deflect a guest who pushes for sex.
 
 ## Conventions
 
