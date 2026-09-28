@@ -99,3 +99,26 @@ test('softKnee: identity below the knee, smooth through it, never reaches the ca
   }
   assert.ok(softKnee(20000, 1, 3) <= 3, 'a street-lamp core lands on the cap, not past it');
 });
+
+test('RainStreaks: one instanced draw, count from density, bounded by its volume', async () => {
+  const { RainStreaks } = await import('../../src/scene3d/rain.js');
+  const vol = { x: /** @type {[number,number]} */ ([-12, 12]), y: /** @type {[number,number]} */ ([0, 14]), z: /** @type {[number,number]} */ ([-10, 10]) };
+  const rain = new RainStreaks(vol, seq([0.1, 0.5, 0.9]), { density: 1 });
+  assert.equal(rain.mesh.geometry.isInstancedBufferGeometry, true);
+  assert.equal(rain.mesh.geometry.instanceCount, RAIN_BASE);
+  assert.equal(rain.mesh.geometry.getAttribute('offset').count, RAIN_MAX);
+  rain.setDensity(0.5);
+  assert.equal(rain.mesh.geometry.instanceCount, RAIN_BASE / 2);
+  rain.setDensity(0);
+  assert.equal(rain.mesh.visible, false);
+  const THREE = await import('three');
+  // the shader wraps every drop inside the volume, so a far corner must be inside the bound
+  assert.ok(rain.mesh.geometry.boundingSphere.containsPoint(new THREE.Vector3(12, 14, 10)));
+  assert.ok(rain.mesh.geometry.boundingSphere.containsPoint(new THREE.Vector3(-12, 0, -10)));
+});
+
+test('the tower builder no longer uses Math.random (rain was the last one)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../../src/scene3d/tower/zoneBuilder.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /Math\.random/);
+});

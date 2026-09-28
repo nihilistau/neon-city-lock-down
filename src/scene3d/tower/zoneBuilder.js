@@ -17,6 +17,8 @@ import { cityWindowsTexture, cityTowerMaterial } from '../materials/cityWindows.
 import { skyDomeMaterial } from '../materials/skyDome.js';
 import { patchReflectBoost } from '../materials/reflectBoost.js';
 import { windowOffsets } from '../envMath.js';
+import { RainStreaks } from '../rain.js';
+import { applyRainOnGlass, RAIN_GLASS_UNIFORMS } from '../materials/rainGlass.js';
 
 const TAU = Math.PI * 2;
 /** Radius of the HDRI sky dome: past the farthest tower (≈95 m) and well inside the camera's 400 m far plane. */
@@ -29,11 +31,12 @@ const DOME_RADIUS = 180;
  */
 const DOME_YAW = 0.13;
 
-// a fresh material per call, so the reflection boost patches no shared instance
-const glassMat = () => patchReflectBoost(new THREE.MeshStandardMaterial({
+// A fresh material per call, so neither patch touches a shared instance. Rain
+// goes on top of the reflection boost, not instead of it (rainGlass.js).
+const glassMat = () => applyRainOnGlass(patchReflectBoost(new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
   roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
-}));
+})));
 // Normal-map strengths are tuned per surface: concrete carries broad grime
 // streaks (soft), tile has hard grout channels (deep), brushed metal is fine
 // directional grain (shallow but tight).
@@ -71,6 +74,8 @@ export class World3D {
     this.furnitureGroups = {};
     /** @type {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}[]} */
     this.exteriors = [];
+    /** @type {RainStreaks[]} one per rain volume (bar terrace, rooftop) */
+    this.rains = [];
     /** @type {THREE.Color|null} the current sky grade (Lighting.skyColor), for domes made later */
     this._skyGrade = null;
     this.activeFloor = 'penthouse';
@@ -873,25 +878,21 @@ export class World3D {
   }
 
   _buildRain(group, vol) {
-    const count = 500;
-    const positions = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = vol.x[0] + Math.random() * (vol.x[1] - vol.x[0]);
-      positions[i * 3 + 1] = vol.y[0] + Math.random() * (vol.y[1] - vol.y[0]);
-      positions[i * 3 + 2] = vol.z[0] + Math.random() * (vol.z[1] - vol.z[0]);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
-      color: 0x8ab8d0, size: 0.05, transparent: true, opacity: 0.55, fog: true,
-    }));
-    pts.userData.rainVol = vol;
-    pts.name = 'rain';
-    group.add(pts);
-    // Cached so update() doesn't run getObjectByName() — a full recursive
-    // traversal of the entire active floor group — every single frame just to
-    // rediscover this one object.
-    group.userData.rain = pts;
+    const rain = new RainStreaks(vol, this.rng);
+    group.add(rain.mesh);
+    // cached per floor: update() used to getObjectByName() the whole floor every frame to find it
+    group.userData.rain = rain;
+    this.rains.push(rain);
+  }
+
+  /**
+   * The quality preset's rain density. 0 means dry: no streaks, and no
+   * droplets on the glass.
+   * @param {number} density
+   */
+  setRainDensity(density) {
+    for (const r of this.rains) r.setDensity(density);
+    RAIN_GLASS_UNIFORMS.uRain.value = density > 0 ? 1 : 0;
   }
 
   _buildFurniture(floorId) {
@@ -1101,17 +1102,10 @@ export class World3D {
         o.rotation.y = (t * 0.5556 * TAU) % TAU;
       }
     }
-    // rain fall
+    // Rain animates on the GPU from one uniform per volume; the droplets on the
+    // glass share another. No per-drop CPU work.
     const rain = group.userData.rain;
-    if (rain) {
-      const pos = /** @type {THREE.BufferAttribute} */ (rain.geometry.getAttribute('position'));
-      const vol = rain.userData.rainVol;
-      for (let i = 0; i < pos.count; i++) {
-        let y = pos.getY(i) - 0.35;
-        if (y < vol.y[0]) y = vol.y[1];
-        pos.setY(i, y);
-      }
-      pos.needsUpdate = true;
-    }
+    if (rain) rain.update(t);
+    RAIN_GLASS_UNIFORMS.uRainTime.value = t % 3600;
   }
 }

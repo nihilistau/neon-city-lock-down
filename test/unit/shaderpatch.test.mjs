@@ -68,3 +68,40 @@ test('every patch survives clone() — and a clone of a clone', async () => {
     }
   }
 });
+
+import { applyRainOnGlass, RAIN_GLASS_UNIFORMS } from '../../src/scene3d/materials/rainGlass.js';
+
+test('the rain-on-glass patch lands in the r185 standard shaders and shares one set of uniforms', () => {
+  const a = applyRainOnGlass(new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.18 }));
+  const b = applyRainOnGlass(new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.18 }));
+  const sa = shaderOf('standard');
+  const sb = shaderOf('standard');
+  a.onBeforeCompile(/** @type {any} */ (sa), /** @type {any} */ (null));
+  b.onBeforeCompile(/** @type {any} */ (sb), /** @type {any} */ (null));
+  assert.match(sa.vertexShader, /vRainP = \( modelMatrix \* vec4\( transformed, 1\.0 \) \)\.xyz;/);
+  assert.match(sa.fragmentShader, /vec3 rainDrops\(/);
+  assert.match(sa.fragmentShader, /float rainCover/);
+  assert.match(sa.fragmentShader, /normal = normalize\( normal \+/);
+  assert.equal(sa.uniforms.uRain, RAIN_GLASS_UNIFORMS.uRain);
+  assert.equal(sb.uniforms.uRainTime, sa.uniforms.uRainTime, 'one uniform object drives every pane');
+  assert.equal(a.customProgramCacheKey(), 'rain-on-glass');
+});
+
+// The curtain wall is reflect-boosted glass (Task 19). Rain goes on top of that
+// patch: replacing onBeforeCompile outright would silently drop the boost.
+test('rain on glass composes with the reflection boost — both land, and clones keep both', async () => {
+  const { patchReflectBoost } = await import('../../src/scene3d/materials/reflectBoost.js');
+  const m = applyRainOnGlass(patchReflectBoost(new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.18 }), 2.5));
+  for (const c of [m, m.clone(), m.clone().clone()]) {
+    const s = shaderOf('standard');
+    c.onBeforeCompile(/** @type {any} */ (s), /** @type {any} */ (null));
+    assert.match(s.fragmentShader, /return envMapColor\.rgb \* envMapIntensity \* reflectBoost;/, 'boost kept');
+    assert.match(s.fragmentShader, /vec3 rainDrops\(/, 'rain added');
+    assert.match(s.vertexShader, /vRainP = /);
+    assert.equal(s.uniforms.reflectBoost.value, 2.5);
+    assert.equal(s.uniforms.uRain, RAIN_GLASS_UNIFORMS.uRain);
+    assert.equal(c.customProgramCacheKey(), 'reflect-boost|rain-on-glass');
+    assert.equal((s.fragmentShader.match(/vec3 rainDrops\(/g) || []).length, 1, 'a clone patches once, not twice');
+    assert.equal((s.fragmentShader.match(/uniform float reflectBoost;/g) || []).length, 1);
+  }
+});
