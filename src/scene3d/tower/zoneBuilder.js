@@ -6,52 +6,65 @@ import * as THREE from 'three';
 import { ZONES, FLOORS, PENTHOUSE } from '../../../data/zones.js';
 import { makeFurniture } from './furniture.js';
 import { Curtains } from './curtains.js';
-import { tileTex, concreteTex, metalTex, surfaced } from '../materials/texGen.js';
+import { pbrMaterial, setPbrAssets } from '../materials/pbr.js';
+import { applyWorldUVsTo } from '../materials/worldUV.js';
+import { assetsForFloor } from './floorAssets.js';
+import { fitProp } from './props.js';
+import { PROP_DRESSING } from '../../../data/propDressing.js';
 import { neonRun } from '../materials/neon.js';
 import { PALETTE } from '../materials/palette.js';
+import { cityWindowsTexture, cityTowerMaterial } from '../materials/cityWindows.js';
+import { skyDomeMaterial } from '../materials/skyDome.js';
+import { patchReflectBoost } from '../materials/reflectBoost.js';
+import { windowOffsets } from '../envMath.js';
+import { RainStreaks, TIME_WRAP } from '../rain.js';
+import { applyRainOnGlass, RAIN_GLASS_UNIFORMS } from '../materials/rainGlass.js';
 
 const TAU = Math.PI * 2;
+/** Radius of the HDRI sky dome: past the farthest tower (≈95 m) and well inside the camera's 400 m far plane. */
+const DOME_RADIUS = 180;
+/**
+ * Yaw of the dome, radians. The dome folds the Pudong strip of the panorama
+ * around the circle (materials/skyDome.js DOME_STRIP); on the mirrored sphere
+ * the penthouse windows (+z) sit at u = 0.25 and the Oriental Pearl tower lands
+ * at u ≈ 0.27, so a small turn puts it square in the window.
+ */
+const DOME_YAW = 0.13;
 
-function cityWindowsTexture() {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 128;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#04050a';
-  ctx.fillRect(0, 0, 64, 128);
-  for (let y = 4; y < 124; y += 8) {
-    for (let x = 4; x < 60; x += 8) {
-      if (Math.random() < 0.42) {
-        ctx.fillStyle = Math.random() < 0.16 ? '#ff6fc0' : (Math.random() < 0.5 ? '#6eefff' : '#ffd9a0');
-        ctx.globalAlpha = 0.35 + Math.random() * 0.65;
-        ctx.fillRect(x, y, 4, 3);
-      }
-    }
-  }
-  ctx.globalAlpha = 1;
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-const glassMat = () => new THREE.MeshStandardMaterial({
+// A fresh material per call, so neither patch touches a shared instance. Rain
+// goes on top of the reflection boost, not instead of it (rainGlass.js).
+const glassMat = () => applyRainOnGlass(patchReflectBoost(new THREE.MeshStandardMaterial({
   color: PALETTE.glass, transparent: true, opacity: 0.18,
   roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
-});
+})));
+// Interior glass (fl40's blast-glass port in the security split, and any other
+// pane with no weather on the far side) gets the reflect boost only — never
+// applyRainOnGlass, or droplets appear on panes indoors. Exterior curtain/wing/
+// lobby-front glass keeps using glassMat() above.
+const interiorGlassMat = () => patchReflectBoost(new THREE.MeshStandardMaterial({
+  color: PALETTE.glass, transparent: true, opacity: 0.18,
+  roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
+}));
 // Normal-map strengths are tuned per surface: concrete carries broad grime
 // streaks (soft), tile has hard grout channels (deep), brushed metal is fine
 // directional grain (shallow but tight).
-const mullionMat = () => new THREE.MeshStandardMaterial({
-  ...surfaced(metalTex('#1a1f2c'), 1.2, 0.35), roughness: 0.5, metalness: 0.7,
-});
-const wallMatOf = (tint) => new THREE.MeshStandardMaterial({
-  ...surfaced(concreteTex(tint), 1.6, 0.8), roughness: 0.85,
-});
+const mullionMat = () => pbrMaterial('metalDark', { tint: '#1a1f2c', roughness: 0.5, metalness: 0.7 });
+const wallMatOf = (tint) => pbrMaterial('concrete', { tint });
 
 export class World3D {
-  /** @param {import('../stage.js').Stage} stage @param {import('../../core/rng.js').RngStream} rng */
-  constructor(stage, rng) {
+  /**
+   * @param {import('../stage.js').Stage} stage
+   * @param {import('../../core/rng.js').RngStream} rng
+   * @param {ReturnType<typeof import('../../assets/assets.js').createAssets>|null} [assets]
+   *   the asset facade; null (Node tests, ?noassets=1 paths) builds everything procedurally
+   * @param {{build?: boolean, equirect?: string|null}} [opts] build:false leaves the floors to World3D.create();
+   *   equirect: the HDRI equirect id for the sky dome (null = the flat skyline plate)
+   */
+  constructor(stage, rng, assets = null, { build = true, equirect = null } = {}) {
     this.stage = stage;
     this.rng = rng;
+    this.assets = assets;
+    this.equirectId = equirect;
     /** @type {Record<string, THREE.Group>} */
     this.floorGroups = {};
     /** @type {Record<string, {x:[number,number], z:[number,number]}[]>} WORLD-space walk rects */
@@ -65,25 +78,70 @@ export class World3D {
     /** @type {THREE.Object3D[]} animated bits (fish, rings, fire) found by name */
     this.animated = [];
     this.fireSprites = [];
+    /** @type {Record<string, THREE.Object3D[]>} non-interactive furniture roots per floor (rc.1 merges them) */
+    this.furnitureGroups = {};
+    /** @type {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}[]} */
+    this.exteriors = [];
+    /** @type {RainStreaks[]} one per rain volume (bar terrace, rooftop) */
+    this.rains = [];
+    /** @type {THREE.Color|null} the current sky grade (Lighting.skyColor), for domes made later */
+    this._skyGrade = null;
     this.activeFloor = 'penthouse';
+    // every library material from here on reads this facade (src/scene3d/materials/pbr.js)
+    setPbrAssets(assets);
+    if (!build) return;
+    for (const floor of Object.values(FLOORS)) this._buildFloor(floor);
+    this._finishBuild();
+  }
 
+  /**
+   * Build the tower floor by floor, awaiting each floor's assets first, so the
+   * materials and props a floor is made of are decoded before its geometry
+   * exists — no pop-in. Never rejects on a missing asset: the facade resolves
+   * those to null and the floor builds procedurally.
+   * @param {import('../stage.js').Stage} stage
+   * @param {import('../../core/rng.js').RngStream} rng
+   * @param {ReturnType<typeof import('../../assets/assets.js').createAssets>} assets
+   * @param {{equirect?: string|null}} [opts] the HDRI equirect id the sky floors preload
+   */
+  static async create(stage, rng, assets, { equirect = null } = {}) {
+    const world = new World3D(stage, rng, assets, { build: false, equirect });
     for (const floor of Object.values(FLOORS)) {
-      const group = new THREE.Group();
-      group.name = `floor_${floor.id}`;
-      group.position.x = floor.offsetX;
-      this.floorGroups[floor.id] = group;
-      this.walkRects[floor.id] = [];
-      this.collidersByFloor[floor.id] = [];
-      this[`_build_${floor.shell}`](group, floor);
-      this._buildElevatorDoor(group, floor);
-      // v0.4 added ~100 architecture meshes — dais, cages, server columns, lobby
-      // columns, basement pillars, HVAC, the ramp — and registered NONE of them
-      // as colliders, so the player walked straight through the lot. Anything
-      // tagged `userData.solid` is picked up automatically from here on.
-      this._collectSolids(group, floor.id);
-      stage.scene.add(group);
+      await assets?.preload(assetsForFloor(floor.id, { equirect }));
+      world._buildFloor(floor);
     }
-    this._buildFurniture();
+    world._finishBuild();
+    return world;
+  }
+
+  /** @param {(typeof FLOORS)[keyof typeof FLOORS]} floor */
+  _buildFloor(floor) {
+    const group = new THREE.Group();
+    group.name = `floor_${floor.id}`;
+    group.position.x = floor.offsetX;
+    // hidden until _finishBuild() picks the active floor: World3D.create() yields
+    // between floors, and the loop keeps rendering the scene through the gap —
+    // a half-built tower must not be drawn (or have programs compiled against it)
+    group.visible = false;
+    this.floorGroups[floor.id] = group;
+    this.walkRects[floor.id] = [];
+    this.collidersByFloor[floor.id] = [];
+    this.furnitureGroups[floor.id] = [];
+    this[`_build_${floor.shell}`](group, floor);
+    this._buildElevatorDoor(group, floor);
+    // v0.4 added ~100 architecture meshes — dais, cages, server columns, lobby
+    // columns, basement pillars, HVAC, the ramp — and registered NONE of them
+    // as colliders, so the player walked straight through the lot. Anything
+    // tagged `userData.solid` is picked up automatically from here on.
+    this._collectSolids(group, floor.id);
+    this.stage.scene.add(group);
+    this._buildFurniture(floor.id);
+    this._dressProps(floor.id);
+    // one texture repeat per N metres on every box of this floor, whatever its size
+    applyWorldUVsTo(group);
+  }
+
+  _finishBuild() {
     this._collectAnimated();
     this.setActiveFloor('penthouse');
   }
@@ -183,7 +241,7 @@ export class World3D {
     backWall.position.set(0, 1.3, -0.55);
     shaft.add(backWall);
     // door panels
-    const doorMat = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#232a3a'), 1.2, 0.35), roughness: 0.35, metalness: 0.8 });
+    const doorMat = pbrMaterial('metal', { tint: '#232a3a', roughness: 0.35, metalness: 0.8 });
     for (const side of [-1, 1]) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.3, 0.08), doorMat);
       panel.position.set(side * 0.44, 1.15, -0.06);
@@ -210,9 +268,11 @@ export class World3D {
   _build_penthouse(group, floor) {
     const P = PENTHOUSE;
     const F = P.floor, ceil = P.ceilingY;
-    const floorTex = new THREE.MeshStandardMaterial({ ...surfaced(tileTex(), 2.2, 1.0), roughness: 0.35, metalness: 0.15 });
+    // polished: the penthouse floor is the room's mirror for the neon — the authored 0.2 now
+    // reaches a loaded scan too (pbr.js divides it by the scan's own mean roughness)
+    const floorTex = pbrMaterial('tile', { roughness: 0.2 });
     this._slab(group, F, floorTex);
-    this._slab(group, P.balcony, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#141824'), 1.6, 0.8), roughness: 0.8 }));
+    this._slab(group, P.balcony, pbrMaterial('concreteFloor', { tint: '#141824', roughness: 0.8 }));
     this._ceiling(group, F, ceil);
 
     const wall = wallMatOf('#181c2a');
@@ -308,7 +368,7 @@ export class World3D {
 
     // ── building defences ──
     // ceiling turret: base + yoke + barrel, watching the stairwell corner
-    const turretMat = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#232a3a'), 1.2, 0.35), roughness: 0.35, metalness: 0.8 });
+    const turretMat = pbrMaterial('metal', { tint: '#232a3a', roughness: 0.35, metalness: 0.8 });
     const turret = new THREE.Group();
     const tBase = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 12), turretMat);
     tBase.position.y = -0.09;
@@ -334,7 +394,7 @@ export class World3D {
     group.add(shutterFrame);
     const shutter = new THREE.Mesh(
       new THREE.BoxGeometry(3.0, ceil, 0.12),
-      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1c222e'), 1.2, 0.35), roughness: 0.5, metalness: 0.7 }));
+      pbrMaterial('metalDark', { tint: '#1c222e', roughness: 0.5, metalness: 0.7 }));
     shutter.position.set(-6.3, ceil + ceil / 2 - 0.15, 4.55);   // parked above the ceiling line
     group.add(shutter);
     const warnStripe = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 0.13),
@@ -361,7 +421,7 @@ export class World3D {
 
   _build_rooftop(group, floor) {
     const R = { x: [-10, 10], z: [-8, 8] };
-    this._slab(group, R, new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#161a26'), 1.6, 0.8), roughness: 0.95 }));
+    this._slab(group, R, pbrMaterial('concreteFloor', { tint: '#161a26', roughness: 0.95 }));
     const par = wallMatOf('#1a1f2c');
     this._wall(group, par, { alongX: true, at: R.z[0], from: R.x[0], to: R.x[1], h: 1.0, thickness: 0.3 });
     this._wall(group, par, { alongX: true, at: R.z[1], from: R.x[0], to: R.x[1], h: 1.0, thickness: 0.3 });
@@ -401,7 +461,7 @@ export class World3D {
     // HVAC blocks
     for (const [x, z] of [[-8.4, 5.6], [8.2, -5.4]]) {
       const hvac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.1),
-        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a3038'), 1.1, 0.3), metalness: 0.55, roughness: 0.45 }));
+        pbrMaterial('rust', { tint: '#2a3038', metalness: 0.55, roughness: 0.45 }));
       hvac.position.set(x, 0.4, z);
       hvac.userData.solid = true;
       group.add(hvac);
@@ -424,9 +484,7 @@ export class World3D {
     // base sits 2cm below the nominal top so a floor's own finish layer can be
     // laid flush at 0 without z-fighting; where no finish covers it the 2cm is
     // imperceptible and still walkable.
-    this._slab(group, rect, floorMat || new THREE.MeshStandardMaterial({
-      ...surfaced(concreteTex(floorTint), 1.6, 0.8), roughness: 0.82,
-    }), -0.12);
+    this._slab(group, rect, floorMat || pbrMaterial('concreteFloor', { tint: floorTint }), -0.12);
     this._ceiling(group, rect, ceilH, ceilColor);
     const wall = wallMatOf(tint);
     const glass = glassMat();
@@ -472,15 +530,15 @@ export class World3D {
     });
     const split = wallMatOf('#241018');
     this._wall(group, split, { alongX: false, at: 0, from: -6, to: 6, h: ceilH, gaps: [[-1.0, 1.0]] });
-    // blast-glass in the split
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.8), glassMat());
+    // blast-glass in the split — interior pane, no weather on either side
+    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.8), interiorGlassMat());
     port.position.set(0, 1.85, 3.2);
     group.add(port);
     // security dais (west)
     // Reads as a distinct deck via material, not height: at 0.18 thick centred
     // on +0.05 its top was +0.14 and everyone standing on it sank past the ankle.
     const dais = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 10.4),
-      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a1520'), 1.1, 0.4), metalness: 0.35, roughness: 0.5 }));
+      pbrMaterial('metalDark', { tint: '#1a1520', metalness: 0.35, roughness: 0.5 }));
     dais.position.set(-5.2, -0.02, 0);
     group.add(dais);
     // monitor alcove hood
@@ -516,7 +574,7 @@ export class World3D {
     // ceiling beams
     for (const x of [-6, -2, 2, 6]) {
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 11.6),
-        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#2a1820'), 1.0, 0.3), metalness: 0.5, roughness: 0.45 }));
+        pbrMaterial('metal', { tint: '#2a1820', metalness: 0.5, roughness: 0.45 }));
       beam.position.set(x, ceilH - 0.08, 0);
       group.add(beam);
     }
@@ -532,7 +590,7 @@ export class World3D {
       walls: ['solid', 'solid', 'solid', 'solid'],
     });
     // raised access floor (server tiles)
-    const tile = new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#15202c'), 1.4, 0.35), metalness: 0.45, roughness: 0.4 });
+    const tile = pbrMaterial('metal', { tint: '#15202c', metalness: 0.45, roughness: 0.4 });
     this._slab(group, { x: [-7.4, 7.4], z: [-7.4, 7.4] }, tile);   // flush: top = 0
     // concentric ring
     const ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.7, 32),
@@ -551,7 +609,7 @@ export class World3D {
       group.add(eye);
     }
     const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.95, 0.24, 24),
-      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2430'), 1.2, 0.4), metalness: 0.55, roughness: 0.4 }));
+      pbrMaterial('metal', { tint: '#1a2430', metalness: 0.55, roughness: 0.4 }));
     dais.position.set(0, 0.12, 1.4);
     group.add(dais);
     neonRun(group, { x: 0, y: ceilH - 0.1, z: 0, length: 12, axis: 'x', color: PALETTE.neonCyan, radius: 0.032, intensity: 2.0, light: { distance: 9, power: 20 } });
@@ -577,7 +635,7 @@ export class World3D {
   _build_fl12(group, floor) {
     const R = { x: [-8, 8], z: [-6, 6] };
     const ceilH = 3.05;
-    const tile = new THREE.MeshStandardMaterial({ ...surfaced(tileTex('#d8e4ee'), 2.2, 0.7), roughness: 0.42, metalness: 0.06 });
+    const tile = pbrMaterial('tile', { tint: '#d8e4ee', roughness: 0.42, metalness: 0.06 });
     this._roomShell(group, floor, R, {
       ceilH, tint: '#243040', floorTint: '#1b2430', ceilColor: 0x1a222c,
       walls: ['solid', 'solid', 'solid', 'solid'],
@@ -620,13 +678,13 @@ export class World3D {
       ceilH, tint: '#161c28', floorTint: '#121820', ceilColor: 0x0c1018,
       walls: ['glass', 'solid', 'solid', 'solid'],
     });
-    const marble = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.22, metalness: 0.18 });
+    const marble = pbrMaterial('marble', { tint: '#2a3140', roughness: 0.22, metalness: 0.18 });
     this._slab(group, { x: [-9.4, 9.4], z: [-7.4, 6.4] }, marble);   // flush: top = 0
     this._neonTrim(group, 0, 3.7, R.z[0] + 0.16, 16, PALETTE.neonCyan);
     this._neonTrim(group, 0, 4.15, R.z[1] - 0.2, 16, PALETTE.neonMagenta);
     // mezzanine strip along -Z
     const mez = new THREE.Mesh(new THREE.BoxGeometry(18.4, 0.12, 2.2),
-      new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#1a2230'), 1.2, 0.35), metalness: 0.4, roughness: 0.45 }));
+      pbrMaterial('metal', { tint: '#1a2230', metalness: 0.4, roughness: 0.45 }));
     mez.position.set(0, 3.05, -6.6);
     group.add(mez);
     const rail = new THREE.Mesh(new THREE.BoxGeometry(18.4, 0.06, 0.06),
@@ -634,7 +692,7 @@ export class World3D {
     rail.position.set(0, 3.45, -5.55);
     group.add(rail);
     // columns
-    const colMat = new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#2a3140'), 1.4, 0.5), roughness: 0.55, metalness: 0.12 });
+    const colMat = pbrMaterial('concrete', { tint: '#2a3140', roughness: 0.55, metalness: 0.12 });
     for (const x of [-6.5, 0, 6.5]) {
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, ceilH, 12), colMat);
       col.position.set(x, ceilH / 2, 2.4);
@@ -664,7 +722,7 @@ export class World3D {
     });
     // ramp volume on +X (open wall)
     const ramp = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.2, 8),
-      new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c22'), 1.4, 0.7), roughness: 0.9 }));
+      pbrMaterial('concreteFloor', { tint: '#1a1c22', roughness: 0.9 }));
     ramp.rotation.z = -0.12;
     ramp.position.set(11.2, 0.35, 4);
     ramp.userData.solid = true;
@@ -688,13 +746,13 @@ export class World3D {
     }
     for (const z of [-6.5, -2, 2.5, 7]) {
       const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 26, 8),
-        new THREE.MeshStandardMaterial({ ...surfaced(metalTex('#3a4038'), 1.0, 0.3), metalness: 0.7, roughness: 0.4 }));
+        pbrMaterial('rust', { tint: '#3a4038', metalness: 0.7, roughness: 0.4 }));
       pipe.rotation.z = Math.PI / 2;
       pipe.position.set(0, ceilH - 0.18, z);
       group.add(pipe);
     }
     // structural columns grid
-    const colM = new THREE.MeshStandardMaterial({ ...surfaced(concreteTex('#1a1c20'), 1.2, 0.6), roughness: 0.75 });
+    const colM = pbrMaterial('concrete', { tint: '#1a1c20', roughness: 0.75 });
     for (const x of [-7, 0, 7]) {
       for (const z of [-4, 4]) {
         const col = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, ceilH, 10), colM);
@@ -712,12 +770,10 @@ export class World3D {
   }
 
   _buildExterior(group, fromRoof = false) {
-    const tex = cityWindowsTexture();
-    // matC is declared FIRST: the loader callbacks below close over it, and it
-    // used to be read in a callback declared above its own `const` — a TDZ read
-    // that only survived because TextureLoader is always async. Any cache hit or
-    // sync path would have thrown a ReferenceError at world build.
-    const matC = new THREE.MeshBasicMaterial({ map: tex, fog: true });
+    // Declared FIRST: the loader callbacks below close over it (a TDZ read that
+    // only survived because TextureLoader is always async bit this once).
+    // The seeded canvas is the first frame and the fallback; windows.jpg replaces it.
+    const matC = cityTowerMaterial(cityWindowsTexture());
     const loader = new THREE.TextureLoader();
     loader.load('/assets/city/windows.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
@@ -727,25 +783,36 @@ export class World3D {
       // about 15cm wide — which aliased into moire that bloom then amplified.
       map.repeat.set(2, 4);
       map.anisotropy = Math.min(8, this.stage.renderer.capabilities.getMaxAnisotropy?.() ?? 1);
-      matC.map = map;
+      matC.emissiveMap = map;
       matC.needsUpdate = true;
     });
+
+    /** @type {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}} */
+    const ext = { group, fromRoof, plate: null, dome: null };
+    this.exteriors.push(ext);
+    // The flat skyline plate is the fallback when there is no HDRI; with one,
+    // the dome replaces it (and setSkyTexture can swap between them live).
     loader.load('/assets/city/skyline.jpg', (map) => {
       map.colorSpace = THREE.SRGBColorSpace;
-      const plate = new THREE.Mesh(
-        new THREE.PlaneGeometry(90, 40),
-        new THREE.MeshBasicMaterial({ map, fog: true }));
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(90, 40), new THREE.MeshBasicMaterial({ map, fog: true }));
       plate.position.set(4, fromRoof ? 8 : 2, fromRoof ? 42 : 48);
       plate.lookAt(4, fromRoof ? 8 : 2, 0);
+      plate.visible = !ext.dome?.visible;
       group.add(plate);
+      ext.plate = plate;
     });
+    const eq = this.equirectId ? this.assets?.peekEquirect(this.equirectId) ?? null : null;
+    if (eq) this._showDome(ext, eq);
+
+    const COUNT = 80;
     const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mesh = new THREE.InstancedMesh(geo, matC, 80);
+    geo.setAttribute('aWinOffset', new THREE.InstancedBufferAttribute(windowOffsets(COUNT, this.rng), 2));
+    const mesh = new THREE.InstancedMesh(geo, matC, COUNT);
     const m4 = new THREE.Matrix4();
     const quat = new THREE.Quaternion();
     const scale = new THREE.Vector3();
     let i = 0;
-    while (i < 80) {
+    while (i < COUNT) {
       const a = this.rng.range(0, Math.PI * 2);
       const r = this.rng.range(30, 90);
       const x = Math.cos(a) * r + 4;
@@ -766,30 +833,79 @@ export class World3D {
     }
   }
 
-  _buildRain(group, vol) {
-    const count = 500;
-    const positions = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = vol.x[0] + Math.random() * (vol.x[1] - vol.x[0]);
-      positions[i * 3 + 1] = vol.y[0] + Math.random() * (vol.y[1] - vol.y[0]);
-      positions[i * 3 + 2] = vol.z[0] + Math.random() * (vol.z[1] - vol.z[0]);
+  /**
+   * The HDRI as the far skyline: a back-faced sphere around the exterior,
+   * behind the instanced towers, unfogged (the towers fade into the fog and
+   * read as silhouettes against it), drawn first and writing no depth — so AO
+   * treats it as sky.
+   * @param {{group: THREE.Group, fromRoof: boolean, plate: THREE.Mesh|null, dome: THREE.Mesh|null}} ext
+   * @param {THREE.Texture} eq
+   */
+  _showDome(ext, eq) {
+    if (!ext.dome) {
+      const mat = skyDomeMaterial(eq);
+      if (this._skyGrade) mat.color.copy(this._skyGrade);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(DOME_RADIUS, 48, 24), mat);
+      dome.scale.x = -1;   // seen from inside, a sphere mirrors the panorama; flip it back
+      // horizon a few degrees below eye level: this is floor 45
+      dome.position.set(4, ext.fromRoof ? -12 : -8, ext.fromRoof ? 0 : 8);
+      dome.rotation.y = DOME_YAW;
+      dome.renderOrder = -1;
+      dome.name = 'sky_dome';
+      ext.group.add(dome);
+      ext.dome = dome;
+    } else {
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (ext.dome.material);
+      mat.map = eq;
+      mat.needsUpdate = true;
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
-      color: 0x8ab8d0, size: 0.05, transparent: true, opacity: 0.55, fog: true,
-    }));
-    pts.userData.rainVol = vol;
-    pts.name = 'rain';
-    group.add(pts);
-    // Cached so update() doesn't run getObjectByName() — a full recursive
-    // traversal of the entire active floor group — every single frame just to
-    // rediscover this one object.
-    group.userData.rain = pts;
+    ext.dome.visible = true;
+    if (ext.plate) ext.plate.visible = false;
   }
 
-  _buildFurniture() {
+  /**
+   * Live HDRI switch (quality presets): swap the dome's panorama, or fall back
+   * to the flat skyline plate.
+   * @param {THREE.Texture|null} eq
+   */
+  setSkyTexture(eq) {
+    for (const ext of this.exteriors) {
+      if (eq) { this._showDome(ext, eq); continue; }
+      if (ext.dome) ext.dome.visible = false;
+      if (ext.plate) ext.plate.visible = true;
+    }
+  }
+
+  /** @param {THREE.Color} color the preset's sky grade (Lighting.skyColor) */
+  setSkyGrade(color) {
+    // runs every frame of a preset fade: copy, never allocate
+    (this._skyGrade ??= new THREE.Color()).copy(color);
+    for (const ext of this.exteriors) {
+      if (ext.dome) /** @type {THREE.MeshBasicMaterial} */ (ext.dome.material).color.copy(color);
+    }
+  }
+
+  _buildRain(group, vol) {
+    const rain = new RainStreaks(vol, this.rng);
+    group.add(rain.mesh);
+    // cached per floor: update() used to getObjectByName() the whole floor every frame to find it
+    group.userData.rain = rain;
+    this.rains.push(rain);
+  }
+
+  /**
+   * The quality preset's rain density. 0 means dry: no streaks, and no
+   * droplets on the glass.
+   * @param {number} density
+   */
+  setRainDensity(density) {
+    for (const r of this.rains) r.setDensity(density);
+    RAIN_GLASS_UNIFORMS.uRain.value = density > 0 ? 1 : 0;
+  }
+
+  _buildFurniture(floorId) {
     for (const zone of Object.values(ZONES)) {
+      if (zone.floor !== floorId) continue;
       const floor = FLOORS[zone.floor];
       const group = this.floorGroups[zone.floor];
       for (const f of zone.furniture) {
@@ -840,7 +956,36 @@ export class World3D {
             m.material = c;
           });
           this.props.push({ mesh: item.group, id: f.id, prompt: PROP_PROMPTS[f.id], floor: zone.floor });
+        } else {
+          // not interactive: nothing addresses it after build, so rc.1 may batch it
+          this.furnitureGroups[zone.floor].push(item.group);
         }
+      }
+    }
+  }
+
+  /**
+   * Place this floor's Kenney clutter (data/propDressing.js). A model the
+   * facade does not hold is skipped outright — clutter is optional detail,
+   * and a placeholder box would be worse than the empty surface.
+   * @param {string} floorId
+   */
+  _dressProps(floorId) {
+    if (!this.assets) return;
+    const group = this.floorGroups[floorId];
+    for (const p of PROP_DRESSING) {
+      if (p.floor !== floorId) continue;
+      const model = this.assets.peekGLTF(p.asset);
+      if (!model) continue;
+      const prop = fitProp(model, p.height, pbrMaterial(p.skin));
+      prop.position.set(p.at[0], p.y ?? 0, p.at[1]);
+      prop.rotation.y = p.ry ?? 0;
+      prop.userData.dressing = p.asset;
+      group.add(prop);
+      this.furnitureGroups[floorId].push(prop);
+      if (p.solid) {
+        prop.updateMatrixWorld(true);
+        this.collidersByFloor[floorId].push(new THREE.Box3().setFromObject(prop));
       }
     }
   }
@@ -965,17 +1110,10 @@ export class World3D {
         o.rotation.y = (t * 0.5556 * TAU) % TAU;
       }
     }
-    // rain fall
+    // Rain animates on the GPU from one uniform per volume; the droplets on the
+    // glass share another. No per-drop CPU work.
     const rain = group.userData.rain;
-    if (rain) {
-      const pos = /** @type {THREE.BufferAttribute} */ (rain.geometry.getAttribute('position'));
-      const vol = rain.userData.rainVol;
-      for (let i = 0; i < pos.count; i++) {
-        let y = pos.getY(i) - 0.35;
-        if (y < vol.y[0]) y = vol.y[1];
-        pos.setY(i, y);
-      }
-      pos.needsUpdate = true;
-    }
+    if (rain) rain.update(t);
+    RAIN_GLASS_UNIFORMS.uRainTime.value = t % TIME_WRAP;
   }
 }

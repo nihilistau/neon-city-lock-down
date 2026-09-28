@@ -34,6 +34,13 @@ const MIME = {
   '.yaml': 'text/yaml; charset=utf-8',
   '.yml': 'text/yaml; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
+  // v0.7 asset pipeline (src/assets/assets.js). .hdr stays octet-stream: it is
+  // read as an ArrayBuffer by HDRLoader, and there is no registered type.
+  '.glb': 'model/gltf-binary',
+  '.gltf': 'model/gltf+json',
+  '.bin': 'application/octet-stream',
+  '.cube': 'text/plain; charset=utf-8',
+  '.wasm': 'application/wasm',
 };
 
 createServer(async (req, res) => {

@@ -1,6 +1,13 @@
 // @ts-check
 // Outfit recipes per character — the 8-state matrix. Pieces are procedural
 // primitives skinned to the body.
+//
+// Coverage is the builder's job, not the recipe's: outfitLayout() in
+// src/humanoid/outfitBuilder.js tucks every top into its bottoms' waistband, gives
+// leggings/shorts a waistband, and runs shorts, robes and towels to just above the
+// knee. Every state here has a top (or a one-piece) AND a bottom — swimwear is a
+// rash guard + board shorts, sleepwear a tee + shorts — and
+// test/unit/outfits.test.mjs fails any recipe that leaves skin at the hip.
 
 /** shared piece builders keyed by intent */
 const dress = (color, hem, metal = 0.1) => ({ piece: 'dress', color, roughness: 0.45, metalness: metal, opts: { hem } });
@@ -37,8 +44,8 @@ export const OUTFITS = {
     evening_wear: { pieces: [top('#1a1810', 0.5), leggings('#14110a')], warmth: 0.55 },
     casual_lounge: { pieces: [top('#2c2820'), leggings('#1a160e')], warmth: 0.4 },
     workout: { pieces: [top('#2a2418', 0.9), shorts('#1a160e')], warmth: 0.3 },
-    swim: { pieces: [shorts('#2a2418')], warmth: 0.15 },
-    sleepwear: { pieces: [shorts('#2c2820')], warmth: 0.3 },
+    swim: { pieces: [top('#2a2418', 0.95), shorts('#2a2418')], warmth: 0.15 },
+    sleepwear: { pieces: [top('#2c2820', 0.95), shorts('#2c2820')], warmth: 0.3 },
     robe: { pieces: [robeP('#2c2416')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
   },
@@ -47,7 +54,7 @@ export const OUTFITS = {
     evening_wear: { pieces: [top('#1c2430', 0.5), leggings('#10161c')], warmth: 0.5 },
     casual_lounge: { pieces: [top('#243040'), shorts('#1a2028')], warmth: 0.35 },
     workout: { pieces: [top('#1e2a34', 0.9), shorts('#141a22')], warmth: 0.3 },
-    swim: { pieces: [shorts('#1a2834')], warmth: 0.15 },
+    swim: { pieces: [top('#1a2834', 0.95), shorts('#1a2834')], warmth: 0.15 },
     sleepwear: { pieces: [top('#243040', 0.95), shorts('#1c242c')], warmth: 0.3 },
     robe: { pieces: [robeP('#1c2830')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },
@@ -57,7 +64,7 @@ export const OUTFITS = {
     casual_lounge: { pieces: [top('#3a342c'), shorts('#2a241c')], warmth: 0.35 },
     evening_wear: { pieces: [top('#3a342c'), leggings('#2a241c')], warmth: 0.45 },
     workout: { pieces: [top('#3a342c', 0.9), shorts('#2a241c')], warmth: 0.3 },
-    swim: { pieces: [shorts('#2a241c')], warmth: 0.15 },
+    swim: { pieces: [top('#3a342c', 0.95), shorts('#2a241c')], warmth: 0.15 },
     sleepwear: { pieces: [top('#3a342c', 0.95), shorts('#2a241c')], warmth: 0.3 },
     robe: { pieces: [robeP('#3a342c')], warmth: 0.4 },
     towel: { pieces: [towelP('#8a7a6a')], warmth: 0.2 },

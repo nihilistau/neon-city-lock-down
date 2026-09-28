@@ -76,7 +76,7 @@ verifies the defaults themselves satisfy the schema, catching default/schema dri
 | humanoid | `config/humanoid.yaml` | [humanoid.md](humanoid.md) |
 | world | `config/world.yaml` | [world.md](world.md) |
 | lighting | `config/lighting.yaml` | [lighting.md](lighting.md) |
-| render | `config/render.yaml` | shadows, AO, bloom, grain, FOV — documented inline in `data/configDefaults.js` |
+| render | `config/render.yaml` | [render.md](render.md) — shadows, AO, bloom, grain, FOV, `render.hdri.{id,gain,clamp,domeGain}` |
 | llm | `config/llm.yaml` | [llm.md](llm.md) |
 | voice | `config/voice.yaml` | [systems/voice.md](../systems/voice.md) |
 

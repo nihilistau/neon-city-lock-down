@@ -1,15 +1,19 @@
 {
   "name": "neon-city-lock-down",
-  "version": "0.6.0",
+  "version": "0.7.0-beta.1",
   "private": true,
   "type": "module",
   "description": "Neon-City: Lock-Down \u2014 neon-noir 3D survival game in a sealed cyberpunk tower (three.js).",
   "scripts": {
     "serve": "node tools/serve.mjs 8420",
     "test": "node --test \"test/unit/**/*.test.mjs\"",
-    "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs",
+    "lint": "node tools/lint-data.mjs && node tools/lint-config.mjs && node tools/lint-assets.mjs",
     "lint:data": "node tools/lint-data.mjs",
     "lint:config": "node tools/lint-config.mjs",
+    "vendor:three": "node tools/vendor-three.mjs",
+    "lint:assets": "node tools/lint-assets.mjs",
+    "assets:fetch": "node tools/fetch-assets.mjs",
+    "assets:verify": "node tools/fetch-assets.mjs --verify",
     "postinstall": "git checkout -- node_modules/three/ 2>/dev/null || true",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run lint && npm run test:e2e"

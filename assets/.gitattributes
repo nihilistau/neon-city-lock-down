@@ -1,0 +1,9 @@
+# Fetched assets are fingerprinted byte for byte (assets/manifest.json sha256).
+# Never let text=auto line-ending normalisation touch them.
+*.hdr binary
+*.jpg binary
+*.glb binary
+*.gltf binary
+*.bin binary
+*.png binary
+*.cube text eol=lf

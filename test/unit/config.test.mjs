@@ -56,3 +56,23 @@ test('cfg returns fallback for missing paths', () => {
   assert.equal(cfg('camera.nope.deep', 'x'), 'x');
   assert.equal(getConfig().camera.eye, 1.62);
 });
+
+test('lighting presets: the ibl block is range-checked, the rest stays free-form', () => {
+  const ok = { presets: { x: { hemi: { intensity: 1 }, whatever: 1, ibl: { envIntensity: 0.4, rotation: 1.2, skyTint: 0xffd0a0, skyExposure: 1.3 } } } };
+  assert.deepEqual(validateConfig('lighting', ok), []);
+  const bad = (ibl) => validateConfig('lighting', { presets: { x: { ibl } } });
+  assert.match(bad({ envIntensity: 4 })[0], /presets\.x\.ibl\.envIntensity: 4 > max 3/);
+  assert.match(bad({ skyExposure: -1 })[0], /skyExposure/);
+  assert.match(bad({ skyExposure: 5 })[0], /skyExposure/);
+  assert.match(bad({ rotation: 'east' })[0], /rotation: expected number/);
+  assert.match(bad({ skyTint: 0x1000000 })[0], /skyTint/);
+  assert.match(bad({ skyTint: '#fff' })[0], /skyTint: expected number/);
+  assert.match(bad({ envIntensty: 1 })[0], /envIntensty: unknown key/, 'a typo inside ibl is caught');
+});
+
+test('render.hdri: the capture gain and soft-clamp cap are range-checked', () => {
+  assert.deepEqual(validateConfig('render', { hdri: { id: 'x', gain: 0.14, clamp: 3, domeGain: 0.1 } }), []);
+  assert.match(validateConfig('render', { hdri: { gain: -1 } })[0], /hdri\.gain/);
+  assert.match(validateConfig('render', { hdri: { clamp: 1 } })[0], /hdri\.clamp/, 'the cap must sit above the knee (1.0)');
+  assert.match(validateConfig('render', { hdri: { domeGain: 9 } })[0], /hdri\.domeGain/);
+});

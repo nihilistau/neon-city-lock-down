@@ -9,19 +9,19 @@ tower (three.js, no bundler, no build step). The player is locked in a
 penthouse with three autonomous NPCs while riots and faction wars tear up the
 streets below — chat-first roleplay, day/night survival, combat, and
 mini-games, all driven by an offline dialogue engine with an optional LLM
-adapter for surface-text restyling. Current version: **0.6.0**, the
-first of a 7-part upgrade (see Roadmap below); this sub-project removed every
-18+ system and replaced it with a bond tier.
+adapter for surface-text restyling. Current version: **0.7.0-beta.1**, sub-project 2 of the 7-part upgrade (asset pipeline + render quality).
 
 ## Run / test / lint
 
 ```bash
 node tools/serve.mjs 8420   # or double-click run.bat on Windows
 npm test                    # node --test — unit suites
-npm run lint                # lint-data.mjs + lint-config.mjs
+npm run lint                # lint-data.mjs + lint-config.mjs + lint-assets.mjs
 npm run test:e2e            # playwright — end-to-end smoke suite
 npm run test:all            # unit + lint + e2e
 node tools/screenshots.mjs  # regenerate docs/screenshots/ (server on 8420; see docs/development.md)
+npm run assets:verify       # sha256-check the committed CC0 assets (no download)
+node tools/fetch-assets.mjs # fetch/transform manifest assets; node tools/vendor-three.mjs for three addons
 ```
 
 CI (`.github/workflows/ci.yml`) runs unit tests + lint on every push to
@@ -58,6 +58,65 @@ After any UI change a README screenshot shows, re-run the matching shot
   sitting/lying/none, seated guests, reservation against double occupancy).
   Nothing in it reaches into the DOM or three.js directly; `app.js` wires it to
   the camera, scheduler, and cast.
+- **`src/assets/assets.js`** — the only way a binary asset (HDRI, PBR set,
+  glTF, LUT) enters the game. Every loader resolves to `null` on failure and
+  warns once; every caller MUST handle `null` by building the procedural
+  version. `?noassets=1` forces that path for the whole game. Assets are added
+  only through `assets/manifest.json` + `tools/fetch-assets.mjs` (CC0 only,
+  40 MB budget, sha256-checked by `npm run lint`).
+- **`src/scene3d/materials/pbr.js`** — every shell and furniture surface is a
+  named library material (`pbrMaterial(name, {tint, roughness, metalness})`),
+  shared per key, carrying `userData.metresPerRepeat` for world UVs. Add a
+  surface to the library rather than building a one-off MeshStandardMaterial.
+  **The returned material is shared — never mutate it** (clone before
+  changing anything on it); its tint IS the displayed colour (measured
+  against the scan's own mean albedo), and its roughness is honoured against
+  the scan's measured `scanRoughness`, not overwritten.
+- **Shader patches** (`src/scene3d/materials/{reflectBoost,rainGlass,cityWindows,skyDome,patchClone}.js`)
+  — an `onBeforeCompile` patch either **replaces** `material.onBeforeCompile`
+  outright (`patchReflectBoost`, `patchWindowOffsets`, `skyDomeMaterial`) or
+  **chains** the material's existing one and extends its cache key
+  (`applyRainOnGlass`). A replace-type patch must be applied to the material
+  BEFORE any chaining patch is layered on top — chaining first and replacing
+  after silently drops the chained layer. Every patch installs
+  `keepPatchOnClone(material, reapply)` so `Material.clone()`/`.copy()`
+  (which carry neither the instance `onBeforeCompile` nor
+  `customProgramCacheKey`) come back re-patched. Test a patch against r185's
+  REAL `THREE.ShaderLib` source (see `test/unit/shaderpatch.test.mjs`), not a
+  stand-in string — three renames `#include` chunk names between releases,
+  and a missing anchor makes `.replace()` a silent no-op.
+
+## Blender (dev tool, optional)
+
+Blender 5.2 LTS is the offline tool for inspecting, converting and previewing
+models; the game never runs it and nothing in `npm run lint` needs it.
+
+- **Where:** `tools/blender/run.mjs` finds it via `$BLENDER_EXE`, then `PATH`,
+  then `D:\Program Files\Blender Foundation\Blender 5.2lender.exe`, then the
+  highest `C:\Program Files\Blender Foundation\Blender */blender.exe`. Set
+  `BLENDER_EXE` if it lives elsewhere.
+- **Runner CLI:**
+
+```bash
+node tools/blender/run.mjs inspect <in>                            # objects, tris, materials, bones, actions, bounds (JSON)
+node tools/blender/run.mjs convert <in> <out.glb> [--lod 0.5] [--apply-scale]   # → GLB, Y-up, optional Decimate LOD
+node tools/blender/run.mjs preview <in> <out.png>                  # 512² EEVEE render (Workbench fallback)
+```
+
+  `<in>` is `.glb`/`.gltf`/`.fbx`/`.obj`/`.blend`. From code:
+  `runBlender(verb, {in, out, lod, apply_scale}, {timeoutMs})`.
+- **Headless rules:** always `blender -b --factory-startup --python-exit-code 1`
+  (no user prefs or add-ons, a Python error is a non-zero exit). Each script in
+  `tools/blender/scripts/` starts from an empty scene and prints exactly one
+  `@@RESULT <json>` line — keep it that way when adding a script; everything
+  else on stdout is Blender chatter.
+- **Tests:** `test/unit/blender.test.mjs` round-trips a Kenney GLB through
+  inspect → convert → preview. It SKIPS the Blender-dependent tests when no
+  Blender is found (CI has none), so run it locally after touching a script.
+- **Interactive sessions:** a `blender` MCP server (`mcp-for-blender`) is
+  configured for agent sessions that want to drive a live Blender UI; its
+  telemetry is disabled (`DISABLE_TELEMETRY=1`). Scripted, repeatable work
+  goes through the headless runner instead.
 
 ## Content rules
 
@@ -78,7 +137,10 @@ After any UI change a README screenshot shows, re-run the matching shot
   TypeScript.
 - Comments explain *why*, not *what*.
 - Plain ES modules + an import map. No bundler, no framework.
-  `vendor/three.module.js` is the only vendored runtime library.
+  `vendor/three.module.js` plus the addons recorded in
+  `vendor/three/addons/VENDORED.json` are the only vendored runtime code — add
+  addons with `tools/vendor-three.mjs`, never by hand. Node resolves
+  `three/addons/*` through the generated `node_modules/three/addons/` shims.
 - Commit trailer for agent commits: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Workflow
@@ -99,10 +161,10 @@ After any UI change a README screenshot shows, re-run the matching shot
 
 ## Roadmap
 
-0.6 is sub-project 1 of a 7-part upgrade:
+0.7 is sub-project 2 of a 7-part upgrade:
 
-1. Content cleanse + bonds (v0.6.0, done)
-2. Asset pipeline + render quality (next)
+1. Content cleanse + bonds (v0.6, released)
+2. Asset pipeline + render quality (this sub-project, at beta.1)
 3. GLTF characters
 4. Survival/lockdown loop
 5. Combat and stealth

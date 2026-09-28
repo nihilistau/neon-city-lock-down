@@ -8,6 +8,7 @@ import { PALETTE } from './materials/palette.js';
 import { cfg } from '../core/config.js';
 import { LIGHTING_PRESETS, TOD_KEYS } from '../../data/lightingPresets.js';
 import { EnvBuilder } from './env.js';
+import { dipAndSwap, retargetDip } from './envMath.js';
 
 /** Static default presets (back-compat export); live values come from cfg('lighting.presets'). */
 export const PRESETS = LIGHTING_PRESETS;
@@ -22,9 +23,21 @@ const presets = () => cfg('lighting.presets', LIGHTING_PRESETS);
 // need ≥2 keyframes to interpolate; a malformed/empty config tod falls back to the default
 const todKeys = () => { const t = cfg('lighting.tod', TOD_KEYS); return Array.isArray(t) && t.length >= 2 ? t : TOD_KEYS; };
 
+/** Seconds for the environment-map dip-and-swap on a preset change. */
+const ENV_DIP_SEC = 0.6;
+
+/** A preset's exterior-sky grade as one linear colour: skyTint × skyExposure. */
+function skyGrade(p) {
+  return new THREE.Color(p?.ibl?.skyTint ?? 0xffffff).multiplyScalar(p?.ibl?.skyExposure ?? 1);
+}
+
 export class Lighting {
-  /** @param {import('./stage.js').Stage} stage */
-  constructor(stage) {
+  /**
+   * @param {import('./stage.js').Stage} stage
+   * @param {ReturnType<typeof import('../assets/assets.js').createAssets>|null} [assets]
+   * @param {{hdri?: 'off'|'1k'|'2k', hdriId?: string}} [opts]
+   */
+  constructor(stage, assets = null, { hdri = 'off', hdriId = 'shanghai_bund' } = {}) {
     this.stage = stage;
     this.hemi = new THREE.HemisphereLight(0x2a4a8a, 0x141020, 1.1);
     this.key = new THREE.DirectionalLight(0xbfd8ff, 1.1);
@@ -74,7 +87,21 @@ export class Lighting {
     // Image-based lighting, derived from each preset's own palette so a retint
     // also changes what the room's chrome, glass, skin and hair reflect.
     this.env = new EnvBuilder(stage.renderer);
-    this._applyEnv('neon_night');
+    this.assets = assets;
+    this.hdriId = hdriId;
+    /** @type {'off'|'1k'|'2k'} */
+    this.hdriRes = 'off';
+    /** @type {{t:number, dur:number, id:string, swapped:boolean}|null} */
+    this._envDip = null;
+    this._envTarget = cfg('lighting.envIntensity', 0.4);
+    /** @type {((color: THREE.Color) => void)|null} set by the app — grades the exterior sky dome */
+    this.onSkyGrade = null;
+    this.skyColor = skyGrade(presets().neon_night);
+    this._skyFrom = this.skyColor.clone();
+    this._skyTo = this.skyColor.clone();
+    this._applyEnv('neon_night', { dip: false });
+    /** settles (never rejects) once the HDRI is loaded and the environment rebuilt from it */
+    this.ready = this.setHDRI(hdri);
   }
 
   /**
@@ -93,11 +120,21 @@ export class Lighting {
   }
 
   /**
-   * Swap in the prefiltered environment for a preset. Not cross-faded — PMREM
-   * textures can't blend, and the reflection change reads as a natural cut.
-   * @param {string} id
+   * Retarget the environment for a preset. PMREM maps cannot blend, so a
+   * preset change dips environmentIntensity to 0, swaps the map at the bottom,
+   * and brings it back (ENV_DIP_SEC) — the old hard cut changed every
+   * reflection in the room in a single frame.
+   * @param {string} id @param {{dip?: boolean}} [o]
    */
-  _applyEnv(id) {
+  _applyEnv(id, { dip = true } = {}) {
+    if (!presets()[id]) return;
+    if (!dip) { this._envDip = null; this._swapEnv(id); return; }
+    // a change mid-dip carries on from the current intensity (envMath.retargetDip)
+    this._envDip = retargetDip(this._envDip, id, ENV_DIP_SEC);
+  }
+
+  /** @param {string} id */
+  _swapEnv(id) {
     const p = presets()[id];
     if (!p) return;
     try {
@@ -107,14 +144,46 @@ export class Lighting {
         ground: p.hemi?.ground ?? 0x07060a,
         signs: [p.cool?.color ?? 0x39e6ff, p.accent?.color ?? 0xff3fa4, p.warm?.color ?? 0xffb347],
         intensity: THREE.MathUtils.clamp(p.hemi?.intensity ?? 1, 0.12, 2),
+        skyTint: p.ibl?.skyTint ?? 0xffffff,
+        skyExposure: p.ibl?.skyExposure ?? 1,
       });
       // reflections should not overpower the authored key/fill balance
-      this.stage.scene.environmentIntensity = cfg('lighting.envIntensity', 0.4);
+      this._envTarget = p.ibl?.envIntensity ?? cfg('lighting.envIntensity', 0.4);
+      if (!this._envDip) this.stage.scene.environmentIntensity = this._envTarget;
+      // turns the reflected city only; the visible dome stays put, so the
+      // skyline never jumps when a preset changes
+      this.stage.scene.environmentRotation.y = p.ibl?.rotation ?? 0;
       this.hemi.intensity = this._hemi(p.hemi?.intensity ?? this.hemi.intensity);
     } catch (err) {
       // IBL is an enhancement, never a boot blocker
       console.warn('[lighting] env map build failed', err);
     }
+  }
+
+  /** @param {number} dt seconds */
+  _stepEnvDip(dt) {
+    const d = /** @type {{t:number, dur:number, id:string, swapped:boolean}} */ (this._envDip);
+    d.t += dt;
+    const { k, swap, done } = dipAndSwap(d.t, d.dur);
+    if (swap && !d.swapped) { this._swapEnv(d.id); d.swapped = true; }
+    this.stage.scene.environmentIntensity = this._envTarget * k;
+    if (done) { this._envDip = null; this.stage.scene.environmentIntensity = this._envTarget; }
+  }
+
+  /**
+   * Switch the IBL source to the HDRI at `res`, or back to the procedural sky.
+   * Resolves with the equirect (or null) so the caller can hand the same
+   * texture to the exterior dome. Never rejects.
+   * @param {'off'|'1k'|'2k'} res
+   */
+  async setHDRI(res) {
+    this.hdriRes = res;
+    const id = res === 'off' ? null : `${this.hdriId}_${res}`;
+    const eq = id && this.assets ? await this.assets.loadEquirect(id) : null;
+    if (this.hdriRes !== res) return eq;   // a later call won the race
+    this.env.setHDRI(eq);
+    this._swapEnv(this.presetId);
+    return eq;
   }
 
   /**
@@ -158,7 +227,9 @@ export class Lighting {
     this.presetId = id;
     this._fadeT = 0;
     this._fadeDur = Math.max(0.01, fadeSec);
-    this._applyEnv(id);
+    this._skyFrom.copy(this.skyColor);
+    this._skyTo.copy(skyGrade(preset));
+    this._applyEnv(id, { dip: fadeSec >= 0.05 });
   }
 
   _snapshot() {
@@ -176,6 +247,7 @@ export class Lighting {
   /** @param {number} dt seconds */
   update(dt) {
     this._t += dt;
+    if (this._envDip) this._stepEnvDip(dt);
     if (this._fadeT < 1 && this._from) {
       this._fadeT = Math.min(1, this._fadeT + dt / this._fadeDur);
       const k = this._fadeT * this._fadeT * (3 - 2 * this._fadeT);
@@ -194,6 +266,8 @@ export class Lighting {
       this.stage.scene.fog.color.setHex(a.fog.color).lerp(_lerpTo.setHex(b.fog.color), k);
       this.stage.scene.fog.density = THREE.MathUtils.lerp(a.fog.density, b.fog.density, k) * this._floorFogMul;
       this.stage.renderer.toneMappingExposure = THREE.MathUtils.lerp(a.exposure, b.exposure, k);
+      this.skyColor.copy(this._skyFrom).lerp(this._skyTo, k);
+      this.onSkyGrade?.(this.skyColor);
     }
     // time-of-day modulation (only the tod-aware baseline preset)
     if (this.presetId === 'neon_night' && this.clock && this._fadeT >= 1) {

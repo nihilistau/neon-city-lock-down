@@ -3,6 +3,131 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.7.0-beta.1] — 2026-09-28 — The city outside
+
+The world beyond the glass. Real image-based lighting, a real skyline, and
+rain that reads as rain — each with the procedural version as its fallback.
+
+### Added
+- **HDRI image-based lighting.** Poly Haven's `shanghai_bund` night city
+  (2K) replaces the gradient sky inside the PMREM capture; the neon sign cards
+  and the warm floor bounce are still composited in as local accents. Every
+  lighting preset now carries an `ibl` block — reflection strength, a rotation,
+  and a sky tint × exposure (a blackout darkens the city).
+- **Environment crossfade.** A preset change dips `environmentIntensity` to 0,
+  swaps the prefiltered map at the bottom, and brings it back over 0.6 s, instead
+  of hard-cutting every reflection in the room in one frame.
+- **Skyline dome.** The flat skyline billboard is replaced by the HDRI rendered
+  on a sphere behind the instanced towers, graded by the same preset. The
+  billboard remains the fallback.
+- **Emissive city windows** with a per-tower offset into the window texture, so
+  the towers no longer repeat each other's windows.
+- **Reflect boost on glossy architecture.** Glass, polished tile, marble and
+  brushed metal reflect the city harder than skin/hair/cloth do (a second
+  factor on the specular IBL lobe only), since `scene.environmentIntensity`
+  overwrites `envMapIntensity` on every draw.
+- **Rain streaks** — one instanced, velocity-aligned, camera-facing draw
+  animated in the vertex shader (it was 500 points moved by a CPU loop every
+  frame) — and **rain on the glass**: a droplet sheet on the exterior
+  curtain-wall panes that bends reflections and catches the light. Interior
+  panes with no weather on the far side keep the reflect boost only.
+- `render.hdri.{id,gain,clamp,domeGain}` in `config/render.yaml`.
+
+### Fixed
+- Shader `onBeforeCompile` patches now survive `Material.clone()`/`.copy()`,
+  which carry neither the instance `onBeforeCompile` nor
+  `customProgramCacheKey`.
+- The PMREM render target is cached and disposed instead of leaking one per
+  environment rebuild.
+
+## [0.7.0-alpha.2] — 2026-09-28 — Surfaces
+
+The tower stops looking like untextured boxes. Every shell and furniture
+surface comes from a named PBR library backed by Poly Haven scans, with the
+old canvas textures as the fallback per surface.
+
+### Added
+- **PBR material library** (`src/scene3d/materials/pbr.js`) — `concrete`,
+  `concreteFloor`, `metal`, `metalDark`, `tile`, `marble`, `wood`, `fabric`,
+  `bedding`, `rust`. Each is a 1K Poly Haven set (albedo, normal, packed
+  AO/roughness/metalness) when the asset pipeline has it, and the texGen
+  canvas + Sobel normal map otherwise. Colour and roughness are measured
+  against each scan's own mean, so a loaded set's tint is the displayed
+  colour and an authored roughness override still holds.
+- **World-scale UVs** (`src/scene3d/materials/worldUV.js`) — one texture repeat
+  per N metres on every box, cylinder (arc-length unroll + plan-view caps),
+  sphere, and scaled mesh, so a 2.4 m counter and a 0.3 m shelf show their
+  grain at the same scale.
+- **Bevelled hero furniture** — couch, armchairs, bed, tables, counters and
+  desks use RoundedBoxGeometry, so their edges catch a highlight. Colliders and
+  sockets are unchanged.
+- **Kenney prop dressing** (`data/propDressing.js`) — books, a plant, a bin, a
+  laptop, boxes, a rooftop tank and solar panel, fitted to real heights and
+  re-skinned with library materials. Opt-in per prop; absent (never a
+  placeholder) if the model did not load.
+- `World3D.create()` preloads each floor's assets before building it, so
+  nothing pops in; floors stay hidden until the build finishes.
+
+### Fixed
+- Procedural textures were drawn with `Math.random()`, so every boot painted
+  different concrete, wood grain and skyline windows. Each recipe now seeds its
+  own stream from its cache key.
+- The hover glow no longer mutates shared materials: the picker clones a
+  mesh's material once, glows the clone, and releases it (including when a
+  hostile is removed mid-hover). A cinematic camera hovers nothing, fixing the
+  bed two-shot washed flat cyan by a stale hover.
+- Outfit layout: a top worn with a bottom tucks under the waistband instead of
+  showing a bare skin band at the hip; shorts run to just above the knee, and
+  the shirtless swim/sleep states got a top.
+
+## [0.7.0-alpha.1] — 2026-09-27 — Plumbing
+
+The first stage of sub-project 2 (asset pipeline + render quality). Nothing
+looks different yet: this release adds the tools and the runtime seam the
+rest of 0.7 loads real assets through, with the procedural look as the
+fallback everywhere.
+
+### Added
+- **`tools/vendor-three.mjs`** — vendors three@0.185.0 example addons
+  (GLTFLoader, DRACOLoader + the glTF Draco decoder, meshopt, HDRLoader,
+  LUTCubeLoader, BufferGeometryUtils, SkeletonUtils, SMAAPass, LUTPass,
+  RoundedBoxGeometry) from the pinned npm tarball, following relative imports
+  transitively. It refuses an unresolved import, records every file in
+  `vendor/three/addons/VENDORED.json`, and generates `node_modules/three/addons/*`
+  shims so unit tests import `three/addons/…` exactly like the browser.
+- **`tools/fetch-assets.mjs` + `assets/manifest.json`** — downloads and
+  transforms the CC0 set: Poly Haven's `shanghai_bund` HDRI (1K + 2K), nine
+  1K PBR sets (AO/roughness/metalness packed into one ORM map), a selection of
+  Kenney Furniture Kit and City Kit (Industrial) models, and a generated
+  neon-noir `.cube` LUT. Every file is recorded with sha256 + bytes; the tool
+  is idempotent and `--verify` checks without downloading.
+- **`tools/lint-assets.mjs`** (in `npm run lint`) — manifest schema, sha256 of
+  every file, no stray files, CC0 on every entry, and the **40 MB budget**
+  (also asserted by `test/unit/asset-manifest.test.mjs`).
+- **`src/assets/assets.js`** — the asset facade. Every loader resolves to
+  `null` on failure and warns once, so every caller falls back to procedural;
+  `?noassets=1` switches the pipeline off without a single request.
+- **`tools/blender/`** — a headless Blender runner (dev tool; the game never
+  runs Blender). `node tools/blender/run.mjs inspect|convert|preview` reports a
+  model's objects, tris, materials, bones, actions and bounds; converts
+  `.glb`/`.gltf`/`.fbx`/`.obj`/`.blend` to a Y-up GLB with an optional Decimate
+  LOD (`--lod 0.5`) and `--apply-scale`; and renders a framed 512² EEVEE preview
+  (Workbench fallback). It finds Blender through `BLENDER_EXE`, `PATH` or the
+  install folders; its round-trip tests skip where Blender is absent (CI).
+- New screenshot shots `bar`, `rooftop`, `exterior`, a `--out` flag, and the
+  v0.6 "before" set in `docs/screenshots/v0.6/`.
+- `.glb`, `.gltf`, `.bin`, `.cube`, `.wasm` MIME types in `tools/serve.mjs`.
+
+### Fixed
+- Network timeouts: `tools/fetch-assets.mjs` aborts a stalled download after
+  60 s and `tools/vendor-three.mjs` the tarball after 120 s, each naming the
+  URL; the facade gives up on the manifest after 10 s and goes procedural
+  instead of stalling `assetsReady` forever.
+- The archive reader fails loudly on a corrupt tar/zip, and extraction refuses
+  any path outside its root.
+- A model clone that throws resolves `loadGLTF`/`peekGLTF` to `null` instead of
+  rejecting.
+
 ## [0.6.0] — 2026-09-27 — Clean slate
 
 Sub-project 1 of 7 is done: Neon-City: Lock-Down is now an all-audiences

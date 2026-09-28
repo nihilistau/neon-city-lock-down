@@ -17,13 +17,13 @@ import { test, expect } from '@playwright/test';
 const URL = process.env.NCLD_URL || 'http://localhost:8420/?debug=1';
 
 /** Boot to a live run and hand back the page. Fails loudly rather than timing out silently. */
-async function bootToRun(page) {
+async function bootToRun(page, url = URL) {
   /** @type {string[]} */
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   const newRun = page.getByRole('button', { name: /New Run/i });
   await expect(newRun).toBeVisible({ timeout: 10000 });
@@ -83,6 +83,108 @@ test.describe('Neon-City: Lock-Down', () => {
     expect(state.lights).toBeGreaterThan(0);
     // an ignorable-error allowlist would defeat the point; there should be none
     expect(errors, `console errors during boot:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('a normal boot raises zero pageerror events', async ({ page }) => {
+    // Regression guard for R1: startRun() now awaits this.assetsReady before
+    // the world/cameraRig/lighting/combatFx exist, and render() dereferences
+    // them when mode==='run'. If that guard regresses, a normal (non-
+    // ?noassets) boot throws a TypeError from render() on every frame while
+    // the (real, async) loader import is in flight — a failure the
+    // ?noassets=1 path can't catch, because there the loader promise is null
+    // and settles as a same-tick microtask.
+    /** @type {string[]} */
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    await bootToRun(page);
+    expect(pageErrors, `pageerror events during a normal boot:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
+  test('room surfaces come from the asset pipeline', async ({ page }) => {
+    await bootToRun(page);
+    const src = await page.evaluate(() => {
+      const out = {};
+      window.__ncld.app.world.floorGroups.penthouse.traverse((o) => {
+        const p = o.material?.userData?.pbr;
+        if (p) out[p] = o.material.userData.source;
+      });
+      return out;
+    });
+    expect(src.tile).toBe('pbr');
+    expect(src.concrete).toBe('pbr');
+    expect(src.fabric).toBe('pbr');
+    expect(src.bedding).toBe('procedural');   // procedural by choice
+  });
+
+  test('image-based lighting comes from the HDRI, and a preset change dips and swaps it', async ({ page }) => {
+    await bootToRun(page);
+    const r = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const envBefore = app.stage.scene.environment?.uuid;
+      const target0 = app.lighting._envTarget;
+      app.lighting.apply('blackout_emergency', 1.2);
+      // Poll on PROGRESS (the dip finishing AND the env swapping), not a fixed
+      // wall-clock window: under SwiftShader a frame can take ~3s, so a 4s
+      // budget sometimes elapses before either has actually happened (R15).
+      // The generous 60s ceiling only bounds a genuine hang.
+      let lowest = Infinity;
+      const t0 = performance.now();
+      let swapped = app.stage.scene.environment?.uuid !== envBefore;
+      while (performance.now() - t0 < 60000 && !(swapped && !app.lighting._envDip)) {
+        lowest = Math.min(lowest, app.stage.scene.environmentIntensity);
+        await new Promise((res) => setTimeout(res, 30));
+        swapped = app.stage.scene.environment?.uuid !== envBefore;
+      }
+      return {
+        hdri: !!app.lighting.env.hdri, target0, lowest, swapped,
+        after: app.stage.scene.environmentIntensity, target: app.lighting._envTarget,
+      };
+    });
+    expect(r.hdri).toBe(true);
+    expect(r.lowest).toBeLessThan(r.target0);
+    expect(r.swapped).toBe(true);
+    expect(r.after).toBeCloseTo(r.target, 5);
+  });
+
+  test('the skyline is the HDRI dome, graded by the lighting preset', async ({ page }) => {
+    await bootToRun(page);
+    const r = await page.evaluate(async () => {
+      const app = window.__ncld.app;
+      const ext = app.world.exteriors.find((e) => !e.fromRoof);
+      const before = ext.dome.material.color.getHex();
+      app.lighting.apply('blackout_emergency', 0.2);
+      // Poll until the grade actually lands instead of sleeping a fixed 2s —
+      // SwiftShader frame time varies, and a fixed sleep flakes when a frame
+      // runs long (R15). 60s is a generous ceiling for a genuine hang.
+      const t0 = performance.now();
+      while (performance.now() - t0 < 60000 && ext.dome.material.color.getHex() === before) {
+        await new Promise((res) => setTimeout(res, 30));
+      }
+      return { dome: ext.dome.visible, plate: ext.plate ? ext.plate.visible : false, before, after: ext.dome.material.color.getHex() };
+    });
+    expect(r.dome).toBe(true);
+    expect(r.plate).toBe(false);
+    expect(r.after).not.toBe(r.before);
+  });
+
+  test('?noassets=1 boots on procedural fallbacks with no console errors', async ({ page }) => {
+    // The asset pipeline is an enhancement. With it switched off entirely the
+    // game must still boot, build every floor and render — the same path a
+    // clone with a missing or corrupt asset takes.
+    const errors = await bootToRun(page, `${URL}&noassets=1`);
+    const state = await page.evaluate(() => ({
+      enabled: window.__ncld.app.assets.enabled,
+      mode: window.__ncld.app.mode,
+      hdri: !!window.__ncld.app.lighting.env.hdri,
+      floor: window.__ncld.app.world.activeFloor,
+      tile: (() => { let s = null; window.__ncld.app.world.floorGroups.penthouse.traverse((o) => { if (o.material?.userData?.pbr === 'tile') s = o.material.userData.source; }); return s; })(),
+    }));
+    expect(state.enabled).toBe(false);
+    expect(state.tile).toBe('procedural');
+    expect(state.hdri).toBe(false);
+    expect(state.mode).toBe('run');
+    expect(state.floor).toBe('penthouse');
+    expect(errors, `console errors during a no-assets boot:\n${errors.join('\n')}`).toEqual([]);
   });
 
   test('the control hint is visible — it shipped hidden once', async ({ page }) => {

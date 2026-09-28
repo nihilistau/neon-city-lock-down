@@ -123,6 +123,12 @@ function legPiece(b, j, side, yTop, yBottom, clearMul = 1) {
     radii.push({ rx: rx * h * sc + clear, rz: rz * h * sc + clear });
   }
   if (pts.length < 2) return null;
+  // starting on the body's own top station would put both tube caps in one
+  // plane (z-fighting at the outer hip) — lift the garment's a hair above it
+  if (pts[0].y >= LEG_STATIONS[0][0] * h - 1e-6) {
+    pts.unshift(pts[0].clone().setY(pts[0].y + 0.006 * h));
+    radii.unshift({ ...radii[0] });
+  }
   // hem fold at the low end
   const lastP = pts[pts.length - 1], lastR = radii[radii.length - 1];
   pts.push(lastP.clone().setY(lastP.y - 0.004 * h));
@@ -140,54 +146,181 @@ function legPiece(b, j, side, yTop, yBottom, clearMul = 1) {
   return t.geo;
 }
 
+/* ───────────────────────────── layout ──────────────────────────────────── */
+// Every garment's vertical extent and shell offset, as FRACTIONS OF HEIGHT, is
+// decided here — once per recipe — and the piece generators below only sweep what
+// the layout says. v0.6 defined each piece's hem/waist on its own, and it showed:
+//   * leggings had no trunk band at all (they started on the thigh), so any top
+//     + leggings kit left the hips and crotch as bare skin;
+//   * shorts overlapped the top's hem by 0.003·h (half a centimetre) and ended at
+//     0.50·h — the leg stations skip from 0.500 to 0.430, so `leg: 0.44` built a
+//     much shorter leg than it read;
+//   * top and waistband shared one clearance, so the sliver they did share
+//     z-fought;
+//   * garment legs began at the 0.552·h station while the body's thigh starts at
+//     0.590·h and flares far past the pelvis — the outer hip showed bare thigh
+//     between the waistband and the garment leg.
+// The invariants (test/unit/outfits.test.mjs checks all of them per recipe):
+//   * a bottom always has a waistband from the crotch seam up to its rise, unless
+//     a one-piece (dress/robe/towel) already covers the hips, and its leg tubes
+//     start at the body's own thigh top;
+//   * a top worn with a bottom is TUCKED: its hem drops to rise − TUCK_OVERLAP and
+//     the waistband is sized to sit OVER it;
+//   * trunk layers that share heights nest — each one's inner surface clears the
+//     outer surface of everything under it by LAYER_GAP.
+
+/** how far a top's hem runs under its bottom's waistband, fraction of height (~3.4 cm at 1.7 m) */
+export const TUCK_OVERLAP = 0.02;
+/** air between one layer's outer surface and the next layer's inner, fraction of height */
+const LAYER_GAP = 0.001;
+/** the bottom's waistband top (its rise) unless the recipe says otherwise */
+const RISE = 0.615;
+/** where a waistband starts, under the pelvis cap — the crotch seam */
+const SEAT = 0.505;
+/** the body's leg tube starts here (LEG_STATIONS[0]); the thighs flare well past
+ *  the pelvis, so at the outer hip this IS the silhouette — a bottom's leg tubes
+ *  must reach it or the thigh top shows between them and the waistband */
+const THIGH_TOP = LEG_STATIONS[0][0];
+
 /**
- * Piece generators. Each returns bind-pose geometry with skinning attributes.
- * @type {Record<string, (b:any, j:any, opts:any) => THREE.BufferGeometry>}
+ * Per-piece defaults. `trunk`/`legs` give [low, high] extents (fractions of
+ * height), `order` is the stacking order (0 = next to skin), `clear`/`thick` are
+ * multipliers on the configured clearance/thickness.
+ * @type {Record<string, {role:'top'|'bottom'|'onepiece'|'outer', order:number, clear:number, thick:number,
+ *   trunk:(o:any)=>[number,number], legs:(o:any)=>[number,number]|null, legClear?:number,
+ *   flare?:number, count:number}>}
+ */
+const SPEC = {
+  top: { role: 'top', order: 0, clear: 1, thick: 1, count: 11, trunk: (o) => [o.hem ?? 0.612, 0.806], legs: () => null },
+  shorts: {
+    // knee-length: the lowest station this sweeps is 0.362·h, just above the knee
+    role: 'bottom', order: 1, clear: 1, thick: 1, count: 7, legClear: 1.35,
+    trunk: (o) => [SEAT, o.rise ?? RISE], legs: (o) => [o.leg ?? 0.35, THIGH_TOP],
+  },
+  leggings: {
+    role: 'bottom', order: 1, clear: 1, thick: 1, count: 7, legClear: 1,
+    trunk: (o) => [SEAT, o.rise ?? RISE], legs: () => [0.050, THIGH_TOP],
+  },
+  dress: { role: 'onepiece', order: 1, clear: 1, thick: 1, count: 18, flare: 0.11, trunk: (o) => [o.hem ?? 0.36, 0.802], legs: () => null },
+  towel: { role: 'onepiece', order: 1, clear: 1.9, thick: 1.8, count: 12, flare: 0.04, trunk: (o) => [o.hem ?? 0.40, 0.806], legs: () => null },
+  robe: { role: 'onepiece', order: 2, clear: 3.4, thick: 1.6, count: 16, flare: 0.09, trunk: (o) => [o.hem ?? 0.38, 0.842], legs: () => null },
+  jacket: { role: 'outer', order: 2, clear: 2.1, thick: 1, count: 10, trunk: () => [0.590, 0.836], legs: () => null },
+};
+
+/** the leg stations a [low, high] request actually sweeps → the real covered span */
+function legSpan(lo, hi) {
+  const ys = LEG_STATIONS.map((s) => s[0]).filter((y) => y <= hi + 1e-9 && y >= lo - 1e-9);
+  return ys.length >= 2 ? /** @type {[number,number]} */ ([Math.min(...ys), Math.max(...ys)]) : null;
+}
+
+/**
+ * @typedef {{piece:string, role:string, trunk:[number,number]|null, legs:[number,number]|null,
+ *   clear:number, thick:number, legClear:number, count:number, flare:number, coverLegs:boolean}} Layer
+ */
+
+/**
+ * Resolve a recipe into per-piece layers (all fractions of height). Pure — no
+ * geometry — so the coverage invariants can be tested against every recipe.
+ * `legs` is leg coverage: a leg tube's real station span, or for a one-piece
+ * the skirt from its hem up to the thigh root.
+ * @param {{pieces:{piece:string, opts?:any}[]}} recipe
+ * @returns {Layer[]}
+ */
+export function outfitLayout(recipe) {
+  const pieces = recipe?.pieces || [];
+  const c = CLEAR(), T = THICK();
+  const specs = pieces.map((p) => {
+    const s = SPEC[p.piece];
+    if (!s) throw new Error(`unknown outfit piece: ${p.piece}`);
+    return s;
+  });
+  const hasOnePiece = specs.some((s) => s.role === 'onepiece');
+  const rises = pieces.filter((_, i) => specs[i].role === 'bottom').map((p) => p.opts?.rise ?? RISE);
+  const rise = rises.length ? Math.min(...rises) : null;
+
+  /** @type {Layer[]} */
+  const layers = pieces.map((p, i) => {
+    const s = specs[i], o = p.opts || {};
+    /** @type {[number,number]|null} */
+    let trunk = s.trunk(o);
+    // under a one-piece the waistband would only z-fight the skirt that hides it
+    if (s.role === 'bottom' && hasOnePiece) trunk = null;
+    // tuck the top into the waistband
+    if (s.role === 'top' && rise != null && !hasOnePiece) {
+      trunk = [Math.min(trunk[0], rise - TUCK_OVERLAP), trunk[1]];
+    }
+    const lr = s.legs(o);
+    // ...and its leg tops: the skirt is swept out to exactly legOuterX + clear
+    // over the thigh top, so leggings reaching it there would share that surface.
+    // Under a skirt the thigh top is already covered, so they keep their v0.6
+    // top station (0.552·h) rather than running up along the skirt's surface.
+    const legTop = s.role === 'bottom' && hasOnePiece ? LEG_STATIONS[1][0] : Infinity;
+    let legs = lr ? legSpan(lr[0], Math.min(lr[1], legTop)) : null;
+    const coverLegs = s.role === 'onepiece';
+    if (coverLegs) legs = [trunk[0], THIGH_TOP];
+    const clear = s.clear * c;
+    return {
+      piece: p.piece, role: s.role, trunk, legs, clear,
+      thick: Math.min(s.thick * T, clear * 0.85),
+      legClear: s.legClear ?? 1, count: s.count, flare: s.flare ?? 0, coverLegs,
+    };
+  });
+
+  // nest the trunk shells, innermost first: a layer that shares heights with one
+  // under it is pushed out until its inner surface clears that layer's outer one
+  const idx = layers.map((_, i) => i).filter((i) => layers[i].trunk)
+    .sort((a, b) => specs[a].order - specs[b].order || a - b);
+  for (let n = 0; n < idx.length; n++) {
+    const L = layers[idx[n]];
+    for (let m = 0; m < n; m++) {
+      const U = layers[idx[m]];
+      if (Math.min(L.trunk[1], U.trunk[1]) <= Math.max(L.trunk[0], U.trunk[0])) continue;
+      if (L.clear - L.thick < U.clear + LAYER_GAP) {
+        // band() keeps thick ≤ 0.85·clear; once clear exceeds need + thick that
+        // cap is slack, so need + thick is exactly enough
+        const thick = specs[idx[n]].thick * T;
+        L.clear = U.clear + LAYER_GAP + thick;
+        L.thick = Math.min(thick, L.clear * 0.85);
+      }
+    }
+  }
+  return layers;
+}
+
+/** one trunk band from a layer — tops, one-pieces, jacket bodies and waistbands */
+function trunkPiece(b, L) {
+  const h = b.height;
+  const yLo = L.trunk[0] * h, yHi = L.trunk[1] * h;
+  const { outer, inner } = band(b, yLo, yHi, {
+    count: L.count, clear: L.clear, thick: L.thick, flare: L.flare, coverLegs: L.coverLegs,
+  });
+  return skinTrunk(shellGeo(outer, inner, RADIAL()), h, yLo, yHi);
+}
+
+/**
+ * Piece generators. Each sweeps bind-pose geometry (with skinning attributes)
+ * from its resolved layer.
+ * @type {Record<string, (b:any, j:any, L:Layer) => THREE.BufferGeometry>}
  */
 const PIECES = {
-  /** fitted top: chest → waist cover */
-  top(b, j, opts) {
-    const h = b.height;
-    // ends just under the collarbone rather than capping the shoulder — a top
-    // narrowing at the top edge would have to dip INSIDE the chest to do it
-    const yLo = (opts.hem ?? 0.612) * h, yHi = 0.806 * h;
-    const { outer, inner } = band(b, yLo, yHi, { count: 11 });
-    const geo = shellGeo(outer, inner, RADIAL());
-    return skinTrunk(geo, h, yLo, yHi);
-  },
+  /** fitted top: chest → waist (tucked when worn with a bottom). It ends just
+   *  under the collarbone rather than capping the shoulder — a top narrowing at
+   *  the top edge would have to dip INSIDE the chest to do it. */
+  top: (b, j, L) => trunkPiece(b, L),
 
-  /** dress: chest → above knee, flared */
-  dress(b, j, opts) {
-    const h = b.height;
-    const yLo = (opts.hem ?? 0.36) * h, yHi = 0.802 * h;
-    const { outer, inner } = band(b, yLo, yHi, { count: 18, flare: 0.11, coverLegs: true });
-    const geo = shellGeo(outer, inner, RADIAL());
-    return skinTrunk(geo, h, yLo, yHi);
-  },
+  /** dress: chest → above the knee, flared */
+  dress: (b, j, L) => trunkPiece(b, L),
 
-  /** shorts: hips → upper thigh */
-  shorts(b, j, opts) {
-    const h = b.height;
-    const parts = [];
-    const yLo = 0.505 * h, yHi = (opts.rise ?? 0.615) * h;
-    const w = band(b, yLo, yHi, { count: 7 });
-    parts.push(skinTrunk(shellGeo(w.outer, w.inner, RADIAL()), h, yLo, yHi));
-    for (const side of ['L', 'R']) {
-      const leg = legPiece(b, j, side, 0.560 * h, (opts.leg ?? 0.44) * h, 1.35);
-      if (leg) parts.push(leg);
-    }
-    const merged = mergeGeometries(parts);
-    parts.forEach((p) => p.dispose());
-    return merged;
-  },
+  /** shorts: waistband → just above the knee */
+  shorts: bottomPiece,
+
+  /** leggings: waistband → ankle */
+  leggings: bottomPiece,
 
   /** open jacket shell over the torso + upper arms */
-  jacket(b, j) {
+  jacket(b, j, L) {
     const h = b.height;
-    const parts = [];
-    const yLo = 0.590 * h, yHi = 0.836 * h;
-    const w = band(b, yLo, yHi, { count: 10, clear: CLEAR() * 2.1 });
-    parts.push(skinTrunk(shellGeo(w.outer, w.inner, RADIAL()), h, yLo, yHi));
+    const parts = [trunkPiece(b, L)];
     // sleeves swept down the arm's own stations, so an elbow bend keeps volume
     for (const side of ['L', 'R']) {
       const sh = j['arm' + side], el = j['fore' + side];
@@ -213,41 +346,26 @@ const PIECES = {
     return merged;
   },
 
-  /** loose robe: shoulders → mid-thigh, draped */
-  robe(b, j, opts) {
-    const h = b.height;
-    const yLo = (opts?.hem ?? 0.42) * h, yHi = 0.842 * h;
-    const { outer, inner } = band(b, yLo, yHi, {
-      count: 16, clear: CLEAR() * 3.4, thick: THICK() * 1.6, flare: 0.09, coverLegs: true,
-    });
-    const geo = shellGeo(outer, inner, RADIAL());
-    return skinTrunk(geo, h, yLo, yHi);
-  },
+  /** loose robe: shoulders → above the knee, draped */
+  robe: (b, j, L) => trunkPiece(b, L),
 
-  /** towel wrap: chest → mid-thigh, snug */
-  towel(b, j, opts) {
-    const h = b.height;
-    const yLo = (opts?.hem ?? 0.46) * h, yHi = 0.806 * h;
-    const { outer, inner } = band(b, yLo, yHi, {
-      count: 12, clear: CLEAR() * 1.9, thick: THICK() * 1.8, flare: 0.04, coverLegs: true,
-    });
-    const geo = shellGeo(outer, inner, RADIAL());
-    return skinTrunk(geo, h, yLo, yHi);
-  },
-
-  /** thigh-high leggings */
-  leggings(b, j) {
-    const h = b.height;
-    const parts = [];
-    for (const side of ['L', 'R']) {
-      const leg = legPiece(b, j, side, 0.575 * h, 0.050 * h, 1);
-      if (leg) parts.push(leg);
-    }
-    const merged = mergeGeometries(parts);
-    parts.forEach((p) => p.dispose());
-    return merged;
-  },
+  /** towel wrap: chest → above the knee, snug */
+  towel: (b, j, L) => trunkPiece(b, L),
 };
+
+/** shorts/leggings: the waistband (unless a one-piece covers it) + two leg tubes */
+function bottomPiece(b, j, L) {
+  const h = b.height;
+  const parts = [];
+  if (L.trunk) parts.push(trunkPiece(b, L));
+  for (const side of ['L', 'R']) {
+    const leg = L.legs && legPiece(b, j, side, L.legs[1] * h, L.legs[0] * h, L.legClear);
+    if (leg) parts.push(leg);
+  }
+  const merged = mergeGeometries(parts);
+  parts.forEach((p) => p.dispose());
+  return merged;
+}
 
 /** every piece id a recipe may name — used by data lint + the wardrobe */
 export const PIECE_IDS = Object.keys(PIECES);
@@ -261,10 +379,11 @@ export const PIECE_IDS = Object.keys(PIECES);
  */
 export function buildOutfit(persona, rig, recipe) {
   const meshes = [];
-  for (const p of recipe?.pieces || []) {
+  const layout = outfitLayout(recipe);
+  (recipe?.pieces || []).forEach((p, i) => {
     const gen = PIECES[p.piece];
     if (!gen) throw new Error(`unknown outfit piece: ${p.piece}`);
-    const geo = gen(persona.body, rig.joints, p.opts || {});
+    const geo = gen(persona.body, rig.joints, layout[i]);
     geo.computeVertexNormals();
     const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(p.color),
@@ -286,7 +405,7 @@ export function buildOutfit(persona, rig, recipe) {
     mesh.bind(rig.skeleton, new THREE.Matrix4());
     mesh.frustumCulled = false;
     meshes.push(mesh);
-  }
+  });
   return meshes;
 }
 

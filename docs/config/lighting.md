@@ -27,6 +27,25 @@ Each preset:
 Colors are `0xRRGGBB` integers (YAML parses `0x…` as an int). Values not present fall back
 to the baked default, so partial preset edits are safe.
 
+## `ibl` — per-preset HDRI grading
+
+Each preset also carries an `ibl` block (`data/lightingPresets.js`, range-checked by
+`data/configSchema.js`) that grades the HDRI environment (`render.hdri`, see
+`docs/config/render.md`) for that preset:
+
+| Key | Range | Meaning |
+|-----|-------|---------|
+| `envIntensity` | 0–3 | This preset's own `scene.environmentIntensity` target — distinct from the top-level `envIntensity` key below, which is the baked default before any preset overrides it. |
+| `rotation` | any number, radians | Yaw applied to `scene.environmentRotation.y` — turns the reflected skyline without moving the visible dome. |
+| `skyTint` | `0xRRGGBB`, 0–0xffffff | Colour multiplied into the HDRI before it enters the IBL capture and the dome. |
+| `skyExposure` | 0–4 | Brightness multiplier alongside `skyTint` — together they're `render.hdri.gain`'s per-preset modifier. |
+
+Example — `blackout_emergency` darkens and reddens the city instead of showing it at full
+brightness: `ibl: { envIntensity: 0.15, rotation: 0, skyTint: 0x6a5060, skyExposure: 0.25 }`.
+A preset change dips `environmentIntensity` to 0, swaps the prefiltered map, then grades
+`skyColor` in with `onSkyGrade` as it fades back in — see `Lighting.apply()` and
+`src/scene3d/envMath.js` (`dipAndSwap`, pure and unit-tested).
+
 ## `envIntensity` / `hemiScale` — image-based lighting
 
 | Key | Default | Range | Meaning |
