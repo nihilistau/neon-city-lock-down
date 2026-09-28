@@ -3,6 +3,43 @@
 All notable changes to Neon-City: Lock-Down. This project adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.7.0-beta.1] — 2026-09-28 — The city outside
+
+The world beyond the glass. Real image-based lighting, a real skyline, and
+rain that reads as rain — each with the procedural version as its fallback.
+
+### Added
+- **HDRI image-based lighting.** Poly Haven's `shanghai_bund` night city
+  (2K) replaces the gradient sky inside the PMREM capture; the neon sign cards
+  and the warm floor bounce are still composited in as local accents. Every
+  lighting preset now carries an `ibl` block — reflection strength, a rotation,
+  and a sky tint × exposure (a blackout darkens the city).
+- **Environment crossfade.** A preset change dips `environmentIntensity` to 0,
+  swaps the prefiltered map at the bottom, and brings it back over 0.6 s, instead
+  of hard-cutting every reflection in the room in one frame.
+- **Skyline dome.** The flat skyline billboard is replaced by the HDRI rendered
+  on a sphere behind the instanced towers, graded by the same preset. The
+  billboard remains the fallback.
+- **Emissive city windows** with a per-tower offset into the window texture, so
+  the towers no longer repeat each other's windows.
+- **Reflect boost on glossy architecture.** Glass, polished tile, marble and
+  brushed metal reflect the city harder than skin/hair/cloth do (a second
+  factor on the specular IBL lobe only), since `scene.environmentIntensity`
+  overwrites `envMapIntensity` on every draw.
+- **Rain streaks** — one instanced, velocity-aligned, camera-facing draw
+  animated in the vertex shader (it was 500 points moved by a CPU loop every
+  frame) — and **rain on the glass**: a droplet sheet on the exterior
+  curtain-wall panes that bends reflections and catches the light. Interior
+  panes with no weather on the far side keep the reflect boost only.
+- `render.hdri.{id,gain,clamp,domeGain}` in `config/render.yaml`.
+
+### Fixed
+- Shader `onBeforeCompile` patches now survive `Material.clone()`/`.copy()`,
+  which carry neither the instance `onBeforeCompile` nor
+  `customProgramCacheKey`.
+- The PMREM render target is cached and disposed instead of leaking one per
+  environment rebuild.
+
 ## [0.7.0-alpha.2] — 2026-09-28 — Surfaces
 
 The tower stops looking like untextured boxes. Every shell and furniture

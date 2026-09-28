@@ -82,7 +82,11 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   </tr>
   <tr>
     <td><img src="docs/screenshots/v0.6/03-penthouse-lounge.jpg" alt="Penthouse lounge, v0.6"><br><sub><b>Before (v0.6)</b> — the penthouse lounge on the old canvas textures.</sub></td>
-    <td><img src="docs/screenshots/03-penthouse-lounge.jpg" alt="Penthouse lounge, alpha.2"><br><sub><b>After (alpha.2)</b> — the same lounge on the PBR material library: world-scale UVs, bevelled hero furniture, measured tint and roughness.</sub></td>
+    <td><img src="docs/screenshots/v0.7-alpha.2/03-penthouse-lounge.jpg" alt="Penthouse lounge, alpha.2"><br><sub><b>After (alpha.2)</b> — the same lounge on the PBR material library: world-scale UVs, bevelled hero furniture, measured tint and roughness.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/v0.6/16-exterior.jpg" alt="Exterior view, v0.6"><br><sub><b>Before (v0.6)</b> — the flat two-tone skyline billboard behind the towers.</sub></td>
+    <td><img src="docs/screenshots/16-exterior.jpg" alt="Exterior view, beta.1"><br><sub><b>After (beta.1)</b> — a real HDRI night city on a folded skyline dome, graded by the lighting preset, with rain streaking past the towers.</sub></td>
   </tr>
 </table>
 
@@ -114,9 +118,10 @@ generated or hand-authored**. The only third-party runtime dependency is three.j
   (procedural gait, pose clips, additive breathing, gaze). 14 zones across 7
   floors built from a PBR material library (Poly Haven scans, procedural
   fallback) with world-scale UVs and bevelled hero furniture, elevator
-  transit, 10 lighting presets, time-of-day, a procedural city backdrop,
-  rain, news-ticker monitors, and **openable velvet curtains** that draw
-  across the glass to shut out the city.
+  transit, 10 lighting presets, time-of-day, an HDRI night-city skyline and
+  image-based lighting graded per lighting preset, instanced rain with
+  droplets on the glass, news-ticker monitors, and **openable velvet
+  curtains** that draw across the glass to shut out the city.
 - **New-game flow & roguelike.** A main menu picks from 15 scenarios (three earned by play) and 3
   starting loadouts (Fixer / Survivor / Gunhand), continues an autosave, or opens
   the codex. Day/night ticks, rationing, a resource economy, system damage &
@@ -232,8 +237,8 @@ API references, the gameplay loop, and the event catalog.
 ## Development
 
 ```bash
-npm test                              # node --test — 363 unit tests (stats, bond, dialogue, combat, sim…)
-npm run test:e2e                      # playwright — 13 end-to-end tests in a real headless browser
+npm test                              # node --test — 397 unit tests (stats, bond, dialogue, combat, sim…)
+npm run test:e2e                      # playwright — 15 end-to-end tests in a real headless browser
 npm run test:all                      # unit + linters + e2e
 node tools/lint-data.mjs              # validate all content modules + cross-references
 node tools/lint-config.mjs            # validate config/*.yaml against data/configSchema.js

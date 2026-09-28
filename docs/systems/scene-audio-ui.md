@@ -92,6 +92,52 @@ pattern for any new presentation layer.
   finishes, so nothing pops in as textures or models arrive late. The synchronous
   constructor still builds procedurally (no await) so unit tests stay fast.
 
+### Environment & exterior (`src/scene3d/env.js`, `lighting.js`, `tower/zoneBuilder.js`, `materials/`)
+- **`env.js` — `class EnvBuilder(stage)`** — builds the reflection-probe environment PMREM
+  prefilters: a small neon-noir procedural sky (gradient, horizon glow, sign cards, warm
+  floor bounce) by default, or, once `setHDRI(equirect)` is called, Poly Haven's
+  `shanghai_bund` night-city HDRI in its place (sign cards and floor bounce stay composited
+  in as local accents). `setHDRI` is a no-op if the equirect didn't change. The HDRI is
+  absolute-radiance photography, so the capture grades it through a small `HdriShader`:
+  `texel * skyTint * skyExposure * render.hdri.gain`, soft-knee capped at `render.hdri.clamp`
+  (`envMath.softKnee`, shared with the dome) — ungraded it turned skin chalk-white. The
+  render target is cached per rebuild and disposed, not leaked.
+- **`lighting.js` — `class Lighting`** — each preset's `ibl` block
+  (`envIntensity, rotation, skyTint, skyExposure`, `docs/config/lighting.md`) drives the
+  environment: `_envTarget` is the preset's `environmentIntensity`, and
+  `environmentRotation.y` follows `rotation`. `Lighting.apply(id, fade)` **dips** intensity
+  to 0, swaps the prefiltered map at the bottom (`_swapEnv`), then **brings it back** over
+  `ENV_DIP_SEC` (0.6 s) instead of hard-cutting every reflection in one frame; a preset
+  change mid-dip retargets the in-flight dip instead of popping (`envMath.retargetDip`).
+  `skyColor` lerps from the old preset's grade to the new one across the same fade and calls
+  `onSkyGrade?.(color)` each step — the dome subscribes to this. `await lighting.ready`
+  resolves once the initial `setHDRI` call settles.
+- **The dome (`tower/zoneBuilder.js`)** — `_showDome(ext, eq)` replaces the flat skyline
+  billboard plate with a `SphereGeometry(DOME_RADIUS=180, …)` behind the instanced towers,
+  textured with the same equirect and graded by `materials/skyDome.js`'s `onBeforeCompile`
+  patch (`gain: render.hdri.domeGain`, then the shared soft-knee `clamp`). The panorama's
+  skyline half is mirror-folded around the full circle (street-level facades folded out) and
+  the promenade below the horizon fades out; the dome is unfogged and doesn't write depth so
+  the instanced towers always render in front of it. `setSkyTexture(eq)` swaps dome ↔ plate
+  live; `setSkyGrade(color)` is the `onSkyGrade` sink, copying into a cached `THREE.Color` (no
+  per-frame allocation). The billboard plate remains the `?noassets=1` / no-equirect fallback.
+- **The towers (`materials/cityWindows.js`)** — `cityTowerMaterial(emissiveMap)` patches in
+  an instanced `aWinOffset` vec2 attribute added to `vEmissiveMapUv`, so each tower instance
+  samples a different offset into the shared window texture instead of every tower repeating
+  the same window pattern.
+- **Rain (`rain.js`, `materials/rainGlass.js`)** — `class RainStreaks(vol, rng, {density})` is
+  one instanced, camera-facing, velocity-aligned quad draw animated entirely in the vertex
+  shader from a single `uTime` uniform (no per-frame CPU work); `World3D.setRainDensity(d)`
+  scales streak count and, via the shared `RAIN_GLASS_UNIFORMS` (`uRain`, `uRainTime`), toggles
+  the droplet sheet on every rain-glass pane at once. `applyRainOnGlass` is an
+  `onBeforeCompile` patch that **chains** onto the material's existing one (see
+  `materials/reflectBoost.js` — glossy architecture's specular IBL lobe is boosted the same
+  way) rather than replacing it, extends the cache key, is idempotent under a repeat call, and
+  is applied only to **exterior** panes (curtain wall, wing window, lobby front); interior
+  panes (e.g. the fl40 blast-glass port) get the reflect boost only, via `interiorGlassMat()` —
+  no weather on either side of them. `rain.js` exports `TIME_WRAP` (3600 s) so the glass
+  uniform and the streak shader wrap on the same schedule.
+
 ### Asset facade (`src/assets/`)
 - **`assets.js` — `createAssets({loaders, enabled, base, fetchJson, manifestTimeoutMs, log})`** —
   the one door for binary assets. `init()` reads `assets/manifest.json` (10 s timeout); then
