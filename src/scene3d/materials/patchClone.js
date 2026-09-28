@@ -8,6 +8,13 @@
 // Patches stack (rain on glass goes on top of the reflection boost), so this
 // wraps the material's CURRENT clone — the earlier patch's, if there is one —
 // not the prototype's: the clone re-runs every patch, innermost first.
+//
+// Order matters when stacking: a patch that REPLACES material.onBeforeCompile
+// outright (e.g. patchReflectBoost) must be applied BEFORE any patch that
+// CHAINS it — calls the previous onBeforeCompile and appends its own shader
+// code (e.g. applyRainOnGlass). Apply the replace-type patch first, then wrap
+// it with chaining patches; if a chaining patch installs its wrapper first,
+// a later replace-type patch clobbers it and silently drops that layer.
 
 /**
  * @template {import('three').Material} M

@@ -13,7 +13,14 @@
 // The glass is already reflect-boosted (reflectBoost.js), so this patch runs
 // AFTER whatever onBeforeCompile the material carries instead of replacing it,
 // and its cache key extends the existing one — replacing either would drop the
-// boost silently.
+// boost silently. General rule (see patchClone.js): a patch that REPLACES
+// onBeforeCompile (patchReflectBoost) must be applied to the material before
+// any patch that CHAINS it (this one) — apply reflect-boost first, then wrap
+// with applyRainOnGlass, never the other order.
+//
+// applyRainOnGlass is idempotent: a material that already carries this patch
+// (material.userData.rainOnGlass) is returned unchanged, so calling it twice
+// on the same instance never double-injects the shader chunks.
 import * as THREE from 'three';
 import { keepPatchOnClone } from './patchClone.js';
 
@@ -75,8 +82,20 @@ const FRAG_NORMAL = /* glsl */ `
  * @returns {M}
  */
 export function applyRainOnGlass(material) {
+  // idempotent: a material already carrying this patch (e.g. a builder path
+  // that ends up calling this twice on the same instance) must not inject the
+  // shader chunks or extend the cache key a second time. The flag is a
+  // function reference, not `true` — Material.copy() (which clone() uses)
+  // deep-copies userData through JSON.parse(JSON.stringify(...)), which drops
+  // function-valued properties. A boolean WOULD survive that round-trip and
+  // wrongly mark a bare clone (whose onBeforeCompile was NOT copied) as
+  // already patched, silently dropping the rain chain on every clone.
+  if (material.userData.rainOnGlass) return material;
+  material.userData.rainOnGlass = applyRainOnGlass;
   const prev = material.onBeforeCompile;
-  // an unpatched material keys on onBeforeCompile.toString(); only an earlier patch's own key composes
+  // an unpatched material keys on onBeforeCompile.toString(); only an earlier patch's own key composes.
+  // NOTE: this only composes with patches that CHAIN their onBeforeCompile (call the previous one) —
+  // a patch that REPLACES it outright (patchReflectBoost) must run first, before this one wraps it.
   const prevKey = Object.prototype.hasOwnProperty.call(material, 'customProgramCacheKey')
     ? material.customProgramCacheKey() : null;
   material.onBeforeCompile = (shader, renderer) => {
@@ -91,7 +110,9 @@ export function applyRainOnGlass(material) {
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${FRAG_NORMAL}`);
   };
-  material.customProgramCacheKey = prevKey ? () => `${prevKey}|${KEY}` : () => KEY;
+  // built once here, not re-templated on every customProgramCacheKey() call
+  const key = prevKey ? `${prevKey}|${KEY}` : KEY;
+  material.customProgramCacheKey = () => key;
   // keepPatchOnClone stacks: a clone runs the earlier patch's clone first, then gets rain again
   return keepPatchOnClone(material, applyRainOnGlass);
 }

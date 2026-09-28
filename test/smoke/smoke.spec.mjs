@@ -123,16 +123,20 @@ test.describe('Neon-City: Lock-Down', () => {
       const envBefore = app.stage.scene.environment?.uuid;
       const target0 = app.lighting._envTarget;
       app.lighting.apply('blackout_emergency', 1.2);
-      // poll the dip instead of sampling once: under SwiftShader a frame can take 200ms
+      // Poll on PROGRESS (the dip finishing AND the env swapping), not a fixed
+      // wall-clock window: under SwiftShader a frame can take ~3s, so a 4s
+      // budget sometimes elapses before either has actually happened (R15).
+      // The generous 60s ceiling only bounds a genuine hang.
       let lowest = Infinity;
       const t0 = performance.now();
-      while (performance.now() - t0 < 4000 && app.lighting._envDip) {
+      let swapped = app.stage.scene.environment?.uuid !== envBefore;
+      while (performance.now() - t0 < 60000 && !(swapped && !app.lighting._envDip)) {
         lowest = Math.min(lowest, app.stage.scene.environmentIntensity);
         await new Promise((res) => setTimeout(res, 30));
+        swapped = app.stage.scene.environment?.uuid !== envBefore;
       }
       return {
-        hdri: !!app.lighting.env.hdri, target0, lowest,
-        swapped: app.stage.scene.environment?.uuid !== envBefore,
+        hdri: !!app.lighting.env.hdri, target0, lowest, swapped,
         after: app.stage.scene.environmentIntensity, target: app.lighting._envTarget,
       };
     });
@@ -149,7 +153,13 @@ test.describe('Neon-City: Lock-Down', () => {
       const ext = app.world.exteriors.find((e) => !e.fromRoof);
       const before = ext.dome.material.color.getHex();
       app.lighting.apply('blackout_emergency', 0.2);
-      await new Promise((res) => setTimeout(res, 2000));
+      // Poll until the grade actually lands instead of sleeping a fixed 2s —
+      // SwiftShader frame time varies, and a fixed sleep flakes when a frame
+      // runs long (R15). 60s is a generous ceiling for a genuine hang.
+      const t0 = performance.now();
+      while (performance.now() - t0 < 60000 && ext.dome.material.color.getHex() === before) {
+        await new Promise((res) => setTimeout(res, 30));
+      }
       return { dome: ext.dome.visible, plate: ext.plate ? ext.plate.visible : false, before, after: ext.dome.material.color.getHex() };
     });
     expect(r.dome).toBe(true);

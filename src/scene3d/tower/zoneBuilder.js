@@ -17,7 +17,7 @@ import { cityWindowsTexture, cityTowerMaterial } from '../materials/cityWindows.
 import { skyDomeMaterial } from '../materials/skyDome.js';
 import { patchReflectBoost } from '../materials/reflectBoost.js';
 import { windowOffsets } from '../envMath.js';
-import { RainStreaks } from '../rain.js';
+import { RainStreaks, TIME_WRAP } from '../rain.js';
 import { applyRainOnGlass, RAIN_GLASS_UNIFORMS } from '../materials/rainGlass.js';
 
 const TAU = Math.PI * 2;
@@ -37,6 +37,14 @@ const glassMat = () => applyRainOnGlass(patchReflectBoost(new THREE.MeshStandard
   color: PALETTE.glass, transparent: true, opacity: 0.18,
   roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
 })));
+// Interior glass (fl40's blast-glass port in the security split, and any other
+// pane with no weather on the far side) gets the reflect boost only — never
+// applyRainOnGlass, or droplets appear on panes indoors. Exterior curtain/wing/
+// lobby-front glass keeps using glassMat() above.
+const interiorGlassMat = () => patchReflectBoost(new THREE.MeshStandardMaterial({
+  color: PALETTE.glass, transparent: true, opacity: 0.18,
+  roughness: 0.08, metalness: 0.2, side: THREE.DoubleSide,
+}));
 // Normal-map strengths are tuned per surface: concrete carries broad grime
 // streaks (soft), tile has hard grout channels (deep), brushed metal is fine
 // directional grain (shallow but tight).
@@ -522,8 +530,8 @@ export class World3D {
     });
     const split = wallMatOf('#241018');
     this._wall(group, split, { alongX: false, at: 0, from: -6, to: 6, h: ceilH, gaps: [[-1.0, 1.0]] });
-    // blast-glass in the split
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.8), glassMat());
+    // blast-glass in the split — interior pane, no weather on either side
+    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.8), interiorGlassMat());
     port.position.set(0, 1.85, 3.2);
     group.add(port);
     // security dais (west)
@@ -1106,6 +1114,6 @@ export class World3D {
     // glass share another. No per-drop CPU work.
     const rain = group.userData.rain;
     if (rain) rain.update(t);
-    RAIN_GLASS_UNIFORMS.uRainTime.value = t % 3600;
+    RAIN_GLASS_UNIFORMS.uRainTime.value = t % TIME_WRAP;
   }
 }

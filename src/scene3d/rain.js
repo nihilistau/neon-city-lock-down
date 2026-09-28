@@ -48,7 +48,7 @@ const FRAG = /* glsl */ `
   }`;
 
 /** Time wraps hourly: fp32 keeps millimetre precision well past that, and a once-an-hour jump is invisible in a storm. */
-const TIME_WRAP = 3600;
+export const TIME_WRAP = 3600;
 
 export class RainStreaks {
   /**

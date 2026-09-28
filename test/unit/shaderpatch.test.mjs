@@ -105,3 +105,24 @@ test('rain on glass composes with the reflection boost — both land, and clones
     assert.equal((s.fragmentShader.match(/uniform float reflectBoost;/g) || []).length, 1);
   }
 });
+
+// applyRainOnGlass must be idempotent: interiorGlassMat/glassMat call sites and
+// any future stacking code may end up calling it twice on the same material
+// (e.g. re-running a builder path); a second call must not inject the shader
+// chunks or uniforms again.
+test('applying rain twice is idempotent — single injection', () => {
+  const m = applyRainOnGlass(applyRainOnGlass(new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.18 })));
+  const s = shaderOf('standard');
+  m.onBeforeCompile(/** @type {any} */ (s), /** @type {any} */ (null));
+  assert.equal((s.fragmentShader.match(/vec3 rainDrops\(/g) || []).length, 1, 'only one rainDrops definition');
+  assert.equal((s.vertexShader.match(/vRainP = \(/g) || []).length, 1, 'only one vertex injection');
+  assert.equal(m.customProgramCacheKey(), 'rain-on-glass', 'cache key not doubled');
+});
+
+test('the rain-on-glass cache key is built once as a plain closure', () => {
+  const m = applyRainOnGlass(new THREE.MeshStandardMaterial());
+  const k1 = m.customProgramCacheKey();
+  const k2 = m.customProgramCacheKey();
+  assert.equal(k1, k2);
+  assert.equal(k1, 'rain-on-glass');
+});
